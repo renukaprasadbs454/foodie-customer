@@ -1,0 +1,30 @@
+# Maven build outputs
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Logs & temp files
+*.log
+test-output.txt
+*.txt
+
+# Environment / secrets
+application-local.yml
+application-local.yaml
+.env
+.env.*
+*.local.yml
+*.local.yaml
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+*.rdb

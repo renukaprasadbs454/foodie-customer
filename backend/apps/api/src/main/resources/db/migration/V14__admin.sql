@@ -1,0 +1,99 @@
+-- Module 13: Admin (Phase3 §2.13 / §3.8, API Contracts MODULE 13)
+-- Owns: role, permission, admin_user, audit_log
+-- Seeds the four binding role names + permission rows for endpoint RBAC.
+-- Deferred FK: delivery_partner_document.verified_by → admin_user
+
+CREATE TABLE role (
+    id    UUID PRIMARY KEY,
+    name  VARCHAR(20) NOT NULL,
+    CONSTRAINT uq_role_name UNIQUE (name),
+    CONSTRAINT chk_role_name CHECK (name IN ('SUPER_ADMIN', 'OPS', 'FINANCE', 'SUPPORT'))
+);
+
+CREATE TABLE permission (
+    id         UUID PRIMARY KEY,
+    role_id    UUID NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
+    resource   VARCHAR(50) NOT NULL,
+    action     VARCHAR(20) NOT NULL
+);
+
+CREATE INDEX idx_permission_role ON permission(role_id);
+
+CREATE TABLE admin_user (
+    id                  UUID PRIMARY KEY,
+    user_credential_id  UUID NOT NULL UNIQUE REFERENCES user_credential(id) ON DELETE RESTRICT,
+    role_id             UUID NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
+    full_name           VARCHAR(255) NOT NULL,
+    profile_image_key   VARCHAR(500),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE audit_log (
+    id               UUID PRIMARY KEY,
+    admin_user_id    UUID NOT NULL REFERENCES admin_user(id) ON DELETE RESTRICT,
+    action           VARCHAR(100) NOT NULL,
+    resource_type    VARCHAR(50) NOT NULL,
+    resource_id      UUID NOT NULL,
+    before_state     JSONB,
+    after_state      JSONB,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_audit_log_resource ON audit_log(resource_type, resource_id);
+CREATE INDEX idx_audit_log_admin ON audit_log(admin_user_id);
+CREATE INDEX idx_audit_log_created_at ON audit_log(created_at);
+
+-- Fixed UUIDs for stable seeds / tests
+INSERT INTO role (id, name) VALUES
+    ('11111111-1111-1111-1111-111111111001', 'SUPER_ADMIN'),
+    ('11111111-1111-1111-1111-111111111002', 'OPS'),
+    ('11111111-1111-1111-1111-111111111003', 'FINANCE'),
+    ('11111111-1111-1111-1111-111111111004', 'SUPPORT');
+
+-- SUPER_ADMIN: broad mutate permissions (hasPermission also short-circuits in code)
+INSERT INTO permission (id, role_id, resource, action) VALUES
+    ('22222222-2222-2222-2222-222222222001', '11111111-1111-1111-1111-111111111001', 'RESTAURANT', 'APPROVE'),
+    ('22222222-2222-2222-2222-222222222002', '11111111-1111-1111-1111-111111111001', 'RESTAURANT', 'SUSPEND'),
+    ('22222222-2222-2222-2222-222222222003', '11111111-1111-1111-1111-111111111001', 'DELIVERY', 'KYC_APPROVE'),
+    ('22222222-2222-2222-2222-222222222004', '11111111-1111-1111-1111-111111111001', 'COUPON', 'CREATE'),
+    ('22222222-2222-2222-2222-222222222005', '11111111-1111-1111-1111-111111111001', 'COUPON', 'DEACTIVATE'),
+    ('22222222-2222-2222-2222-222222222006', '11111111-1111-1111-1111-111111111001', 'ORDER', 'OVERRIDE'),
+    ('22222222-2222-2222-2222-222222222007', '11111111-1111-1111-1111-111111111001', 'PAYMENT', 'REFUND'),
+    ('22222222-2222-2222-2222-222222222008', '11111111-1111-1111-1111-111111111001', 'AUDIT', 'READ'),
+    ('22222222-2222-2222-2222-222222222009', '11111111-1111-1111-1111-111111111001', 'REVIEW', 'MODERATE'),
+    ('22222222-2222-2222-2222-222222222010', '11111111-1111-1111-1111-111111111001', 'ADMIN_USER', 'CREATE');
+
+-- OPS
+INSERT INTO permission (id, role_id, resource, action) VALUES
+    ('22222222-2222-2222-2222-222222222101', '11111111-1111-1111-1111-111111111002', 'RESTAURANT', 'APPROVE'),
+    ('22222222-2222-2222-2222-222222222102', '11111111-1111-1111-1111-111111111002', 'RESTAURANT', 'SUSPEND'),
+    ('22222222-2222-2222-2222-222222222103', '11111111-1111-1111-1111-111111111002', 'DELIVERY', 'KYC_APPROVE'),
+    ('22222222-2222-2222-2222-222222222104', '11111111-1111-1111-1111-111111111002', 'COUPON', 'CREATE'),
+    ('22222222-2222-2222-2222-222222222105', '11111111-1111-1111-1111-111111111002', 'COUPON', 'DEACTIVATE'),
+    ('22222222-2222-2222-2222-222222222106', '11111111-1111-1111-1111-111111111002', 'ORDER', 'OVERRIDE'),
+    ('22222222-2222-2222-2222-222222222107', '11111111-1111-1111-1111-111111111002', 'PAYMENT', 'REFUND'),
+    ('22222222-2222-2222-2222-222222222108', '11111111-1111-1111-1111-111111111002', 'REVIEW', 'MODERATE');
+
+-- FINANCE
+INSERT INTO permission (id, role_id, resource, action) VALUES
+    ('22222222-2222-2222-2222-222222222201', '11111111-1111-1111-1111-111111111003', 'COUPON', 'CREATE'),
+    ('22222222-2222-2222-2222-222222222202', '11111111-1111-1111-1111-111111111003', 'COUPON', 'DEACTIVATE'),
+    ('22222222-2222-2222-2222-222222222203', '11111111-1111-1111-1111-111111111003', 'PAYMENT', 'REFUND');
+
+-- SUPPORT: no mutate permissions in V1 Module 13 endpoint matrix (read-mostly)
+
+-- Bootstrap SUPER_ADMIN (OTP login on phone) + SYSTEM actor for automated audit rows
+INSERT INTO user_credential (id, phone_number, email, user_type, active, created_at, updated_at) VALUES
+    ('33333333-3333-3333-3333-333333333001', '+919999999999', 'superadmin@foodie.local', 'ADMIN', TRUE, now(), now()),
+    ('33333333-3333-3333-3333-333333333002', '+919999999998', 'system@foodie.local', 'ADMIN', TRUE, now(), now());
+
+INSERT INTO admin_user (id, user_credential_id, role_id, full_name, created_at, updated_at) VALUES
+    ('44444444-4444-4444-4444-444444444001', '33333333-3333-3333-3333-333333333001',
+     '11111111-1111-1111-1111-111111111001', 'Bootstrap Super Admin', now(), now()),
+    ('44444444-4444-4444-4444-444444444002', '33333333-3333-3333-3333-333333333002',
+     '11111111-1111-1111-1111-111111111001', 'SYSTEM', now(), now());
+
+ALTER TABLE delivery_partner_document
+    ADD CONSTRAINT fk_delivery_partner_document_verified_by
+    FOREIGN KEY (verified_by) REFERENCES admin_user(id) ON DELETE SET NULL;
