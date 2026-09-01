@@ -1,11 +1,8 @@
 # Foodie Customer Application
 
-This repository contains the extracted Customer Mobile Application and necessary Backend components for the Foodie platform.
+This repository contains the Customer Mobile Application for the Foodie platform.
 
-## Structure
+## Architecture
 - `frontend/`: The customer mobile application (React Native/Expo).
-- `backend/`: The shared backend and APIs required for the customer application.
 
-## Setup Instructions
-
-See individual README files inside `frontend/` and `backend/` for setup instructions.
+The application connects to the single shared Foodie backend hosted at `https://api.foodie.kwiko.org`.
