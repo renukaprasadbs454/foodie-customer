@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
 import { Text, useTheme, type WebSocketLocation } from 'foodie-shared-rn';
-import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 type Props = {
   location: WebSocketLocation | null;
@@ -121,7 +121,7 @@ export function TrackingMap({ location, orderStatus, restaurantLocation, custome
       }]}>
         <MapView
           ref={mapRef}
-          provider={PROVIDER_DEFAULT}
+          provider={PROVIDER_GOOGLE}
           style={styles.map}
           initialRegion={originLocation ? {
             latitude: originLocation.latitude,
