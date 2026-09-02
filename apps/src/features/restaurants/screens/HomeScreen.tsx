@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   EmptyState,
@@ -67,6 +68,12 @@ export function HomeScreen({ navigation }: Props) {
       useNativeDriver: true,
     }).start();
   }, [fadeAnim]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void feed.refetch();
+    }, [feed.refetch])
+  );
 
   useEffect(() => {
     trackAnalyticsEvent('customer_home_viewed');

@@ -99,22 +99,34 @@ export function RazorpayWebView({
       <script>
         const config = ${JSON.stringify(rzpOptions)};
         
+        function safePostMessage(dataObj) {
+          try {
+            if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
+              window.ReactNativeWebView.postMessage(JSON.stringify(dataObj));
+            } else if (window.parent && typeof window.parent.postMessage === 'function') {
+              window.parent.postMessage(JSON.stringify(dataObj), '*');
+            }
+          } catch(e) {
+            console.error('PostMessage error:', e);
+          }
+        }
+
         // Setup successful payment handler
         config.handler = function(response) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ 
+          safePostMessage({ 
             type: 'success', 
             data: {
               razorpay_payment_id: response.razorpay_payment_id || '',
               razorpay_order_id: response.razorpay_order_id || null,
               razorpay_signature: response.razorpay_signature || null
             } 
-          }));
+          });
         };
         
         // Setup modal close handler
         config.modal = {
           ondismiss: function() {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'cancel' }));
+            safePostMessage({ type: 'cancel' });
           },
           animation: true,
           escape: false,
@@ -123,14 +135,18 @@ export function RazorpayWebView({
 
         window.onload = function() {
           try {
+            if (typeof Razorpay === 'undefined') {
+              safePostMessage({ type: 'error', data: 'Razorpay SDK failed to load.' });
+              return;
+            }
             const rzp = new Razorpay(config);
             
             // Handle errors thrown by Razorpay internally
             rzp.on('payment.failed', function (response) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({ 
+              safePostMessage({ 
                 type: 'error', 
                 data: response.error ? response.error.description : 'Payment Failed' 
-              }));
+              });
             });
             
             // Open the OFFICIAL checkout
@@ -138,14 +154,15 @@ export function RazorpayWebView({
             
             // Hide the native loader once Razorpay is initializing
             setTimeout(function() {
-              document.getElementById('loader').style.display = 'none';
+              const loader = document.getElementById('loader');
+              if (loader) loader.style.display = 'none';
             }, 800);
             
           } catch (err) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ 
+            safePostMessage({ 
               type: 'error', 
               data: err.message || 'Could not launch Razorpay Checkout' 
-            }));
+            });
           }
         };
       </script>

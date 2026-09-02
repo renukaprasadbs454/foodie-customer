@@ -2,6 +2,7 @@
 import { Pressable, RefreshControl, SectionList, View, ScrollView, StatusBar, ImageBackground } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, EmptyState, Modal, Text, TextInput, Toast, trackAnalyticsEvent, useApiErrorHandler, useConnectivity, useTheme } from 'foodie-shared-rn';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -43,8 +44,20 @@ export function MenuScreen({ navigation, route }: Props) {
   const [updateItemQuantity] = useUpdateCartItemQuantityMutation();
   const [removeCartItem] = useRemoveCartItemMutation();
 
-  const { data: realRestaurant } = useGetRestaurantQuery(restaurantId || '', { skip: !validId || isMock });
-  const { data: realMenu } = useGetMenuQuery(restaurantId || '', { skip: !validId || isMock });
+  const restaurantQuery = useGetRestaurantQuery(restaurantId || '', { skip: !validId || isMock });
+  const menuQuery = useGetMenuQuery(restaurantId || '', { skip: !validId || isMock });
+  const realRestaurant = restaurantQuery.data;
+  const realMenu = menuQuery.data;
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!isMock && validId) {
+        void restaurantQuery.refetch();
+        void menuQuery.refetch();
+      }
+    }, [isMock, validId, restaurantQuery.refetch, menuQuery.refetch])
+  );
+
   const mockRestaurant = isMock ? MOCK_RESTAURANTS.find(r => r.id === restaurantId) : null;
   const restaurantData = isMock ? mockRestaurant : realRestaurant;
 

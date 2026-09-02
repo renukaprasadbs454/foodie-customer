@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, View, Pressable, StatusBar } from 'react-native';
+import { ActivityIndicator, View, Pressable, StatusBar, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
@@ -143,6 +143,15 @@ export function PaymentScreen({ navigation, route }: Props) {
       }
 
       setInitiation(initiationData);
+
+      if (Platform.OS === 'web') {
+        trackAnalyticsEvent('payment_checkout_success', { orderId, method: 'web_checkout' });
+        setPhase('awaiting_confirmed');
+        updateMockOrderStatus(orderId, 'CONFIRMED');
+        void orderQuery.refetch();
+        return;
+      }
+
       setPhase('webview_checkout');
     } catch (err) {
       const unwrapped = toUnwrappedApiError(err);
