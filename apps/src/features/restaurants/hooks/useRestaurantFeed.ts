@@ -23,8 +23,23 @@ export function useRestaurantFeed(args: FeedArgs) {
     const apiItems = queryResult.data;
     let list: RestaurantSummary[] = [];
 
+    const DUMMY_RESTAURANT_NAMES = [
+      'Oven Story',
+      "Domino's Pizza",
+      'KFC Tumkur',
+      'Leon Grill',
+      'Nandhana Palace',
+      'Kritunga',
+      'Empire Restaurant',
+      'Burger King',
+      'CTR (Dosa)',
+      'Meghana Foods (Biryani)'
+    ];
+
     if (Array.isArray(apiItems)) {
-      list = [...apiItems];
+      list = apiItems.filter(
+        (item) => item.name && !DUMMY_RESTAURANT_NAMES.some((dummy) => item.name.toLowerCase().includes(dummy.toLowerCase()))
+      );
     } else {
       list = [];
     }
