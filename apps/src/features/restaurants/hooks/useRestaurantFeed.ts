@@ -25,8 +25,6 @@ export function useRestaurantFeed(args: FeedArgs) {
 
     if (Array.isArray(apiItems)) {
       list = [...apiItems];
-    } else if (queryResult.isError) {
-      list = [...MOCK_RESTAURANTS];
     } else {
       list = [];
     }
