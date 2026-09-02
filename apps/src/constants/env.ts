@@ -31,8 +31,13 @@ if (Platform.OS === 'web') {
 const defaultApiBaseUrl = `http://${hostIp}:8082`;
 const defaultWsUrl = `ws://${hostIp}:8082/ws`;
 
+let resolvedApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? extra.apiBaseUrl ?? 'https://api.foodie.kwiko.org';
+if (Platform.OS === 'web' && __DEV__ && typeof window !== 'undefined' && window.location?.origin) {
+  resolvedApiBaseUrl = window.location.origin;
+}
+
 export const ENV = {
-  apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? extra.apiBaseUrl ?? 'https://api.foodie.kwiko.org',
+  apiBaseUrl: resolvedApiBaseUrl,
   wsUrl: process.env.EXPO_PUBLIC_WS_URL ?? extra.wsUrl ?? 'wss://api.foodie.kwiko.org/ws',
   googleWebClientId:
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ??

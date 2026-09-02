@@ -1,4 +1,5 @@
 const path = require('path');
+const https = require('https');
 const { getDefaultConfig } = require('expo/metro-config');
 
 const projectRoot = __dirname;
@@ -39,6 +40,40 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   }
 
   return context.resolveRequest(context, moduleName, platform);
+};
+
+config.server = {
+  ...config.server,
+  enhanceMiddleware: (middleware) => {
+    return (req, res, next) => {
+      if (req.url && req.url.startsWith('/api/')) {
+        const targetUrl = 'https://api.foodie.kwiko.org' + req.url;
+        const options = {
+          method: req.method,
+          headers: {
+            ...req.headers,
+            host: 'api.foodie.kwiko.org',
+          },
+        };
+        const proxyReq = https.request(targetUrl, options, (proxyRes) => {
+          res.writeHead(proxyRes.statusCode || 200, {
+            ...proxyRes.headers,
+            'access-control-allow-origin': '*',
+            'access-control-allow-headers': '*',
+            'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+          });
+          proxyRes.pipe(res, { end: true });
+        });
+        proxyReq.on('error', (err) => {
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: { code: 'BAD_GATEWAY', message: err.message } }));
+        });
+        req.pipe(proxyReq, { end: true });
+        return;
+      }
+      return middleware(req, res, next);
+    };
+  },
 };
 
 module.exports = config;
