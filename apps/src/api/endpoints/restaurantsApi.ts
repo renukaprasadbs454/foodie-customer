@@ -25,7 +25,11 @@ function normalizeRestaurantList(data: unknown): RestaurantSummary[] {
     id: item.id || item.restaurantId || 'mock-resto-1',
     name: item.name || 'Foodie Restaurant',
     description: item.description || 'Delicious food delivered fast & fresh',
-    cuisineTypes: item.cuisineTypes || ['Indian', 'Multi-cuisine'],
+    cuisineTypes: Array.isArray(item.cuisineTypes)
+      ? item.cuisineTypes
+      : typeof item.cuisineTypes === 'string'
+        ? item.cuisineTypes.split(',').map((s: string) => s.trim())
+        : ['Indian', 'Multi-cuisine'],
     avgRating: item.avgRating !== undefined && item.avgRating !== null ? Number(item.avgRating) : 4.5,
     ratingCount: item.ratingCount ?? 120,
     imageUrl: item.imageUrl || item.coverImageKey || item.logoImageKey || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=600',
@@ -68,7 +72,7 @@ export const restaurantsApi = baseApi.injectEndpoints({
           ...(cuisineType ? { cuisineType } : {}),
           page,
           size: Math.min(size, 100),
-          ...(sort ? { sort } : {}),
+          ...(sort && sort !== 'nearby' ? { sort } : {}),
         },
       }),
       transformResponse: (response: unknown) => normalizeRestaurantList(response),

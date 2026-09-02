@@ -284,12 +284,16 @@ export function HomeScreen({ navigation }: Props) {
             }}
           >
             {CATEGORY_ITEMS.map((cat) => {
-              const active = cuisineType === cat.cuisine;
+              const active = cuisineType === cat.cuisine || (!cuisineType && cat.cuisine === undefined);
               return (
                 <Pressable
                   key={cat.name}
                   onPress={() => {
-                    setCuisineType(cat.cuisine);
+                    if (cuisineType === cat.cuisine && cat.cuisine !== undefined) {
+                      setCuisineType(undefined);
+                    } else {
+                      setCuisineType(cat.cuisine);
+                    }
                     trackAnalyticsEvent('category_tapped', { category: cat.name });
                   }}
                   style={{
