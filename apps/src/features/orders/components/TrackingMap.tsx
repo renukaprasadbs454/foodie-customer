@@ -121,7 +121,7 @@ export function TrackingMap({ location, orderStatus, restaurantLocation, custome
       }]}>
         <MapView
           ref={mapRef}
-          provider={PROVIDER_GOOGLE}
+          provider="google"
           style={styles.map}
           initialRegion={originLocation ? {
             latitude: originLocation.latitude,

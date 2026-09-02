@@ -312,6 +312,7 @@ export function AddressesScreen({ navigation, route }: Props) {
               <View style={{ height: 180, borderRadius: 12, overflow: 'hidden', borderColor: '#F59E0B', borderWidth: 1 }}>
                 <MapView
                   ref={mapRef}
+                  provider="google"
                   style={{ flex: 1 }}
                   region={mapRegion}
                   onRegionChangeComplete={(r) => {
