@@ -35,6 +35,9 @@
             "DEFAULT"
           ]
         }
+      ],
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -52,7 +55,10 @@
     ],
     "extra": {
       "apiBaseUrl": "https://api.foodie.kwiko.org",
-      "wsUrl": "wss://api.foodie.kwiko.org/ws"
+      "wsUrl": "wss://api.foodie.kwiko.org/ws",
+      "eas": {
+        "projectId": "e84e44c1-3f95-4707-9027-2e0b4fb10820"
+      }
     }
   }
 }
