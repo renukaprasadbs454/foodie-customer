@@ -46,14 +46,13 @@ export const menuApi = baseApi.injectEndpoints({
                 ],
               },
             ],
-          } as FullMenu,
+          } as unknown as FullMenu,
         };
       },
       providesTags: (_result, _error, restaurantId) => [
         { type: 'Menu', id: restaurantId },
       ],
       keepUnusedDataFor: 150,
-      refetchOnMountOrArgChange: true,
     }),
   }),
 });

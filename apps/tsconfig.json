@@ -5,8 +5,7 @@
     "noImplicitOverride": true,
     "skipLibCheck": true,
     "types": [
-      "jest",
-      "node"
+      "jest"
     ],
     "paths": {
       "foodie-shared-rn": [

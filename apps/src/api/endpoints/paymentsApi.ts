@@ -46,7 +46,7 @@ export const paymentsApi = baseApi.injectEndpoints({
           });
 
           if (result.error) {
-            throw result.error;
+            return { error: result.error };
           }
 
           if (result.data) {
@@ -54,8 +54,9 @@ export const paymentsApi = baseApi.injectEndpoints({
             const data = apiRes.data || apiRes;
             return { data };
           }
+          return { error: { status: 'CUSTOM_ERROR', error: 'No data returned' } as any };
         } catch (e: any) {
-          throw e; // ALWAYS bubble up errors. Never fall back to 'undefined' orderId because this crashes Razorpay!
+          return { error: { status: 'CUSTOM_ERROR', error: e.message || 'Payment initiation failed' } as any };
         }
       },
     }),
