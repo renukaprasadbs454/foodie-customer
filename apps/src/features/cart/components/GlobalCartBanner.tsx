@@ -16,11 +16,17 @@ export function GlobalCartBanner() {
     const cartItemsCount = cartQuery?.data?.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
     const cartSubtotal = cartQuery?.data?.subtotal ?? 0;
     const restaurantId = cartQuery?.data?.restaurantId;
-
     if (cartItemsCount === 0) return null;
 
     const mockRestaurant = restaurantId ? MOCK_RESTAURANTS.find((r: any) => r.id === restaurantId) : null;
-    const restaurantName = mockRestaurant?.name ?? 'Selected Restaurant';
+    const realRestaurantName = cartQuery?.data?.restaurantName;
+    const restaurantName = realRestaurantName || mockRestaurant?.name || 'Selected Restaurant';
+
+    const lastItem = cartQuery?.data?.items?.[cartQuery.data.items.length - 1];
+    let subtitleText = `From ${restaurantName}`;
+    if (lastItem) {
+        subtitleText = `${lastItem.name} ${cartItemsCount > 1 ? `+ ${cartItemsCount - 1} more` : ''}`;
+    }
 
     return (
         <Pressable
@@ -75,17 +81,22 @@ export function GlobalCartBanner() {
                         <Text variant="bodySmall" color="#FFFFFF" style={{ fontWeight: '900', fontSize: 16 }}>
                             ₹{formatMoney(cartSubtotal)}
                         </Text>
-                        <Text variant="caption" style={{ color: '#E8F5E9', fontWeight: '600', fontSize: 11, marginTop: 1 }} numberOfLines={1}>
-                            From {restaurantName}
+                        <Text variant="caption" style={{ color: '#E8F5E9', fontWeight: '800', fontSize: 12, marginTop: 1 }} numberOfLines={1}>
+                            {subtitleText}
                         </Text>
                     </View>
                 </View>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                    <Text variant="label" style={{ color: '#FCD34D', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 }}>
-                        View Cart
+                <View style={{ flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
+                    <Text variant="caption" style={{ color: '#A7F3D0', fontWeight: '700', fontSize: 10, letterSpacing: 0.5, marginBottom: 2 }}>
+                        {restaurantName}
                     </Text>
-                    <Feather name="arrow-right" size={16} color="#FCD34D" />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        <Text variant="label" style={{ color: '#FCD34D', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 }}>
+                            View Cart
+                        </Text>
+                        <Feather name="arrow-right" size={16} color="#FCD34D" />
+                    </View>
                 </View>
             </LinearGradient>
         </Pressable>

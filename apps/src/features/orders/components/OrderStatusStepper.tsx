@@ -12,13 +12,29 @@ type Props = {
   status: string;
 };
 
-// Helpful status tag descriptions
+const STATUS_TITLES: Record<string, string> = {
+  PLACED: 'Order Placed',
+  CONFIRMED: 'Order Confirmed',
+  ACCEPTED: 'Restaurant Accepted',
+  PREPARING: 'Food is Preparing',
+  READY_FOR_PICKUP: 'Ready for Pickup',
+  ASSIGNED: 'Delivery Partner Assigned',
+  REACHED_RESTAURANT: 'Rider at Restaurant',
+  PICKED_UP: 'Order Picked Up',
+  OUT_FOR_DELIVERY: 'Out for Delivery',
+  DELIVERED: 'Order Delivered',
+};
+
 const STATUS_DESCRIPTIONS: Record<string, string> = {
   PLACED: 'Your order has been received by the merchant',
-  MERCHANT_CONFIRMED: 'Restaurant is reviewing your order details',
+  CONFIRMED: 'Payment confirmed & sent to restaurant',
+  ACCEPTED: 'Restaurant accepted your order',
   PREPARING: 'Chef is crafting your delicious meal',
-  READY_FOR_PICKUP: 'Freshly packed food is waiting at counter',
-  DISPATCHED: 'Rider picked up food and is heading to you',
+  READY_FOR_PICKUP: 'Freshly packed food waiting for delivery rider',
+  ASSIGNED: 'Delivery partner assigned & heading to restaurant',
+  REACHED_RESTAURANT: 'Delivery partner arrived at restaurant',
+  PICKED_UP: 'Order collected by delivery partner',
+  OUT_FOR_DELIVERY: 'Rider is on the way to your delivery address',
   DELIVERED: 'Meal delivered successfully! Bon appétit!',
 };
 
@@ -120,7 +136,7 @@ export function OrderStatusStepper({ status }: Props) {
                   color: isCurrent ? tokens.color.accent : reached ? tokens.color.textPrimary : tokens.color.textSecondary,
                 }}
               >
-                {step.replace(/_/g, ' ')}
+                {STATUS_TITLES[step] || step.replace(/_/g, ' ')}
               </Text>
               {isCurrent && STATUS_DESCRIPTIONS[step] ? (
                 <Text

@@ -59,12 +59,14 @@ export const ordersApi = baseApi.injectEndpoints({
             resetMockCart();
             return { data: orderData };
           }
-        } catch {
+          console.error("CREATE ORDER API REJECTED:", result.error);
+        } catch (e) {
+          console.error("CREATE ORDER BACKEND FATAL ERROR:", e);
           // Fall through to mock order creation if backend cart is not populated
         }
 
         mockCounter++;
-        const validUuid = generateUUID();
+        const validUuid = 'mock-' + generateUUID().substring(5);
         const newOrder: OrderDetail = {
           orderId: validUuid,
           orderNumber: `ORD-${mockCounter}`,
@@ -99,11 +101,22 @@ export const ordersApi = baseApi.injectEndpoints({
     }),
 
     getOrder: builder.query<OrderDetail, string>({
-      async queryFn(orderId) {
-        const stored = mockOrdersStore[orderId];
-        if (stored) {
-          return { data: JSON.parse(JSON.stringify(stored)) };
+      async queryFn(orderId, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        if (!orderId || orderId.startsWith('mock-') || orderId.startsWith('ds-mock-')) {
+          // Immediately serve from mock store without hitting backend to avoid UUID parse errors
+          const stored = mockOrdersStore[orderId];
+          if (stored) return { data: stored };
+        } else {
+          try {
+            const result = await fetchWithBaseQuery(`/api/v1/orders/${orderId}`);
+            if (result.data) {
+              const apiRes = result.data as any;
+              return { data: apiRes.data || apiRes };
+            }
+          } catch { }
         }
+
+        const stored = mockOrdersStore[orderId];
         const fallbackOrder: OrderDetail = {
           orderId,
           orderNumber: `ORD-${orderId.substring(0, 6).toUpperCase()}`,
@@ -128,7 +141,21 @@ export const ordersApi = baseApi.injectEndpoints({
     }),
 
     getMyOrders: builder.query<OrderSummary[], MyOrdersParams>({
-      async queryFn() {
+      async queryFn(arg, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        try {
+          const result = await fetchWithBaseQuery({
+            url: '/api/v1/orders',
+            params: {
+              ...(arg.status ? { status: arg.status } : {}),
+              page: arg.page ?? 0,
+              size: arg.size ?? 20,
+            }
+          });
+          if (result.data) {
+            const apiRes = result.data as any;
+            return { data: normalizeOrderList(apiRes.data || apiRes) };
+          }
+        } catch { }
         return { data: JSON.parse(JSON.stringify(Object.values(mockOrdersStore))) };
       },
       providesTags: (result) =>
@@ -145,7 +172,22 @@ export const ordersApi = baseApi.injectEndpoints({
     }),
 
     transitionOrderStatus: builder.mutation<OrderDetail, TransitionOrderStatusArg>({
-      async queryFn({ orderId, targetStatus }) {
+      async queryFn({ orderId, targetStatus, reason }, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        try {
+          const result = await fetchWithBaseQuery({
+            url: `/api/v1/orders/${orderId}/status`,
+            method: 'PUT',
+            body: { status: targetStatus, reason }
+          });
+          if (result.data) {
+            const apiRes = result.data as any;
+            if (mockOrdersStore[orderId]) {
+              mockOrdersStore[orderId].status = targetStatus;
+            }
+            return { data: apiRes.data || apiRes };
+          }
+        } catch { }
+
         if (mockOrdersStore[orderId]) {
           mockOrdersStore[orderId].status = targetStatus;
           return { data: JSON.parse(JSON.stringify(mockOrdersStore[orderId])) };

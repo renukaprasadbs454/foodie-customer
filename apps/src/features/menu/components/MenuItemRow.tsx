@@ -3,6 +3,7 @@ import { Pressable, View, Image } from 'react-native';
 import { Badge, Text, useTheme } from 'foodie-shared-rn';
 import type { MenuItem } from '../types';
 import { formatMoney } from '../types';
+import { ENV } from '../../../constants/env';
 
 type Props = {
   item: MenuItem;
@@ -22,7 +23,12 @@ const FALLBACK_DISH_IMAGES = [
 ];
 
 function getDishImage(item: MenuItem): string {
-  if (item.imageUrl && item.imageUrl.startsWith('http')) return item.imageUrl;
+  if (item.imageUrl) {
+    if (item.imageUrl.startsWith('http')) return item.imageUrl;
+    // Bind local backend Storage URI
+    if (item.imageUrl.startsWith('/api')) return `${ENV.apiBaseUrl}${item.imageUrl}`;
+    return item.imageUrl;
+  }
   // Dynamic fallback based on item id or name hashing
   let hash = 0;
   const name = item.name || '';

@@ -26,6 +26,7 @@ import {
 import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import { useGetCartQuery } from '../../../api/endpoints/cartApi';
 import { useCreateOrderMutation } from '../../../api/endpoints/ordersApi';
+import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
 import { useGetWalletBalanceQuery } from '../../../api/endpoints/walletApi';
 import { toUnwrappedApiError } from '../../auth/apiError';
 import { formatMoney, parseMoney } from '../../menu/types';
@@ -56,6 +57,11 @@ export function CheckoutScreen({ navigation, route }: any) {
     variant: 'info' | 'success' | 'error' | 'warning';
   } | null>(null);
 
+  const cart = cartQuery.data;
+  const { data: restaurant } = useGetRestaurantQuery(cart?.restaurantId ?? '', {
+    skip: !cart?.restaurantId || isDarkStoreMock,
+  });
+
   const scaleValue = useRef(new Animated.Value(0.95)).current;
   const fadeValue = useRef(new Animated.Value(0)).current;
 
@@ -67,7 +73,6 @@ export function CheckoutScreen({ navigation, route }: any) {
     onGeneric: (error) => setToast({ message: error.message, variant: 'error' }),
   });
 
-  const cart = cartQuery.data;
   const restaurantId = cart?.restaurantId ?? undefined;
   const addresses = addressesQuery.data ?? [];
   const walletBalance = Number(walletQuery.data?.balance || 0);
@@ -202,6 +207,11 @@ export function CheckoutScreen({ navigation, route }: any) {
               <Text style={{ color: '#FCD34D', fontSize: 30, fontWeight: '900', letterSpacing: -0.5 }}>
                 Payment Review
               </Text>
+              {(cart?.restaurantName || restaurant?.name) && (
+                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 16, marginTop: 4 }}>
+                  Ordering from: {cart?.restaurantName || restaurant?.name}
+                </Text>
+              )}
               {!isConnected && (
                 <Text style={{ color: '#F87171', fontWeight: '800', marginTop: 4 }}>
                   Offline — placing an order is locked

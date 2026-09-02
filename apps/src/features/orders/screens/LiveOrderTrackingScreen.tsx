@@ -70,16 +70,18 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
   const [eta, setEta] = useState<number | null>(null);
 
   const { data: restaurant } = useGetRestaurantQuery(orderQuery.data?.restaurantId ?? '', { skip: !orderQuery.data?.restaurantId });
-  const { data: addresses } = useGetAddressesQuery(undefined, { skip: !orderQuery.data?.addressId });
-  const address = addresses?.find(a => a.addressId === orderQuery.data?.addressId);
+  const { data: addresses } = useGetAddressesQuery(undefined);
+  const address = addresses?.find(a => a.addressId === orderQuery.data?.addressId) || addresses?.[0];
 
-  const restaurantLocation = restaurant?.latitude && restaurant?.longitude
-    ? { latitude: Number(restaurant.latitude), longitude: Number(restaurant.longitude) }
-    : undefined;
+  const restaurantLocation = {
+    latitude: restaurant?.latitude ? Number(restaurant.latitude) : 12.9352,
+    longitude: restaurant?.longitude ? Number(restaurant.longitude) : 77.6245,
+  };
 
-  const customerLocation = address?.latitude && address?.longitude
-    ? { latitude: Number(address.latitude), longitude: Number(address.longitude) }
-    : undefined;
+  const customerLocation = {
+    latitude: address?.latitude ? Number(address.latitude) : 12.9716,
+    longitude: address?.longitude ? Number(address.longitude) : 77.5946,
+  };
 
   // Separate subscription drives fallback polling (shared cache).
   const pollSubscription = useGetOrderQuery(orderId, {
@@ -158,41 +160,63 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
 
   const renderHeaderUi = (currentStatus: string) => {
     let title = 'Order Placed';
-    let icon = '🕒';
+    let subtitle = 'Your order has been received! Waiting for restaurant approval.';
+    let icon = '📝';
 
     switch (currentStatus) {
       case 'PLACED':
         title = 'Order Placed';
+        subtitle = 'Your order has been received! Waiting for restaurant approval.';
+        icon = '📝';
+        break;
+      case 'CONFIRMED':
+        title = 'Order Confirmed';
+        subtitle = 'Order confirmed. Restaurant is reviewing your order.';
         icon = '✅';
         break;
       case 'ACCEPTED':
-        title = 'Restaurant Accepted';
+        title = 'Restaurant Accepted Your Order';
+        subtitle = 'The restaurant accepted your order & is starting preparation!';
         icon = '🧑‍🍳';
         break;
       case 'PREPARING':
-        title = 'Food is preparing';
+        title = 'Food is Preparing';
+        subtitle = 'Chef is crafting your delicious meal in the kitchen.';
         icon = '🍳';
         break;
       case 'READY_FOR_PICKUP':
-      case 'REACHED_RESTAURANT':
-        title = 'Ready to pickup';
+        title = 'Ready for Pickup';
+        subtitle = 'Freshly packed food is waiting for the delivery rider.';
         icon = '🛍️';
         break;
       case 'ASSIGNED':
         title = 'Delivery Partner Assigned';
+        subtitle = 'Rider assigned & heading to restaurant.';
         icon = '🛵';
         break;
+      case 'REACHED_RESTAURANT':
+        title = 'Rider at Restaurant';
+        subtitle = 'Delivery partner arrived at the restaurant.';
+        icon = '🏬';
+        break;
       case 'PICKED_UP':
+        title = 'Order Picked Up';
+        subtitle = 'Rider collected your food and is on the way!';
+        icon = '🎒';
+        break;
       case 'OUT_FOR_DELIVERY':
-        title = 'Order is on the way';
-        icon = '🤟';
+        title = 'Out for Delivery';
+        subtitle = 'Rider is on the way to your delivery address!';
+        icon = '🛵';
         break;
       case 'DELIVERED':
         title = 'Order Delivered';
+        subtitle = 'Meal delivered successfully! Bon appétit!';
         icon = '🎉';
         break;
       case 'CANCELLED':
         title = 'Order Cancelled';
+        subtitle = 'This order was cancelled.';
         icon = '❌';
         break;
     }
@@ -200,12 +224,23 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
     return (
       <LinearGradient
         colors={['#0F3E22', '#14532D', '#1B6A3A']}
-        style={{ padding: 24, paddingTop: 48, paddingBottom: 60, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }}
+        style={{ padding: 24, paddingTop: 44, paddingBottom: 50, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }}
       >
-        <Text style={{ color: '#FCD34D', fontSize: 26, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>{title} {icon}</Text>
+        <View style={{ backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, marginBottom: 12 }}>
+          <Text style={{ color: '#FCD34D', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 }}>ORDER STATUS UPDATE</Text>
+        </View>
+        <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '900', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>{icon} {title}</Text>
+        <Text style={{ color: '#D1FAE5', fontSize: 14, fontWeight: '600', textAlign: 'center', marginTop: 6, paddingHorizontal: 16 }}>{subtitle}</Text>
+
+        {restaurant?.name && (
+          <Text style={{ color: '#FCD34D', fontSize: 15, fontWeight: '800', marginTop: 10, letterSpacing: 0.5 }}>
+            From: {restaurant.name}
+          </Text>
+        )}
+
         {eta !== null && (
-          <View style={{ backgroundColor: 'rgba(252, 211, 77, 0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, marginTop: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.3)' }}>
-            <Text style={{ color: '#FEF3C7', fontWeight: '800', fontSize: 17, letterSpacing: 0.5 }}>Arrival in {eta} mins</Text>
+          <View style={{ backgroundColor: 'rgba(252, 211, 77, 0.2)', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 25, marginTop: 14, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.3)' }}>
+            <Text style={{ color: '#FEF3C7', fontWeight: '800', fontSize: 15, letterSpacing: 0.5 }}>Estimated Delivery ETA: {eta} mins</Text>
           </View>
         )}
       </LinearGradient>
@@ -234,24 +269,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
           <>
             {renderHeaderUi(order.status)}
 
-            {order.status === 'PREPARING' || order.status === 'PLACED' || order.status === 'ACCEPTED' ? (
-              <View style={{ paddingHorizontal: tokens.spacing.md, marginTop: tokens.spacing.md }}>
-                <View style={{
-                  padding: 32,
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: 24,
-                  alignItems: 'center',
-                  elevation: 5,
-                  shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6,
-                  borderColor: '#E5E7EB',
-                  borderWidth: 1
-                }}>
-                  <ActivityIndicator size="large" color="#14532D" style={{ marginBottom: 16 }} />
-                  <Text style={{ fontSize: 18, color: '#14532D', fontWeight: '800', textAlign: 'center' }}>Searching nearby delivery partner...</Text>
-                  <Text style={{ fontSize: 14, color: '#6B7280', marginTop: 8, textAlign: 'center' }}>Please wait while we assign the best rider for your order.</Text>
-                </View>
-              </View>
-            ) : order.status === 'DELIVERED' ? (
+            {order.status === 'DELIVERED' ? (
               <View style={{ paddingHorizontal: tokens.spacing.md, marginTop: tokens.spacing.md }}>
                 <View style={{
                   padding: 32,
@@ -290,6 +308,25 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
               </View>
             ) : (
               <View style={{ paddingHorizontal: tokens.spacing.md, marginTop: tokens.spacing.md }}>
+                {(order.status === 'PREPARING' || order.status === 'PLACED' || order.status === 'ACCEPTED') && (
+                  <View style={{
+                    padding: 16,
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 16,
+                    elevation: 3,
+                    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 4,
+                  }}>
+                    <ActivityIndicator size="small" color="#14532D" style={{ marginRight: 12 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 15, color: '#14532D', fontWeight: '800' }}>Preparing your order...</Text>
+                      <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Assigning the best rider nearby.</Text>
+                    </View>
+                  </View>
+                )}
+
                 <TrackingMap
                   location={location}
                   orderStatus={order.status}
@@ -300,6 +337,48 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
               </View>
             )}
 
+            {/* Restaurant Call Block */}
+            {['PLACED', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP'].includes(order.status) && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#FFFFFF',
+                padding: tokens.spacing.md,
+                borderRadius: tokens.radius.lg,
+                marginTop: tokens.spacing.md,
+                marginHorizontal: tokens.spacing.md,
+                elevation: 4,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 6,
+              }}>
+                <View style={{
+                  width: 50,
+                  height: 50,
+                  borderRadius: 25,
+                  backgroundColor: '#E5E7EB',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  overflow: 'hidden'
+                }}>
+                  <Text style={{ fontSize: 24 }}>🏬</Text>
+                </View>
+                <View style={{ flex: 1, marginLeft: tokens.spacing.md }}>
+                  <Text variant="heading3" style={{ fontWeight: '800', color: '#14532D' }}>{restaurant?.name || 'Restaurant'}</Text>
+                  <Text variant="caption" style={{ color: tokens.color.textSecondary, fontWeight: '600' }}>
+                    Preparing your food
+                  </Text>
+                </View>
+                <Button
+                  label="Call"
+                  accessibilityLabel="Call Restaurant"
+                  variant="primary"
+                  onPress={() => setToast({ message: `Calling ${restaurant?.name || 'Restaurant'}...`, variant: 'info' })}
+                  style={{ borderRadius: tokens.radius.full, paddingHorizontal: 20, backgroundColor: '#14532D' }}
+                />
+              </View>
+            )}
             {/* Mock Zomato-style Delivery Partner Block */}
             {['ASSIGNED', 'REACHED_RESTAURANT', 'READY_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.status) && (
               <View style={{

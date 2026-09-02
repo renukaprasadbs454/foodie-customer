@@ -53,6 +53,7 @@ export const menuApi = baseApi.injectEndpoints({
         { type: 'Menu', id: restaurantId },
       ],
       keepUnusedDataFor: 150,
+      refetchOnMountOrArgChange: true,
     }),
   }),
 });

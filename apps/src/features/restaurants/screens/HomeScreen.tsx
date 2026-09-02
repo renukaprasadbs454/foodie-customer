@@ -469,6 +469,8 @@ export function HomeScreen({ navigation }: Props) {
               <RestaurantCard
                 restaurant={item}
                 columnMode={true}
+                userLat={userCoords?.latitude}
+                userLng={userCoords?.longitude}
                 onPress={() => {
                   trackAnalyticsEvent('restaurant_card_tapped', {
                     restaurantId: item.id,

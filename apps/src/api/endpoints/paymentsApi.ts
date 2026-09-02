@@ -45,25 +45,18 @@ export const paymentsApi = baseApi.injectEndpoints({
             },
           });
 
+          if (result.error) {
+            throw result.error;
+          }
+
           if (result.data) {
             const apiRes = result.data as any;
             const data = apiRes.data || apiRes;
             return { data };
           }
-        } catch {
-          // Fall through to fallback initiation with exact amount
+        } catch (e: any) {
+          throw e; // ALWAYS bubble up errors. Never fall back to 'undefined' orderId because this crashes Razorpay!
         }
-
-        return {
-          data: {
-            razorpayOrderId: undefined,
-            amount: targetAmount,
-            currency: 'INR',
-            keyId: RAZORPAY_TEST_KEY,
-            walletAmountUsed: arg.useWallet ? 50 : 0,
-            status: 'PENDING',
-          },
-        };
       },
     }),
 

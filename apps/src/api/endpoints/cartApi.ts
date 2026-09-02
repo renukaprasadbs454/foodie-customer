@@ -10,15 +10,55 @@ export type AddCartItemArg = AddCartItemRequest & {
 let mockCart: Cart = { cartId: 'mock-cart', restaurantId: null, items: [], subtotal: 0 };
 export const resetMockCart = () => { mockCart = { cartId: 'mock-cart', restaurantId: null, items: [], subtotal: 0 }; };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isUUID = (str: string) => UUID_REGEX.test(str);
+
 export const cartApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getCart: builder.query<Cart, void>({
-      queryFn: () => ({ data: JSON.parse(JSON.stringify(mockCart)) }),
+      async queryFn(_arg, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        try {
+          const result = await fetchWithBaseQuery('/api/v1/cart');
+          if (result.data) {
+            const apiRes = result.data as any;
+            const data = apiRes.data || apiRes;
+            if (data?.cartId) return { data };
+          }
+        } catch { }
+        return { data: JSON.parse(JSON.stringify(mockCart)) };
+      },
       providesTags: [{ type: 'Cart', id: 'CURRENT' }],
       keepUnusedDataFor: 30,
     }),
     addCartItem: builder.mutation<Cart, AddCartItemArg>({
-      queryFn: (arg) => {
+      async queryFn(arg, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        if (isUUID(arg.menuItemId) && (!arg.variantId || isUUID(arg.variantId))) {
+          try {
+            const result = await fetchWithBaseQuery({
+              url: '/api/v1/cart/items',
+              method: 'POST',
+              body: {
+                menuItemId: arg.menuItemId,
+                variantId: arg.variantId,
+                quantity: arg.quantity,
+                notes: arg.notes,
+              }
+            });
+            if (result.data) {
+              const apiRes = result.data as any;
+              if (apiRes.success || apiRes.cartId) {
+                return { data: apiRes.data || apiRes };
+              }
+            }
+            if (result.error) {
+              const errData = result.error as any;
+              if (errData?.data?.code === 'CART_RESTAURANT_CONFLICT') {
+                return { error: result.error };
+              }
+            }
+          } catch { }
+        }
+
         const rId = arg.menuItemId.split('-item-')[0]; // Mock extraction 
         if (!mockCart.restaurantId) mockCart.restaurantId = rId;
 
@@ -52,7 +92,19 @@ export const cartApi = baseApi.injectEndpoints({
       invalidatesTags: [{ type: 'Cart', id: 'CURRENT' }],
     }),
     updateCartItemQuantity: builder.mutation<Cart, { cartItemId: string; quantity: number }>({
-      queryFn: ({ cartItemId, quantity }) => {
+      async queryFn({ cartItemId, quantity }, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        try {
+          const result = await fetchWithBaseQuery({
+            url: `/api/v1/cart/items/${cartItemId}`,
+            method: 'PUT',
+            body: { quantity }
+          });
+          if (result.data) {
+            const apiRes = result.data as any;
+            if (apiRes.success || apiRes.cartId) return { data: apiRes.data || apiRes };
+          }
+        } catch { }
+
         const item = mockCart.items.find((i) => i.cartItemId === cartItemId);
         if (item) {
           item.quantity = quantity;
@@ -64,7 +116,18 @@ export const cartApi = baseApi.injectEndpoints({
       invalidatesTags: [{ type: 'Cart', id: 'CURRENT' }],
     }),
     removeCartItem: builder.mutation<Cart, string>({
-      queryFn: (cartItemId) => {
+      async queryFn(cartItemId, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        try {
+          const result = await fetchWithBaseQuery({
+            url: `/api/v1/cart/items/${cartItemId}`,
+            method: 'DELETE',
+          });
+          if (result.data) {
+            const apiRes = result.data as any;
+            if (apiRes.success || apiRes.cartId) return { data: apiRes.data || apiRes };
+          }
+        } catch { }
+
         mockCart.items = mockCart.items.filter((item) => item.cartItemId !== cartItemId);
         if (mockCart.items.length === 0) {
           mockCart.restaurantId = null;
@@ -77,7 +140,14 @@ export const cartApi = baseApi.injectEndpoints({
       invalidatesTags: [{ type: 'Cart', id: 'CURRENT' }],
     }),
     clearCart: builder.mutation<null, void>({
-      queryFn: () => {
+      async queryFn(_arg, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        try {
+          await fetchWithBaseQuery({
+            url: '/api/v1/cart',
+            method: 'DELETE',
+          });
+        } catch { }
+
         mockCart = { cartId: 'mock-cart', restaurantId: null, items: [], subtotal: 0 };
         return { data: null };
       },

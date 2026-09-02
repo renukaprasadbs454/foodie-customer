@@ -2,11 +2,15 @@ import React from 'react';
 import { Pressable, View, Image } from 'react-native';
 import { Badge, Text, useTheme } from 'foodie-shared-rn';
 import type { RestaurantSummary } from '../types';
+import { getDistanceKm, getEstimatedTimeMins } from '../types';
+import { ENV } from '../../../constants/env';
 
 type Props = {
   restaurant: RestaurantSummary;
   onPress: () => void;
   columnMode?: boolean;
+  userLat?: number;
+  userLng?: number;
 };
 
 // Curated high-resolution Unsplash food images for fallback hashing
@@ -19,7 +23,11 @@ const FALLBACK_FOOD_IMAGES = [
 ];
 
 function getRestaurantImage(restaurant: RestaurantSummary): string {
-  if (restaurant.imageUrl && restaurant.imageUrl.startsWith('http')) return restaurant.imageUrl;
+  if (restaurant.imageUrl) {
+    if (restaurant.imageUrl.startsWith('http')) return restaurant.imageUrl;
+    if (restaurant.imageUrl.startsWith('/api')) return `${ENV.apiBaseUrl}${restaurant.imageUrl}`;
+    return restaurant.imageUrl;
+  }
   // Dynamic fallback based on name hashing
   let hash = 0;
   const name = restaurant.name || '';
@@ -30,7 +38,7 @@ function getRestaurantImage(restaurant: RestaurantSummary): string {
   return FALLBACK_FOOD_IMAGES[index]!;
 }
 
-export function RestaurantCard({ restaurant, onPress, columnMode }: Props) {
+export function RestaurantCard({ restaurant, onPress, columnMode, userLat, userLng }: Props) {
   const { tokens } = useTheme();
   const cuisine = restaurant.cuisineTypes?.slice(0, columnMode ? 1 : 2).join(' · ');
   const rating =
@@ -39,6 +47,17 @@ export function RestaurantCard({ restaurant, onPress, columnMode }: Props) {
       : null;
 
   const imageUrl = getRestaurantImage(restaurant);
+
+  let distanceText = `${(2.5 + (restaurant.name.length % 3)).toFixed(1)} km`;
+  let timeText = `${20 + (Math.abs(restaurant.name.length * 7) % 25)}m`;
+
+  if (userLat && userLng && restaurant.latitude && restaurant.longitude) {
+    const dist = getDistanceKm(userLat, userLng, Number(restaurant.latitude), Number(restaurant.longitude));
+    distanceText = `${dist.toFixed(1)} km`;
+    const eta = getEstimatedTimeMins(dist);
+    timeText = `${eta.min}-${eta.max}m`;
+  }
+
 
   return (
     <Pressable
@@ -131,15 +150,15 @@ export function RestaurantCard({ restaurant, onPress, columnMode }: Props) {
           </Text>
         ) : null}
 
-        {/* Mock ETA */}
+        {/* ETA */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: columnMode ? 2 : 4 }}>
           <Text style={{ fontSize: columnMode ? 11 : 13 }}>⏱️</Text>
           <Text style={{ fontSize: columnMode ? 11 : 13, color: '#14532D', fontWeight: '700' }}>
-            {20 + (Math.abs(restaurant.name.length * 7) % 25)}m
+            {timeText}
           </Text>
           <Text style={{ color: '#D1D5DB', fontSize: columnMode ? 9 : 10, marginHorizontal: columnMode ? 1 : 4 }}>|</Text>
           <Text style={{ fontSize: columnMode ? 11 : 13, color: '#6B7280', fontWeight: '600' }}>
-            {(2.5 + (restaurant.name.length % 3)).toFixed(1)} km
+            {distanceText}
           </Text>
         </View>
       </View>

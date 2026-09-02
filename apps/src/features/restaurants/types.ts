@@ -31,6 +31,8 @@ export type RestaurantSummary = {
   ratingCount?: number | null;
   imageUrl?: string | null;
   city?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
 };
 
 /** §3.2 public profile — never commissionPct. */
@@ -38,8 +40,6 @@ export type RestaurantPublicProfile = RestaurantSummary & {
   addressLine?: string | null;
   phoneNumber?: string | null;
   status?: string | null;
-  latitude?: number | string | null;
-  longitude?: number | string | null;
 };
 
 /** §12.2 public review list item — no customer identity. */
@@ -81,4 +81,22 @@ export function hasMoreRestaurantPages(
 ): boolean {
   if (!pageItems) return false;
   return pageItems.length >= size;
+}
+
+/** Haversine distance in km, plus ETA estimation */
+export function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const p = 0.017453292519943295;
+  const c = Math.cos;
+  const a = 0.5 - c((lat2 - lat1) * p) / 2 +
+    c(lat1 * p) * c(lat2 * p) *
+    (1 - c((lon2 - lon1) * p)) / 2;
+  return 12742 * Math.asin(Math.sqrt(a));
+}
+
+export function getEstimatedTimeMins(distanceKm: number): { min: number, max: number } {
+  const baseAvgSpeedKmh = 25; // 25 km/h urban averge
+  const prepTimeMins = 12; // 12 mins food prep
+  const travelMins = (distanceKm / baseAvgSpeedKmh) * 60;
+  const totalRaw = Math.round(prepTimeMins + travelMins);
+  return { min: totalRaw, max: totalRaw + 5 };
 }

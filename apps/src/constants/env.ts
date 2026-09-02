@@ -32,8 +32,8 @@ const defaultApiBaseUrl = `http://${hostIp}:8082`;
 const defaultWsUrl = `ws://${hostIp}:8082/ws`;
 
 export const ENV = {
-  apiBaseUrl: __DEV__ ? defaultApiBaseUrl : (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.foodie.kwiko.org'),
-  wsUrl: __DEV__ ? defaultWsUrl : (process.env.EXPO_PUBLIC_WS_URL ?? 'wss://api.foodie.kwiko.org/ws'),
+  apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? extra.apiBaseUrl ?? 'https://api.foodie.kwiko.org',
+  wsUrl: process.env.EXPO_PUBLIC_WS_URL ?? extra.wsUrl ?? 'wss://api.foodie.kwiko.org/ws',
   googleWebClientId:
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ??
     extra.googleWebClientId ??

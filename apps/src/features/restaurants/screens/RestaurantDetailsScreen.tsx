@@ -17,6 +17,7 @@ import {
 import type { BrowseStackParamList } from '../../../navigation/types';
 import { isRestaurantId } from '../types';
 import { MOCK_RESTAURANTS } from '../mockData';
+import { ENV } from '../../../constants/env';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'RestaurantDetails'>;
 
@@ -29,7 +30,11 @@ const FALLBACK_FOOD_IMAGES = [
 ];
 
 function getRestaurantImage(name: string, remoteUrl?: string | null): string {
-  if (remoteUrl && remoteUrl.startsWith('http')) return remoteUrl;
+  if (remoteUrl) {
+    if (remoteUrl.startsWith('http')) return remoteUrl;
+    if (remoteUrl.startsWith('/api')) return `${ENV.apiBaseUrl}${remoteUrl}`;
+    return remoteUrl;
+  }
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);

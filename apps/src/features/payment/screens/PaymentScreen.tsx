@@ -36,7 +36,7 @@ type Phase =
 
 export function PaymentScreen({ navigation, route }: Props) {
   const { orderId, useWallet, mockTotal } = route.params as { orderId: string; useWallet?: boolean; mockTotal?: number };
-  const isDarkStoreMock = orderId.startsWith('ds-mock-');
+  const isDarkStoreMock = orderId.startsWith('ds-mock-') || orderId.startsWith('mock-');
   const validId = isDarkStoreMock ? true : isOrderId(orderId);
 
   const [phase, setPhase] = useState<Phase>('initiating');

@@ -19,6 +19,8 @@ import { MenuSkeleton } from '../components/MenuSkeleton';
 import { VariantPicker } from '../components/VariantPicker';
 import type { AddCartItemRequest, MenuItem } from '../types';
 import { formatMoney, isClearCartConflict, isMenuRestaurantId, parseMoney, validateAddCartItem } from '../types';
+import { getDistanceKm, getEstimatedTimeMins } from '../../restaurants/types';
+import { ENV } from '../../../constants/env';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Menu'>;
 type MenuSection = { title: string; categoryId: string; data: MenuItem[]; };
@@ -34,7 +36,7 @@ export function MenuScreen({ navigation, route }: Props) {
   const cartQuery = useGetCartQuery(undefined, { skip: !validId });
   const cartItemsCount = cartQuery?.data?.items?.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0) ?? 0;
   const cartSubtotal = cartQuery?.data?.subtotal ?? 0;
-  const isCurrentRestaurantCart = cartQuery?.data?.restaurantId === restaurantId;
+  const isCurrentRestaurantCart = cartQuery?.data?.restaurantId?.toLowerCase() === restaurantId?.toLowerCase();
 
   const [addCartItem, addState] = useAddCartItemMutation();
   const [clearCart, clearState] = useClearCartMutation();
@@ -49,15 +51,37 @@ export function MenuScreen({ navigation, route }: Props) {
   const [distanceInfo, setDistanceInfo] = useState<string>('Estimating...');
   useEffect(() => {
     (async () => {
+      if (!restaurantData?.latitude || !restaurantData?.longitude) return;
       try {
-        const fakeDistanceKm = (((restaurantId?.length ?? 1) % 10) / 2 + 1.2).toFixed(1);
-        const baseMins = Math.round(parseFloat(fakeDistanceKm) * 5 + 12);
-        setDistanceInfo(`${baseMins}-${baseMins + 5} mins • ${fakeDistanceKm} km`);
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') throw new Error('No permission');
+
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        const dist = getDistanceKm(
+          location.coords.latitude,
+          location.coords.longitude,
+          Number(restaurantData.latitude),
+          Number(restaurantData.longitude)
+        );
+        const eta = getEstimatedTimeMins(dist);
+        setDistanceInfo(`${eta.min}-${eta.max} mins • ${dist.toFixed(1)} km`);
+
+        const resGeocode = await Location.reverseGeocodeAsync({
+          latitude: Number(restaurantData.latitude),
+          longitude: Number(restaurantData.longitude)
+        });
+        if (resGeocode && resGeocode.length > 0) {
+          const cityVal = resGeocode[0].city || resGeocode[0].subregion || resGeocode[0].district || 'Area';
+          setDistanceInfo(prev => prev.replace('•', `• ${cityVal} •`));
+        }
       } catch (err) {
         setDistanceInfo('25-30 mins • 3.0 km');
       }
     })();
-  }, [restaurantId]);
+  }, [restaurantData]);
 
   const [openItem, setOpenItem] = useState<MenuItem | null>(null);
   const [variantId, setVariantId] = useState<string | null>(null);
@@ -227,7 +251,7 @@ export function MenuScreen({ navigation, route }: Props) {
           ListHeaderComponent={
             <View style={{ gap: tokens.spacing.md }}>
               <ImageBackground
-                source={{ uri: restaurantData?.imageUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=1000' }}
+                source={{ uri: restaurantData?.imageUrl ? (restaurantData.imageUrl.startsWith('/api') ? `${ENV.apiBaseUrl}${restaurantData.imageUrl}` : restaurantData.imageUrl) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=1000' }}
                 style={{ marginHorizontal: -tokens.spacing.lg, marginTop: 0, minHeight: 265, justifyContent: 'flex-end', backgroundColor: '#14532D' }}
                 imageStyle={{ borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}
               >
@@ -263,7 +287,7 @@ export function MenuScreen({ navigation, route }: Props) {
                     </View>
                     <Text variant="label" style={{ color: '#FFFFFF', fontWeight: '800' }}>•</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.2)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 }}>
-                      <Text variant="caption" style={{ color: '#FFFFFF', fontWeight: '800' }}>📍 {restaurantData?.city || 'Bengaluru'}</Text>
+                      <Text variant="caption" style={{ color: '#FFFFFF', fontWeight: '800' }}>📍 {distanceInfo.includes('•') ? distanceInfo.split('•')[1]?.trim() : 'Location'}</Text>
                     </View>
                   </View>
                 </LinearGradient>

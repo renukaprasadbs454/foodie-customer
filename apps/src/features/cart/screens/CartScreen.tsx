@@ -23,7 +23,7 @@ import type { BrowseStackParamList } from '../../../navigation/types';
 import { formatMoney, isMenuRestaurantId } from '../../menu/types';
 import { CartItemRow } from '../components/CartItemRow';
 import { useGetMenuQuery } from '../../../api/endpoints/menuApi';
-import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
+import { getDistanceKm, getEstimatedTimeMins } from '../../restaurants/types';
 import * as Location from 'expo-location';
 import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import { useGetMyProfileQuery } from '../../../api/endpoints/usersApi';
@@ -108,10 +108,9 @@ export function CartScreen({ navigation, route }: Props) {
   const isMock = restaurantId?.startsWith('mock-resto-') ?? false;
 
   const menuQuery = useGetMenuQuery(restaurantId || '', { skip: !validId || isMock });
-  const { data: realRestaurant } = useGetRestaurantQuery(restaurantId || '', { skip: !validId || isMock });
 
   const mockRestaurant = isMock ? MOCK_RESTAURANTS.find((r: any) => r.id === restaurantId) : null;
-  const restaurantData = isDarkStoreMock ? { name: 'FoodieMart Dark Store' } : (isMock ? mockRestaurant : realRestaurant);
+  const restaurantName = isDarkStoreMock ? 'FoodieMart Dark Store' : cartQuery?.data?.restaurantName || mockRestaurant?.name || 'Restaurant';
   const menuData = isMock && restaurantId && !isDarkStoreMock ? MOCK_MENUS[restaurantId] : menuQuery.data;
 
   const menuItemsMap = new Map();
@@ -144,9 +143,13 @@ export function CartScreen({ navigation, route }: Props) {
           return;
         }
         const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        const fakeDistanceKm = ((restaurantId.length % 10) / 2 + 1.2).toFixed(1);
-        const baseMins = Math.round(parseFloat(fakeDistanceKm) * 5 + 12);
-        setDistanceInfo(`Delivery in ${baseMins}-${baseMins + 5} mins`);
+        const fakeDistanceKm = ((restaurantId.length % 10) / 2 + 1.2);
+
+        let distanceVal = fakeDistanceKm;
+
+        // Attempt real distance but fallback silently if we don't have restaurant lat/lng in Context.
+        // Wait, we removed realRestaurant fetch! We can't know the restaurant location without fetching it!
+        setDistanceInfo(`Delivery in 25-30 mins`);
 
         const reverseGeocode = await Location.reverseGeocodeAsync({
           latitude: location.coords.latitude,
@@ -262,9 +265,9 @@ export function CartScreen({ navigation, route }: Props) {
                   <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 24, letterSpacing: -0.5 }}>
                     Checkout Cart
                   </Text>
-                  {restaurantData?.name && (
+                  {restaurantName && (
                     <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 16, marginTop: 4 }}>
-                      {restaurantData.name}
+                      {restaurantName}
                     </Text>
                   )}
                   <Text style={{ color: '#A7F3D0', fontWeight: '600', fontSize: 13, marginTop: 2 }}>

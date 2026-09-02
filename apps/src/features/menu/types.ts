@@ -46,7 +46,8 @@ export type CartItem = {
 
 export type Cart = {
   cartId: string;
-  restaurantId?: string | null;
+  restaurantId: string | null;
+  restaurantName?: string | null;
   items: CartItem[];
   subtotal: number | string;
 };
