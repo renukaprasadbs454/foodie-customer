@@ -25,7 +25,7 @@ import {
 } from 'foodie-shared-rn';
 import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import { useGetCartQuery } from '../../../api/endpoints/cartApi';
-import { useCreateOrderMutation } from '../../../api/endpoints/ordersApi';
+import { useCreateOrderMutation, useTransitionOrderStatusMutation } from '../../../api/endpoints/ordersApi';
 import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
 import { useGetWalletBalanceQuery } from '../../../api/endpoints/walletApi';
 import { toUnwrappedApiError } from '../../auth/apiError';
@@ -48,9 +48,11 @@ export function CheckoutScreen({ navigation, route }: any) {
 
   const addressesQuery = useGetAddressesQuery();
   const [createOrder, createState] = useCreateOrderMutation();
+  const [transitionStatus] = useTransitionOrderStatusMutation();
 
   const [addressId, setAddressId] = useState<string | null>(null);
   const [useWallet, setUseWallet] = useState<boolean>(false);
+  const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'COD'>('ONLINE');
   const placeAttemptKey = useRef<string | null>(null);
   const [toast, setToast] = useState<{
     message: string;
@@ -129,9 +131,22 @@ export function CheckoutScreen({ navigation, route }: any) {
         addressId,
         idempotencyKey: placeAttemptKey.current,
       }).unwrap();
-      trackAnalyticsEvent('checkout_completed', { orderId: order.orderId });
+      trackAnalyticsEvent('checkout_completed', { orderId: order.orderId, paymentMethod });
       placeAttemptKey.current = null;
-      navigation.replace('Payment', { orderId: order.orderId, useWallet, mockTotal: grandTotal });
+      if (paymentMethod === 'COD') {
+        try {
+          await transitionStatus({ orderId: order.orderId, targetStatus: 'CONFIRMED' }).unwrap();
+        } catch (e) { }
+        const parent = navigation.getParent();
+        if (parent) {
+          parent.navigate('OrdersTab', {
+            screen: 'LiveOrderTracking',
+            params: { orderId: order.orderId },
+          });
+        }
+      } else {
+        navigation.replace('Payment', { orderId: order.orderId, useWallet, mockTotal: grandTotal });
+      }
     } catch (err) {
       handleError(toUnwrappedApiError(err));
     }
@@ -332,6 +347,77 @@ export function CheckoutScreen({ navigation, route }: any) {
                     </Pressable>
                   </View>
 
+                  {/* Payment Method Section */}
+                  <View style={{
+                    backgroundColor: '#FFFFFF',
+                    padding: 16,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    shadowColor: '#14532D',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 10,
+                    elevation: 2
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                      <Text style={{ fontSize: 18 }}>💵</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#14532D' }}>Payment Method</Text>
+                    </View>
+
+                    <Pressable
+                      onPress={() => setPaymentMethod('ONLINE')}
+                      style={({ pressed }) => ({
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        opacity: pressed ? 0.8 : 1,
+                        paddingVertical: 8,
+                        borderBottomWidth: 1,
+                        borderBottomColor: '#F3F4F6'
+                      })}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <View style={{
+                          width: 20, height: 20, borderRadius: 10, borderWidth: 2,
+                          borderColor: paymentMethod === 'ONLINE' ? '#14532D' : '#D1D5DB',
+                          justifyContent: 'center', alignItems: 'center'
+                        }}>
+                          {paymentMethod === 'ONLINE' && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#14532D' }} />}
+                        </View>
+                        <View>
+                          <Text style={{ fontWeight: '700', fontSize: 15, color: '#111827' }}>Online Payment</Text>
+                          <Text style={{ fontSize: 13, color: '#6B7280' }}>Cards, UPI, Netbanking (Razorpay)</Text>
+                        </View>
+                      </View>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={() => setPaymentMethod('COD')}
+                      style={({ pressed }) => ({
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        opacity: pressed ? 0.8 : 1,
+                        paddingVertical: 8,
+                      })}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <View style={{
+                          width: 20, height: 20, borderRadius: 10, borderWidth: 2,
+                          borderColor: paymentMethod === 'COD' ? '#14532D' : '#D1D5DB',
+                          justifyContent: 'center', alignItems: 'center'
+                        }}>
+                          {paymentMethod === 'COD' && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#14532D' }} />}
+                        </View>
+                        <View>
+                          <Text style={{ fontWeight: '700', fontSize: 15, color: '#111827' }}>Cash on Delivery (COD)</Text>
+                          <Text style={{ fontSize: 13, color: '#6B7280' }}>Pay directly at your doorstep</Text>
+                        </View>
+                      </View>
+                    </Pressable>
+                  </View>
+
                   {/* Detailed Bill Block */}
                   <View style={{
                     backgroundColor: '#FFFFFF',
@@ -430,7 +516,7 @@ export function CheckoutScreen({ navigation, route }: any) {
               })}
             >
               <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 }}>
-                {createState.isLoading ? 'Processing Order...' : `Proceed to Payment (₹${formatMoney(grandTotal)}) ➔`}
+                {createState.isLoading ? 'Processing Order...' : paymentMethod === 'COD' ? `Place COD Order (₹${formatMoney(grandTotal)}) ➔` : `Proceed to Payment (₹${formatMoney(grandTotal)}) ➔`}
               </Text>
             </Pressable>
 

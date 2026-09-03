@@ -60,8 +60,8 @@ export type MyOrdersParams = {
 
 export type TransitionOrderStatusArg = {
   orderId: string;
-  targetStatus: 'CANCELLED';
-  reason: string;
+  targetStatus: string;
+  reason?: string;
 };
 
 export type OrderSort = 'placedAt' | 'totalAmount';

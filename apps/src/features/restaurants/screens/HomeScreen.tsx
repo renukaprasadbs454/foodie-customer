@@ -86,32 +86,17 @@ export function HomeScreen({ navigation }: Props) {
           return;
         }
 
-        // 1. FAST PATH: Check last known position immediately (0-10ms response)
-        const lastLoc = await Location.getLastKnownPositionAsync().catch(() => null);
-        if (lastLoc && isMounted) {
+        const fetchLocAndGeocode = async (loc: Location.LocationObject) => {
+          if (!isMounted) return;
           setUserCoords({
-            latitude: lastLoc.coords.latitude,
-            longitude: lastLoc.coords.longitude,
-          });
-          setCurrentAddress(`${lastLoc.coords.latitude.toFixed(3)}, ${lastLoc.coords.longitude.toFixed(3)}`);
-        }
-
-        // 2. ACCURATE PATH: Fetch position with Balanced accuracy and 3s timeout
-        const locationPromise = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
-        const location = await Promise.race([locationPromise, timeoutPromise]);
-
-        if (location && isMounted) {
-          setUserCoords({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
           });
 
-          // Reverse geocode actual GPS coordinates
           try {
             const reverseGeocode = await Location.reverseGeocodeAsync({
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
             });
             if (reverseGeocode.length > 0 && isMounted) {
               const addr = reverseGeocode[0];
@@ -120,16 +105,23 @@ export function HomeScreen({ navigation }: Props) {
                 addr.district || addr.subregion || addr.city,
                 addr.region,
               ].filter(Boolean);
-              setCurrentAddress(parts.join(', ') || `${location.coords.latitude.toFixed(3)}, ${location.coords.longitude.toFixed(3)}`);
+              setCurrentAddress(parts.join(', ') || 'Unknown Location');
             }
-          } catch {
-            if (isMounted) {
-              setCurrentAddress(`${location.coords.latitude.toFixed(3)}, ${location.coords.longitude.toFixed(3)}`);
-            }
+          } catch (e) {
+            // Silently fallback if geocode fails
           }
-        }
+        };
+
+        // Get initial quickly
+        const lastLoc = await Location.getLastKnownPositionAsync().catch(() => null);
+        if (lastLoc) await fetchLocAndGeocode(lastLoc);
+
+        // Try getting accurate
+        const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        await fetchLocAndGeocode(location);
+
       } catch (err) {
-        if (isMounted && !userCoords) {
+        if (isMounted && currentAddress === 'Locating...') {
           setCurrentAddress('Bengaluru, Karnataka');
         }
       }
