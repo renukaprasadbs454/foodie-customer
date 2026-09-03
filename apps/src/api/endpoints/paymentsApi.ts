@@ -46,17 +46,8 @@ export const paymentsApi = baseApi.injectEndpoints({
           });
 
           if (result.error) {
-            console.warn('Backend payment initiate notice:', result.error);
-            return {
-              data: {
-                razorpayOrderId: undefined,
-                amount: targetAmount,
-                currency: 'INR',
-                keyId: RAZORPAY_TEST_KEY,
-                walletAmountUsed: arg.useWallet ? 50 : 0,
-                status: 'PENDING',
-              },
-            };
+            console.error('Backend payment initiate error:', result.error);
+            return { error: result.error };
           }
 
           if (result.data) {
