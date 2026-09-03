@@ -180,7 +180,7 @@ export const ordersApi = baseApi.injectEndpoints({
         await loadMockOrders();
         try {
           const result = await fetchWithBaseQuery({
-            url: '/api/v1/orders',
+            url: '/api/v1/orders/me',
             params: {
               ...(arg.status ? { status: arg.status } : {}),
               page: arg.page ?? 0,
@@ -213,7 +213,7 @@ export const ordersApi = baseApi.injectEndpoints({
         try {
           const result = await fetchWithBaseQuery({
             url: `/api/v1/orders/${orderId}/status`,
-            method: 'PUT',
+            method: 'PATCH',
             body: { status: targetStatus, reason }
           });
           if (result.data) {

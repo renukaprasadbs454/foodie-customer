@@ -190,7 +190,7 @@ export function HomeScreen({ navigation }: Props) {
 
             {/* Notifications Button */}
             <Pressable
-              onPress={() => (navigation as any).navigate('NotificationsTab', { screen: 'Notifications' })}
+              onPress={() => (navigation as any).navigate('Notifications')}
               accessibilityRole="button"
               accessibilityLabel="View notifications"
               style={({ pressed }) => ({
