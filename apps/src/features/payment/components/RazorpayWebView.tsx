@@ -133,38 +133,43 @@ export function RazorpayWebView({
           backdropclose: false
         };
 
-        window.onload = function() {
-          try {
-            if (typeof Razorpay === 'undefined') {
-              safePostMessage({ type: 'error', data: 'Razorpay SDK failed to load.' });
-              return;
+        function launchCheckout() {
+          let attempts = 0;
+          let launched = false;
+          const checkInterval = setInterval(function() {
+            attempts++;
+            if (typeof Razorpay !== 'undefined') {
+              if (launched) return;
+              launched = true;
+              clearInterval(checkInterval);
+              try {
+                const rzp = new Razorpay(config);
+                rzp.on('payment.failed', function (response) {
+                  safePostMessage({ 
+                    type: 'error', 
+                    data: response.error ? response.error.description : 'Payment Failed' 
+                  });
+                });
+                rzp.open();
+                setTimeout(function() {
+                  const loader = document.getElementById('loader');
+                  if (loader) loader.style.display = 'none';
+                }, 500);
+              } catch (err) {
+                safePostMessage({ 
+                  type: 'error', 
+                  data: err.message || 'Could not launch Razorpay Checkout' 
+                });
+              }
+            } else if (attempts >= 60) {
+              clearInterval(checkInterval);
+              safePostMessage({ type: 'error', data: 'Razorpay SDK network load timeout. Please check internet connection.' });
             }
-            const rzp = new Razorpay(config);
-            
-            // Handle errors thrown by Razorpay internally
-            rzp.on('payment.failed', function (response) {
-              safePostMessage({ 
-                type: 'error', 
-                data: response.error ? response.error.description : 'Payment Failed' 
-              });
-            });
-            
-            // Open the OFFICIAL checkout
-            rzp.open();
-            
-            // Hide the native loader once Razorpay is initializing
-            setTimeout(function() {
-              const loader = document.getElementById('loader');
-              if (loader) loader.style.display = 'none';
-            }, 800);
-            
-          } catch (err) {
-            safePostMessage({ 
-              type: 'error', 
-              data: err.message || 'Could not launch Razorpay Checkout' 
-            });
-          }
-        };
+          }, 100);
+        }
+
+        window.onload = launchCheckout;
+        setTimeout(launchCheckout, 300);
       </script>
     </body>
     </html>

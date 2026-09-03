@@ -25,6 +25,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useAppDispatch } from '../../../store/hooks';
 import { clearCredentials } from '../../auth/authSlice';
+import { logoutCustomer } from '../../auth/session';
+import { store } from '../../../store/store';
 
 const PRESET_AVATARS = [
   'https://img.icons8.com/color/150/user-male-circle.png',
@@ -149,9 +151,9 @@ export function ProfileScreen({ navigation }: Props) {
     }
   };
 
-  const handleLogout = () => {
-    dispatch(clearCredentials());
+  const handleLogout = async () => {
     trackAnalyticsEvent('customer_logout');
+    await logoutCustomer(dispatch, store.getState.bind(store));
     setToast({ message: 'Logged out successfully.', variant: 'success' });
   };
 

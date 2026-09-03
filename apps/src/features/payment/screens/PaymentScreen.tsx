@@ -312,8 +312,10 @@ export function PaymentScreen({ navigation, route }: Props) {
             key: initiation.keyId,
             amount: Math.round(parseMoney(initiation.amount) * 100),
             currency: initiation.currency || 'INR',
-            // Only pass order_id if backend provided one — omitting allows simple payment mode
-            ...(initiation.razorpayOrderId ? { order_id: initiation.razorpayOrderId } : {}),
+            // Only pass order_id if it is a real Razorpay Order ID (starts with order_ and not order_dev_)
+            ...(initiation.razorpayOrderId && initiation.razorpayOrderId.startsWith('order_') && !initiation.razorpayOrderId.startsWith('order_dev_')
+              ? { order_id: initiation.razorpayOrderId }
+              : {}),
             name: 'Foodie',
             description: 'Order payment',
           }}

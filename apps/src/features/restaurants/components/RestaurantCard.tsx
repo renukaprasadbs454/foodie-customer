@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, View, Image } from 'react-native';
+import { TouchableOpacity, View, Image } from 'react-native';
 import { Badge, Text, useTheme } from 'foodie-shared-rn';
 import type { RestaurantSummary } from '../types';
 import { getDistanceKm, getEstimatedTimeMins } from '../types';
@@ -60,11 +60,13 @@ export function RestaurantCard({ restaurant, onPress, columnMode, userLat, userL
 
 
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={onPress}
+      delayPressIn={100}
+      activeOpacity={0.88}
       accessibilityRole="button"
       accessibilityLabel={`Restaurant ${restaurant.name}`}
-      style={({ pressed }) => ({
+      style={{
         backgroundColor: tokens.color.surface,
         borderRadius: tokens.radius.md,
         borderWidth: 1,
@@ -72,14 +74,13 @@ export function RestaurantCard({ restaurant, onPress, columnMode, userLat, userL
         overflow: 'hidden',
         shadowColor: '#14532D',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: pressed ? 0.08 : 0.04,
+        shadowOpacity: 0.04,
         shadowRadius: 8,
-        elevation: pressed ? 4 : 2,
+        elevation: 2,
         marginBottom: tokens.spacing.sm,
-        opacity: pressed ? 0.95 : 1,
         flex: columnMode ? 1 : undefined,
         marginHorizontal: columnMode ? 4 : 0,
-      })}
+      }}
     >
       {/* Cover Image */}
       <View style={{ height: columnMode ? 110 : 150, width: '100%', backgroundColor: '#F0ECE4' }}>
@@ -162,7 +163,7 @@ export function RestaurantCard({ restaurant, onPress, columnMode, userLat, userL
           </Text>
         </View>
       </View>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 

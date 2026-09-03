@@ -51,7 +51,8 @@
         {
           "photosPermission": "Allow Foodie to access your photos for a profile picture."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "apiBaseUrl": "https://api.foodie.kwiko.org",

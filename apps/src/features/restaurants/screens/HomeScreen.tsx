@@ -51,6 +51,7 @@ export function HomeScreen({ navigation }: Props) {
     variant: 'info' | 'success' | 'error' | 'warning';
   } | null>(null);
   const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [currentAddress, setCurrentAddress] = useState('Locating...');
 
   const feed = useRestaurantFeed({
     cuisineType,
@@ -76,46 +77,66 @@ export function HomeScreen({ navigation }: Props) {
   );
 
   useEffect(() => {
-    trackAnalyticsEvent('customer_home_viewed');
-  }, []);
-
-  useEffect(() => {
-    if (feed.items.length > 0) {
-      trackAnalyticsEvent('restaurant_feed_loaded', {
-        count: feed.items.length,
-      });
-    }
-  }, [feed.items.length]);
-
-  const [currentAddress, setCurrentAddress] = useState('Fetching location...');
-
-  useEffect(() => {
+    let isMounted = true;
     (async () => {
       try {
-        let { status } = await Location.requestForegroundPermissionsAsync();
+        const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          setCurrentAddress('Location Permission Denied');
+          if (isMounted) setCurrentAddress('Location Permission Denied');
           return;
         }
-        let location = await Location.getCurrentPositionAsync({});
-        setUserCoords({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
+
+        // Fetch exact current device GPS location
+        let location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
         });
-        let reverseGeocode = await Location.reverseGeocodeAsync({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude
-        });
-        if (reverseGeocode.length > 0) {
-          const addr = reverseGeocode[0];
-          setCurrentAddress(`${addr.name ? addr.name + ', ' : ''}${addr.city || addr.subregion || addr.region}`);
-        } else {
-          setCurrentAddress('Unknown Location');
+
+        if (location && isMounted) {
+          setUserCoords({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+
+          // Reverse geocode actual GPS coordinates
+          try {
+            const reverseGeocode = await Location.reverseGeocodeAsync({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            });
+            if (reverseGeocode.length > 0 && isMounted) {
+              const addr = reverseGeocode[0];
+              const parts = [
+                addr.name && !addr.name.includes('+') && !addr.name.match(/^[0-9A-Z]+\+[0-9A-Z]+$/) ? addr.name : null,
+                addr.district || addr.subregion || addr.city,
+                addr.region,
+              ].filter(Boolean);
+              setCurrentAddress(parts.join(', ') || `${location.coords.latitude.toFixed(3)}, ${location.coords.longitude.toFixed(3)}`);
+            }
+          } catch {
+            if (isMounted) {
+              setCurrentAddress(`${location.coords.latitude.toFixed(3)}, ${location.coords.longitude.toFixed(3)}`);
+            }
+          }
         }
       } catch (err) {
-        setCurrentAddress('Unable to fetch location');
+        try {
+          // Fallback to last known location if GPS hardware is slow
+          const lastLoc = await Location.getLastKnownPositionAsync();
+          if (lastLoc && isMounted) {
+            setUserCoords({
+              latitude: lastLoc.coords.latitude,
+              longitude: lastLoc.coords.longitude,
+            });
+            setCurrentAddress(`${lastLoc.coords.latitude.toFixed(3)}, ${lastLoc.coords.longitude.toFixed(3)}`);
+          } else if (isMounted) {
+            setCurrentAddress('Location Unavailable');
+          }
+        } catch {
+          if (isMounted) setCurrentAddress('Location Unavailable');
+        }
       }
     })();
+    return () => { isMounted = false; };
   }, []);
 
   const applyCuisine = () => {
@@ -254,7 +275,7 @@ export function HomeScreen({ navigation }: Props) {
 
         {/* Styled Search Button */}
         <Pressable
-          onPressIn={() => navigation.navigate('Search')}
+          onPress={() => navigation.navigate('Search')}
           style={({ pressed }) => ({
             flexDirection: 'row',
             alignItems: 'center',
@@ -447,6 +468,10 @@ export function HomeScreen({ navigation }: Props) {
             columnWrapperStyle={{ paddingHorizontal: tokens.spacing.md - 4 }}
             ListHeaderComponent={renderHeader}
             contentContainerStyle={{ paddingBottom: tokens.spacing.xl, paddingTop: 0, gap: tokens.spacing.md }}
+            removeClippedSubviews={true}
+            initialNumToRender={6}
+            maxToRenderPerBatch={8}
+            windowSize={5}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl

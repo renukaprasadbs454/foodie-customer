@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { useGetRestaurantsQuery } from '../../../api/endpoints/restaurantsApi';
-import { MOCK_RESTAURANTS } from '../mockData';
 import type { RestaurantListParams, RestaurantSummary } from '../types';
 import { getDistanceKm } from '../types';
 
@@ -9,6 +8,38 @@ type FeedArgs = Omit<RestaurantListParams, 'page' | 'size'> & {
   userLatitude?: number;
   userLongitude?: number;
 };
+
+function normalizeTerm(raw: string): string {
+  return raw.toLowerCase().trim().replace(/biriyani/g, 'biryani');
+}
+
+function checkRestaurantMatch(item: RestaurantSummary, searchStr: string): boolean {
+  const normSearch = normalizeTerm(searchStr);
+  if (!normSearch) return true;
+
+  // 1. Check restaurant name
+  const nameNorm = normalizeTerm(item.name || '');
+  if (nameNorm.includes(normSearch)) return true;
+
+  // 2. Check restaurant description
+  const descNorm = normalizeTerm(item.description || '');
+  if (descNorm.includes(normSearch)) return true;
+
+  // 3. Check city
+  const cityNorm = normalizeTerm(item.city || '');
+  if (cityNorm.includes(normSearch)) return true;
+
+  // 4. Check cuisine types
+  if (Array.isArray(item.cuisineTypes)) {
+    const cuisineMatch = item.cuisineTypes.some((c) => {
+      const cNorm = normalizeTerm(c);
+      return cNorm.includes(normSearch) || normSearch.includes(cNorm);
+    });
+    if (cuisineMatch) return true;
+  }
+
+  return false;
+}
 
 export function useRestaurantFeed(args: FeedArgs) {
   const queryResult = useGetRestaurantsQuery({
@@ -23,54 +54,20 @@ export function useRestaurantFeed(args: FeedArgs) {
     const apiItems = queryResult.data;
     let list: RestaurantSummary[] = [];
 
-    const DUMMY_RESTAURANT_NAMES = [
-      'Oven Story',
-      "Domino's Pizza",
-      'KFC Tumkur',
-      'Leon Grill',
-      'Nandhana Palace',
-      'Kritunga',
-      'Empire Restaurant',
-      'Burger King',
-      'CTR (Dosa)',
-      'Meghana Foods (Biryani)'
-    ];
-
     if (Array.isArray(apiItems)) {
-      list = apiItems.filter(
-        (item) => item.name && !DUMMY_RESTAURANT_NAMES.some((dummy) => item.name.toLowerCase().includes(dummy.toLowerCase()))
-      );
+      list = [...apiItems];
     } else {
       list = [];
     }
 
     // 1. Filter by cuisineType if provided
     if (args.cuisineType && args.cuisineType.trim() !== '') {
-      const targetCuisine = args.cuisineType.trim().toLowerCase();
-      list = list.filter((item) => {
-        if (item.cuisineTypes && Array.isArray(item.cuisineTypes)) {
-          const matchCuisine = item.cuisineTypes.some((c) => {
-            const cLower = c.toLowerCase();
-            return cLower.includes(targetCuisine) || targetCuisine.includes(cLower);
-          });
-          if (matchCuisine) return true;
-        }
-        const nameMatch = item.name?.toLowerCase().includes(targetCuisine);
-        const descMatch = item.description?.toLowerCase().includes(targetCuisine);
-        return Boolean(nameMatch || descMatch);
-      });
+      list = list.filter((item) => checkRestaurantMatch(item, args.cuisineType!));
     }
 
     // 2. Filter by search term if provided
     if (args.search && args.search.trim() !== '') {
-      const searchTerm = args.search.trim().toLowerCase();
-      list = list.filter((item) => {
-        const nameMatch = item.name?.toLowerCase().includes(searchTerm);
-        const descMatch = item.description?.toLowerCase().includes(searchTerm);
-        const cityMatch = item.city?.toLowerCase().includes(searchTerm);
-        const cuisineMatch = item.cuisineTypes?.some((c) => c.toLowerCase().includes(searchTerm));
-        return Boolean(nameMatch || descMatch || cityMatch || cuisineMatch);
-      });
+      list = list.filter((item) => checkRestaurantMatch(item, args.search!));
     }
 
     // 3. Apply sorting

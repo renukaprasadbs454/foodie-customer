@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { baseApi } from '../baseApi';
 import { resetMockCart } from './cartApi';
 import type { CreateOrderRequest, Order } from '../../features/checkout/types';
@@ -35,6 +36,25 @@ function normalizeOrderList(data: unknown): OrderSummary[] {
 
 let mockCounter = 1000;
 const mockOrdersStore: Record<string, OrderDetail> = {};
+const ORDERS_STORAGE_KEY = 'foodie_customer_orders_v1';
+
+async function saveMockOrders() {
+  try {
+    await AsyncStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(mockOrdersStore));
+  } catch (e) { }
+}
+
+async function loadMockOrders() {
+  try {
+    const raw = await AsyncStorage.getItem(ORDERS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      Object.assign(mockOrdersStore, parsed);
+    }
+  } catch (e) { }
+}
+
+void loadMockOrders();
 
 export const ordersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -91,6 +111,7 @@ export const ordersApi = baseApi.injectEndpoints({
           orderStatusEvents: [],
         };
         mockOrdersStore[validUuid] = newOrder;
+        void saveMockOrders();
         resetMockCart();
         return { data: JSON.parse(JSON.stringify(newOrder)) };
       },
@@ -102,6 +123,7 @@ export const ordersApi = baseApi.injectEndpoints({
 
     getOrder: builder.query<OrderDetail, string>({
       async queryFn(orderId, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        await loadMockOrders();
         if (!orderId || orderId.startsWith('mock-') || orderId.startsWith('ds-mock-')) {
           // Immediately serve from mock store without hitting backend to avoid UUID parse errors
           const stored = mockOrdersStore[orderId];
@@ -142,6 +164,7 @@ export const ordersApi = baseApi.injectEndpoints({
 
     getMyOrders: builder.query<OrderSummary[], MyOrdersParams>({
       async queryFn(arg, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        await loadMockOrders();
         try {
           const result = await fetchWithBaseQuery({
             url: '/api/v1/orders',
@@ -153,7 +176,8 @@ export const ordersApi = baseApi.injectEndpoints({
           });
           if (result.data) {
             const apiRes = result.data as any;
-            return { data: normalizeOrderList(apiRes.data || apiRes) };
+            const backendList = normalizeOrderList(apiRes.data || apiRes);
+            if (backendList.length > 0) return { data: backendList };
           }
         } catch { }
         return { data: JSON.parse(JSON.stringify(Object.values(mockOrdersStore))) };
@@ -183,6 +207,7 @@ export const ordersApi = baseApi.injectEndpoints({
             const apiRes = result.data as any;
             if (mockOrdersStore[orderId]) {
               mockOrdersStore[orderId].status = targetStatus;
+              void saveMockOrders();
             }
             return { data: apiRes.data || apiRes };
           }
@@ -190,6 +215,7 @@ export const ordersApi = baseApi.injectEndpoints({
 
         if (mockOrdersStore[orderId]) {
           mockOrdersStore[orderId].status = targetStatus;
+          void saveMockOrders();
           return { data: JSON.parse(JSON.stringify(mockOrdersStore[orderId])) };
         }
         return {
