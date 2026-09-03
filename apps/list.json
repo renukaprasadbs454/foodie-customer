@@ -1,0 +1,146 @@
+[
+  {
+    "restaurantId": "16b86453-52f9-4526-bd76-02234a8478da",
+    "name": "Ganesha Hotel",
+    "cuisineTypes": [
+      "SOUTH_INDIAN",
+      "NORTH_INDIAN",
+      "VEGETARIAN"
+    ],
+    "avgRating": 0,
+    "latitude": 0,
+    "longitude": 0,
+    "imageUrl": "/api/v1/storage/restaurants/16b86453-52f9-4526-bd76-02234a8478da/images/5e3aac89-349b-4005-b7b6-25c37578852d.jpg"
+  },
+  {
+    "restaurantId": "8f1de57c-777a-470c-a8a9-063646a989af",
+    "name": "Royal Hotel",
+    "cuisineTypes": [
+      "NORTH_INDIAN"
+    ],
+    "avgRating": 0,
+    "latitude": 13.041216,
+    "longitude": 77.685074,
+    "imageUrl": "/api/v1/storage/restaurants/8f1de57c-777a-470c-a8a9-063646a989af/images/b010074b-e1d9-4307-9eee-dfad08b10deb.jpg"
+  },
+  {
+    "restaurantId": "acc3e7a5-582b-4dc1-b522-dde1ea8f91eb",
+    "name": "Oven Story",
+    "cuisineTypes": [
+      "Pizza",
+      "Italian"
+    ],
+    "avgRating": 4.7,
+    "latitude": 13.354121,
+    "longitude": 77.141622,
+    "imageUrl": "/api/v1/storage/default_logo.png"
+  },
+  {
+    "restaurantId": "402c597f-b0e8-4fd9-a08c-57954839ab04",
+    "name": "Domino's Pizza",
+    "cuisineTypes": [
+      "Pizza",
+      "Fast Food"
+    ],
+    "avgRating": 5,
+    "latitude": 13.339115,
+    "longitude": 77.140229,
+    "imageUrl": "/api/v1/storage/default_logo.png"
+  },
+  {
+    "restaurantId": "e6a25aeb-266e-45ba-9515-a83672f98364",
+    "name": "KFC Tumkur",
+    "cuisineTypes": [
+      "Fast Food",
+      "Burger"
+    ],
+    "avgRating": 4.8,
+    "latitude": 13.365426,
+    "longitude": 77.141948,
+    "imageUrl": "/api/v1/storage/default_logo.png"
+  },
+  {
+    "restaurantId": "45eefe35-6def-4c0e-ad9d-5dcf7e80ceda",
+    "name": "Leon Grill",
+    "cuisineTypes": [
+      "Fast Food",
+      "Burger"
+    ],
+    "avgRating": 4.6,
+    "latitude": 13.380841,
+    "longitude": 77.148403,
+    "imageUrl": "/api/v1/storage/default_logo.png"
+  },
+  {
+    "restaurantId": "0813e0f8-5c4c-407d-9df9-770643cea4df",
+    "name": "Nandhana Palace",
+    "cuisineTypes": [
+      "Andhra",
+      "South Indian"
+    ],
+    "avgRating": 4.1,
+    "latitude": 13.366078,
+    "longitude": 77.161306,
+    "imageUrl": "/api/v1/storage/default_logo.png"
+  },
+  {
+    "restaurantId": "f4786ec5-74da-4d9a-aecc-5273e97d56eb",
+    "name": "Kritunga",
+    "cuisineTypes": [
+      "South Indian",
+      "Biriyani"
+    ],
+    "avgRating": 4.4,
+    "latitude": 13.383657,
+    "longitude": 77.1237,
+    "imageUrl": "/api/v1/storage/default_logo.png"
+  },
+  {
+    "restaurantId": "d24bd041-0b5e-4fe2-a446-268b79fae494",
+    "name": "Empire Restaurant",
+    "cuisineTypes": [
+      "North Indian",
+      "Mughlai"
+    ],
+    "avgRating": 4.8,
+    "latitude": 13.374086,
+    "longitude": 77.149367,
+    "imageUrl": "/api/v1/storage/default_logo.png"
+  },
+  {
+    "restaurantId": "cac2c8ed-4f49-4097-8e7f-c49fa6ad7553",
+    "name": "Burger King",
+    "cuisineTypes": [
+      "Burger",
+      "Fast Food"
+    ],
+    "avgRating": 4.6,
+    "latitude": 13.354455,
+    "longitude": 77.145318,
+    "imageUrl": "/api/v1/storage/default_logo.png"
+  },
+  {
+    "restaurantId": "518a1d28-5977-4a46-a836-e23bc8183079",
+    "name": "CTR (Dosa)",
+    "cuisineTypes": [
+      "South Indian",
+      "Dosa"
+    ],
+    "avgRating": 4.4,
+    "latitude": 13.38739,
+    "longitude": 77.135991,
+    "imageUrl": "/api/v1/storage/default_logo.png"
+  },
+  {
+    "restaurantId": "771f31bb-7aed-4d95-93ce-aed0860ab726",
+    "name": "Meghana Foods (Biryani)",
+    "cuisineTypes": [
+      "Biriyani",
+      "South Indian"
+    ],
+    "avgRating": 4.9,
+    "latitude": 13.379036,
+    "longitude": 77.133955,
+    "imageUrl": "/api/v1/storage/default_logo.png"
+  }
+]

@@ -65,7 +65,10 @@ export function useRestaurantFeed(args: FeedArgs) {
     let list: RestaurantSummary[] = [];
 
     if (Array.isArray(apiItems)) {
-      list = [...apiItems];
+      list = apiItems.filter((item) => {
+        const name = (item.name || '').toLowerCase();
+        return name.includes('ganesh') || name.includes('royal');
+      });
     } else {
       list = [];
     }
