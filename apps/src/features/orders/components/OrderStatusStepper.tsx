@@ -44,8 +44,9 @@ function statusIndex(status: string): number {
 
 export function OrderStatusStepper({ status }: Props) {
   const { tokens } = useTheme();
-  const current = statusIndex(status);
-  const terminalFail = status === 'CANCELLED' || status === 'REJECTED';
+  const effectiveStatus = status === 'ACCEPTED' ? 'PREPARING' : status;
+  const current = statusIndex(effectiveStatus);
+  const terminalFail = effectiveStatus === 'CANCELLED' || effectiveStatus === 'REJECTED';
 
   if (terminalFail || (isTerminalOrderStatus(status) && status !== 'DELIVERED')) {
     const role =
@@ -87,7 +88,7 @@ export function OrderStatusStepper({ status }: Props) {
     >
       {TRACKING_STEPPER_STATUSES.map((step, index) => {
         const reached = current >= 0 && index <= current;
-        const isCurrent = step === status;
+        const isCurrent = step === effectiveStatus;
         const color = reached
           ? tokens.color[getOrderStatusColorRole(step)]
           : tokens.color.border;

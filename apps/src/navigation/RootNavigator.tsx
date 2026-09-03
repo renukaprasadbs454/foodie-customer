@@ -23,9 +23,14 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
  * Auth-gated root — Blueprint §14.2 / System Design §5.2 / P2-AUTH-01.
  * No flash of Main while idle/authenticating or when isNewUser.
  */
+import { useNotificationsSubscription } from '../features/notifications/hooks/useNotificationsSubscription';
+
 export function RootNavigator() {
   const authStatus = useAppSelector(selectAuthStatus);
   const isNewUser = useAppSelector(selectIsNewUser);
+
+  // Global websocket listener for customer notifications (schedules local push)
+  useNotificationsSubscription();
 
   if (authStatus === 'authenticating' || authStatus === 'idle') {
     return <SplashScreen />;

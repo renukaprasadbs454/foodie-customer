@@ -1,5 +1,4 @@
-import { useCallback } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useEffect } from 'react';
 import { userNotificationsTopic } from 'foodie-shared-rn';
 import { notificationsApi } from '../../../api/endpoints/notificationsApi';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
@@ -10,6 +9,7 @@ import {
   websocketSubscribe,
   websocketUnsubscribe,
 } from '../../../store/websocketMiddleware';
+import * as Notifications from 'expo-notifications';
 
 /**
  * Focus-scoped optional `/topic/user/{userCredentialId}/notifications`.
@@ -19,29 +19,38 @@ export function useNotificationsSubscription() {
   const dispatch = useAppDispatch();
   const userId = useAppSelector(selectUserId);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!userId) return undefined;
+  useEffect(() => {
+    if (!userId) return undefined;
 
-      const destination = userNotificationsTopic(userId);
-      dispatch(websocketConnect());
+    const destination = userNotificationsTopic(userId);
+    dispatch(websocketConnect());
 
-      const remove = addWebsocketMessageHandler(destination, (message) => {
-        if (message.type === 'NOTIFICATION') {
-          dispatch(
-            notificationsApi.util.invalidateTags([
-              { type: 'Notification', id: 'LIST' },
-            ]),
-          );
-        }
-      });
+    const remove = addWebsocketMessageHandler(destination, (message) => {
+      if (message.type === 'NOTIFICATION') {
+        dispatch(
+          notificationsApi.util.invalidateTags([
+            { type: 'Notification', id: 'LIST' },
+          ]),
+        );
 
-      dispatch(websocketSubscribe({ destination }));
+        // Schedule a local heads-up notification in case the user is outside the notifications screen
+        const payload = message.payload as any;
+        void Notifications.scheduleNotificationAsync({
+          content: {
+            title: payload?.title || 'New Notification',
+            body: payload?.body || 'You have received a new update from Foodie.',
+            data: payload || {},
+          },
+          trigger: null, // trigger immediately
+        });
+      }
+    });
 
-      return () => {
-        remove();
-        dispatch(websocketUnsubscribe({ destination }));
-      };
-    }, [dispatch, userId]),
-  );
+    dispatch(websocketSubscribe({ destination }));
+
+    return () => {
+      remove();
+      dispatch(websocketUnsubscribe({ destination }));
+    };
+  }, [dispatch, userId]);
 }

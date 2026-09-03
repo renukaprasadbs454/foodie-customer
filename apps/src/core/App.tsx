@@ -11,6 +11,17 @@ import { PushRegistrationBridge } from './push/PushRegistrationBridge';
 import { NavigationProvider } from './providers/NavigationProvider';
 import { ReduxProvider } from './providers/ReduxProvider';
 import { ThemeProvider } from './providers/ThemeProvider';
+import * as Notifications from 'expo-notifications';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 type BoundaryState = { hasError: boolean };
 

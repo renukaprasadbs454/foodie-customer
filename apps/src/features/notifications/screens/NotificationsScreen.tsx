@@ -33,8 +33,6 @@ export function NotificationsScreen(_props: Props) {
     variant: 'info' | 'success' | 'error' | 'warning';
   } | null>(null);
 
-  useNotificationsSubscription();
-
   const scaleValue = useRef(new Animated.Value(0.95)).current;
   const fadeValue = useRef(new Animated.Value(0)).current;
 

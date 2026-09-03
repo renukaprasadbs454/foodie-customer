@@ -76,7 +76,6 @@ export const DEFAULT_ORDERS_PAGE_SIZE = 20;
 export const TRACKING_STEPPER_STATUSES: readonly OrderStatus[] = [
   'PLACED',
   'CONFIRMED',
-  'ACCEPTED',
   'PREPARING',
   'READY_FOR_PICKUP',
   'ASSIGNED',
