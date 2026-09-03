@@ -55,8 +55,8 @@
       "expo-font"
     ],
     "extra": {
-      "apiBaseUrl": "https://api.foodie.kwiko.org",
-      "wsUrl": "wss://api.foodie.kwiko.org/ws",
+      "apiBaseUrl": "http://10.33.98.186:8082",
+      "wsUrl": "ws://10.33.98.186:8082/ws",
       "eas": {
         "projectId": "e84e44c1-3f95-4707-9027-2e0b4fb10820"
       }
