@@ -49,7 +49,7 @@ export const paymentsApi = baseApi.injectEndpoints({
             console.warn('Backend payment initiate notice:', result.error);
             return {
               data: {
-                razorpayOrderId: `order_dev_${Date.now()}`,
+                razorpayOrderId: undefined,
                 amount: targetAmount,
                 currency: 'INR',
                 keyId: RAZORPAY_TEST_KEY,
@@ -62,7 +62,15 @@ export const paymentsApi = baseApi.injectEndpoints({
           if (result.data) {
             const apiRes = result.data as any;
             const data = apiRes.data || apiRes;
-            return { data };
+            return {
+              data: {
+                ...data,
+                keyId: data.keyId || RAZORPAY_TEST_KEY,
+                razorpayOrderId: data.razorpayOrderId && data.razorpayOrderId.startsWith('order_') && !data.razorpayOrderId.startsWith('order_dev_')
+                  ? data.razorpayOrderId
+                  : undefined,
+              },
+            };
           }
         } catch (e: any) {
           console.warn('Payment initiation exception:', e);
@@ -70,7 +78,7 @@ export const paymentsApi = baseApi.injectEndpoints({
 
         return {
           data: {
-            razorpayOrderId: `order_dev_${Date.now()}`,
+            razorpayOrderId: undefined,
             amount: targetAmount,
             currency: 'INR',
             keyId: RAZORPAY_TEST_KEY,

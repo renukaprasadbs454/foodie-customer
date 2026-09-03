@@ -145,9 +145,11 @@ export function RazorpayWebView({
               try {
                 const rzp = new Razorpay(config);
                 rzp.on('payment.failed', function (response) {
+                  var errObj = response.error || {};
+                  var errDetails = (errObj.code ? errObj.code + ': ' : '') + (errObj.description || 'Payment Failed') + (errObj.reason ? ' (' + errObj.reason + ')' : '');
                   safePostMessage({ 
                     type: 'error', 
-                    data: response.error ? response.error.description : 'Payment Failed' 
+                    data: errDetails
                   });
                 });
                 rzp.open();
