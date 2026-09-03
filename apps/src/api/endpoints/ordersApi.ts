@@ -73,16 +73,29 @@ export const ordersApi = baseApi.injectEndpoints({
             },
           });
 
+          if (result.error) {
+            console.error("CREATE ORDER API REJECTED:", result.error);
+            return { error: result.error };
+          }
+
           if (result.data) {
             const apiRes = result.data as any;
             const orderData = apiRes.data || apiRes;
             resetMockCart();
             return { data: orderData };
           }
-          console.error("CREATE ORDER API REJECTED:", result.error);
-        } catch (e) {
+        } catch (e: any) {
           console.error("CREATE ORDER BACKEND FATAL ERROR:", e);
-          // Fall through to mock order creation if backend cart is not populated
+          return {
+            error: {
+              status: 500,
+              data: {
+                code: 'INTERNAL_ERROR',
+                message: e.message || 'Order creation failed',
+                fields: null,
+              },
+            } as any,
+          };
         }
 
         mockCounter++;

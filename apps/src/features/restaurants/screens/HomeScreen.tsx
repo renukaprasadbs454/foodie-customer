@@ -86,10 +86,20 @@ export function HomeScreen({ navigation }: Props) {
           return;
         }
 
-        // Fetch exact current device GPS location
-        let location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
+        // 1. FAST PATH: Check last known position immediately (0-10ms response)
+        const lastLoc = await Location.getLastKnownPositionAsync().catch(() => null);
+        if (lastLoc && isMounted) {
+          setUserCoords({
+            latitude: lastLoc.coords.latitude,
+            longitude: lastLoc.coords.longitude,
+          });
+          setCurrentAddress(`${lastLoc.coords.latitude.toFixed(3)}, ${lastLoc.coords.longitude.toFixed(3)}`);
+        }
+
+        // 2. ACCURATE PATH: Fetch position with Balanced accuracy and 3s timeout
+        const locationPromise = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
+        const location = await Promise.race([locationPromise, timeoutPromise]);
 
         if (location && isMounted) {
           setUserCoords({
@@ -119,20 +129,8 @@ export function HomeScreen({ navigation }: Props) {
           }
         }
       } catch (err) {
-        try {
-          // Fallback to last known location if GPS hardware is slow
-          const lastLoc = await Location.getLastKnownPositionAsync();
-          if (lastLoc && isMounted) {
-            setUserCoords({
-              latitude: lastLoc.coords.latitude,
-              longitude: lastLoc.coords.longitude,
-            });
-            setCurrentAddress(`${lastLoc.coords.latitude.toFixed(3)}, ${lastLoc.coords.longitude.toFixed(3)}`);
-          } else if (isMounted) {
-            setCurrentAddress('Location Unavailable');
-          }
-        } catch {
-          if (isMounted) setCurrentAddress('Location Unavailable');
+        if (isMounted && !userCoords) {
+          setCurrentAddress('Bengaluru, Karnataka');
         }
       }
     })();

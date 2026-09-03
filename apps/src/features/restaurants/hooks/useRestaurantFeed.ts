@@ -10,7 +10,12 @@ type FeedArgs = Omit<RestaurantListParams, 'page' | 'size'> & {
 };
 
 function normalizeTerm(raw: string): string {
-  return raw.toLowerCase().trim().replace(/biriyani/g, 'biryani');
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/_/g, ' ')
+    .replace(/bir[iaey]+ni/g, 'biryani')
+    .replace(/\s+/g, ' ');
 }
 
 function checkRestaurantMatch(item: RestaurantSummary, searchStr: string): boolean {
@@ -19,7 +24,7 @@ function checkRestaurantMatch(item: RestaurantSummary, searchStr: string): boole
 
   // 1. Check restaurant name
   const nameNorm = normalizeTerm(item.name || '');
-  if (nameNorm.includes(normSearch)) return true;
+  if (nameNorm.includes(normSearch) || normSearch.includes(nameNorm)) return true;
 
   // 2. Check restaurant description
   const descNorm = normalizeTerm(item.description || '');
@@ -29,14 +34,19 @@ function checkRestaurantMatch(item: RestaurantSummary, searchStr: string): boole
   const cityNorm = normalizeTerm(item.city || '');
   if (cityNorm.includes(normSearch)) return true;
 
-  // 4. Check cuisine types
+  // 4. Check cuisine types (handling array, comma-separated string, or backend enums like SOUTH_INDIAN)
+  let cuisines: string[] = [];
   if (Array.isArray(item.cuisineTypes)) {
-    const cuisineMatch = item.cuisineTypes.some((c) => {
-      const cNorm = normalizeTerm(c);
-      return cNorm.includes(normSearch) || normSearch.includes(cNorm);
-    });
-    if (cuisineMatch) return true;
+    cuisines = item.cuisineTypes;
+  } else if (typeof item.cuisineTypes === 'string') {
+    cuisines = (item.cuisineTypes as string).split(',');
   }
+
+  const cuisineMatch = cuisines.some((c) => {
+    const cNorm = normalizeTerm(c);
+    return cNorm.includes(normSearch) || normSearch.includes(cNorm);
+  });
+  if (cuisineMatch) return true;
 
   return false;
 }
