@@ -38,7 +38,7 @@ export function useNotificationsFeed(unreadOnly: boolean) {
         );
         return [...prev, ...newItems].sort(
           (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+            new Date(b.sentAt ?? 0).getTime() - new Date(a.sentAt ?? 0).getTime(),
         );
       });
     }
