@@ -268,6 +268,9 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
         ) : order ? (
           <>
             {renderHeaderUi(order.status)}
+            <View style={{ paddingHorizontal: tokens.spacing.md, marginTop: tokens.spacing.md }}>
+              <OrderStatusStepper status={order.status} />
+            </View>
 
             {order.status === 'DELIVERED' ? (
               <View style={{ paddingHorizontal: tokens.spacing.md, marginTop: tokens.spacing.md }}>
