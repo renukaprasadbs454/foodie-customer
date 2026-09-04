@@ -30,7 +30,7 @@ export function WalletScreen({ navigation }: Props) {
     const ledgerQuery = useGetWalletLedgerQuery({
         page,
         size: 20,
-        sort: 'createdAt,desc',
+        sort: '-createdAt',
     });
 
     const balance = Number(balanceQuery.data?.balance || 0);
@@ -179,14 +179,13 @@ export function WalletScreen({ navigation }: Props) {
                                 Available Balance
                             </Text>
 
-                            <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 24, paddingBottom: 24 }}>
-                                <Text style={{ color: '#FCD34D', fontSize: 32, fontWeight: '700' }}>₹</Text>
+                            <View style={{ alignItems: 'flex-start', paddingVertical: 32, marginVertical: 10 }}>
                                 <Text
-                                    style={{ color: '#FCD34D', fontSize: 44, fontWeight: '900', letterSpacing: -1, lineHeight: 56, flexShrink: 1 }}
+                                    style={{ color: '#FCD34D', fontSize: 48, fontWeight: '900', letterSpacing: -1, lineHeight: 56, flexShrink: 1, paddingVertical: 12 }}
                                     adjustsFontSizeToFit
                                     numberOfLines={1}
                                 >
-                                    {formatMoney(balance)}
+                                    ₹{formatMoney(balance)}
                                 </Text>
                             </View>
 

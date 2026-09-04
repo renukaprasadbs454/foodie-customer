@@ -297,7 +297,13 @@ export function CartScreen({ navigation, route }: Props) {
             showItems ? (
               <View style={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }}>
                 <View style={{ flexDirection: 'row', gap: 16, marginTop: 12, justifyContent: 'center' }}>
-                  <Pressable onPress={() => navigation.navigate('Home')}>
+                  <Pressable onPress={() => {
+                    if (restaurantId && validId && !isDarkStoreMock) {
+                      navigation.navigate('RestaurantDetail' as any, { restaurantId });
+                    } else {
+                      navigation.navigate('Home');
+                    }
+                  }}>
                     <Text style={{ color: '#14532D', fontWeight: '800', fontSize: 14 }}>+ Add more items</Text>
                   </Pressable>
                   <Text style={{ color: '#6B7280', fontWeight: '700', fontSize: 14 }}>|</Text>
@@ -508,7 +514,13 @@ export function CartScreen({ navigation, route }: Props) {
           ) : (
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <Pressable
-                onPress={() => navigation.navigate('Home')}
+                onPress={() => {
+                  if (restaurantId && validId && !isDarkStoreMock) {
+                    navigation.navigate('RestaurantDetail' as any, { restaurantId });
+                  } else {
+                    navigation.navigate('Home');
+                  }
+                }}
                 style={{
                   flex: 1,
                   backgroundColor: '#14532D',
