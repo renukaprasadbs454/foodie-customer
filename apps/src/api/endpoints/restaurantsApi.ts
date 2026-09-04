@@ -17,7 +17,9 @@ function normalizeRestaurantList(data: unknown): RestaurantSummary[] {
   } else if (data && typeof data === 'object') {
     const obj = data as any;
     if (Array.isArray(obj.content)) list = obj.content;
+    else if (Array.isArray(obj.items)) list = obj.items;
     else if (obj.data && Array.isArray(obj.data.content)) list = obj.data.content;
+    else if (obj.data && Array.isArray(obj.data.items)) list = obj.data.items;
     else if (obj.data && Array.isArray(obj.data)) list = obj.data;
   }
 
@@ -46,7 +48,9 @@ function normalizeReviewList(data: unknown): RestaurantReview[] {
   } else if (data && typeof data === 'object') {
     const obj = data as any;
     if (Array.isArray(obj.content)) list = obj.content;
+    else if (Array.isArray(obj.items)) list = obj.items;
     else if (obj.data && Array.isArray(obj.data.content)) list = obj.data.content;
+    else if (obj.data && Array.isArray(obj.data.items)) list = obj.data.items;
     else if (obj.data && Array.isArray(obj.data)) list = obj.data;
   }
   return list;
