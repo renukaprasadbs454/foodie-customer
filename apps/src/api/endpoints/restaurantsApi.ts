@@ -38,6 +38,7 @@ function normalizeRestaurantList(data: unknown): RestaurantSummary[] {
     city: item.city || 'Bengaluru',
     latitude: item.latitude ? Number(item.latitude) : 12.9716,
     longitude: item.longitude ? Number(item.longitude) : 77.5946,
+    isOpen: typeof item.isOpen === 'boolean' ? item.isOpen : true,
   }));
 }
 
