@@ -477,11 +477,15 @@ export function CheckoutScreen({ navigation, route }: any) {
                 </>
               )}
             </View>
+            <View style={{ height: 260, width: '100%' }} />
           </ScrollView>
 
           {/* Footer Proceed Action */}
           <View style={{
+            position: 'absolute',
+            bottom: 0, left: 0, right: 0,
             padding: 16,
+            paddingBottom: 32,
             borderTopWidth: 1,
             borderTopColor: '#E5E7EB',
             backgroundColor: '#FFFFFF',

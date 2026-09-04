@@ -70,17 +70,7 @@ export function useRestaurantFeed(args: FeedArgs) {
       list = [];
     }
 
-    // 1. Filter by cuisineType if provided
-    if (args.cuisineType && args.cuisineType.trim() !== '') {
-      list = list.filter((item) => checkRestaurantMatch(item, args.cuisineType!));
-    }
-
-    // 2. Filter by search term if provided
-    if (args.search && args.search.trim() !== '') {
-      list = list.filter((item) => checkRestaurantMatch(item, args.search!));
-    }
-
-    // 3. Apply sorting
+    // Sorting is still applied locally for UX fast sorting
     if (args.sort === 'avgRating') {
       list.sort((a, b) => (b.avgRating ?? 0) - (a.avgRating ?? 0));
     } else if (args.sort === 'createdAt') {
