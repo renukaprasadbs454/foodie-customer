@@ -7,6 +7,14 @@ export function toUnwrappedApiError(err: unknown): UnwrappedApiError {
     if (withData.data?.code) {
       return withData.data;
     }
+    const errObj = err as any;
+    if (errObj.status === 'PARSING_ERROR' || errObj.status === 'FETCH_ERROR') {
+      return {
+        code: 'NETWORK_ERROR',
+        message: 'The online backend is currently unreachable. Please try again later.',
+        fields: null,
+      };
+    }
     const direct = err as UnwrappedApiError;
     if (direct.code) {
       return direct;
