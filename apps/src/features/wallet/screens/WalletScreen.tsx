@@ -179,9 +179,13 @@ export function WalletScreen({ navigation }: Props) {
                                 Available Balance
                             </Text>
 
-                            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                                <Text style={{ color: '#FCD34D', fontSize: 32, fontWeight: '700', marginTop: 4 }}>₹</Text>
-                                <Text style={{ color: '#FCD34D', fontSize: 44, fontWeight: '900', letterSpacing: -1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12 }}>
+                                <Text style={{ color: '#FCD34D', fontSize: 32, fontWeight: '700' }}>₹</Text>
+                                <Text
+                                    style={{ color: '#FCD34D', fontSize: 44, fontWeight: '900', letterSpacing: -1, includeFontPadding: false, flexShrink: 1 }}
+                                    adjustsFontSizeToFit
+                                    numberOfLines={1}
+                                >
                                     {formatMoney(balance)}
                                 </Text>
                             </View>

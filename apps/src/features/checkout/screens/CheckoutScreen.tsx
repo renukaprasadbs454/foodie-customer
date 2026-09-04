@@ -177,12 +177,13 @@ export function CheckoutScreen({ navigation, route }: any) {
   }
 
   const subtotal = isDarkStoreMock ? mockItems.reduce((acc: number, mi: any) => acc + (mi.price * mi.quantity), 0) : Number(cart?.subtotal || 0);
-  const orderTotal = Math.max(0, subtotal + 25 + 18);
+  const routeDiscount = route.params?.discount ?? 0;
+  const orderTotal = Math.max(0, subtotal + 25 + 18 - routeDiscount);
   const walletApplied = useWallet ? Math.min(walletBalance, orderTotal) : 0;
   const grandTotal = Math.max(0, orderTotal - walletApplied);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
       <StatusBar backgroundColor="#14532D" barStyle="light-content" />
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: '#F2F2F7' }}
@@ -456,6 +457,13 @@ export function CheckoutScreen({ navigation, route }: any) {
                         <Text style={{ color: '#6B7280', fontWeight: '600' }}>Taxes & Charges</Text>
                         <Text style={{ color: '#111827', fontWeight: '700' }}>₹18.00</Text>
                       </View>
+
+                      {routeDiscount > 0 && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={{ color: '#10B981', fontWeight: '700' }}>Coupon Discount</Text>
+                          <Text style={{ color: '#10B981', fontWeight: '700' }}>-₹{formatMoney(routeDiscount)}</Text>
+                        </View>
+                      )}
 
                       {useWallet && walletApplied > 0 && (
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>

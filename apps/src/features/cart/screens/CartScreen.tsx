@@ -483,7 +483,7 @@ export function CartScreen({ navigation, route }: Props) {
           {checkoutEnabled ? (
             <Pressable
               accessibilityLabel="Continue to Checkout"
-              onPress={() => navigation.navigate('Checkout' as any, { mockItems: isDarkStoreMock ? mockItems : undefined })}
+              onPress={() => navigation.navigate('Checkout' as any, { mockItems: isDarkStoreMock ? mockItems : undefined, discount })}
               style={({ pressed }) => ({
                 backgroundColor: pressed ? '#0F3E22' : '#14532D',
                 paddingVertical: 16,
