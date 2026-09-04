@@ -58,10 +58,13 @@ export function RestaurantCard({ restaurant, onPress, columnMode, userLat, userL
     timeText = `${eta.min}-${eta.max}m`;
   }
 
+  // Treat missing isOpen as true for backwards compatibility or mock data
+  const isClosed = restaurant.isOpen === false;
 
   return (
     <TouchableOpacity
       onPress={onPress}
+      disabled={isClosed}
       delayPressIn={100}
       activeOpacity={0.88}
       accessibilityRole="button"
@@ -86,7 +89,7 @@ export function RestaurantCard({ restaurant, onPress, columnMode, userLat, userL
       <View style={{ height: columnMode ? 110 : 150, width: '100%', backgroundColor: '#F0ECE4' }}>
         <Image
           source={{ uri: imageUrl }}
-          style={{ width: '100%', height: '100%' }}
+          style={{ width: '100%', height: '100%', opacity: isClosed ? 0.3 : 1 }}
           resizeMode="cover"
         />
         {restaurant.city && !columnMode ? (
@@ -163,6 +166,33 @@ export function RestaurantCard({ restaurant, onPress, columnMode, userLat, userL
           </Text>
         </View>
       </View>
+
+      {/* CLOSED OVERLAY */}
+      {isClosed && (
+        <View style={{
+          position: 'absolute',
+          top: 0, bottom: 0, left: 0, right: 0,
+          backgroundColor: 'rgba(255,255,255,0.7)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: tokens.spacing.md,
+        }}>
+          <View style={{
+            backgroundColor: '#1F2937', // Dark Gray
+            paddingVertical: 8,
+            paddingHorizontal: 16,
+            borderRadius: 20,
+            opacity: 0.95,
+          }}>
+            <Text style={{ color: '#F9FAFB', fontWeight: 'bold', fontSize: 13, textAlign: 'center' }}>
+              Currently Closed
+            </Text>
+            <Text style={{ color: '#D1D5DB', fontSize: 10, textAlign: 'center', marginTop: 2 }}>
+              We will notify you when they open
+            </Text>
+          </View>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }

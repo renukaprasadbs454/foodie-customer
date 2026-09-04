@@ -33,6 +33,7 @@ export type RestaurantSummary = {
   city?: string | null;
   latitude?: number | string | null;
   longitude?: number | string | null;
+  isOpen?: boolean;
 };
 
 /** §3.2 public profile — never commissionPct. */
