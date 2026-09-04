@@ -56,7 +56,17 @@ export function TrackingMap({ location, orderStatus, restaurantLocation, custome
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
+    // Only fetch a route if we actually know where the driver is OR if it's an after pickup flow.
+    // We do NOT want to fetch a route from Restaurant -> Customer just because it's PREPARING
+    // since no delivery partner is assigned yet.
     if (originLocation && targetLocation && restaurantLocation && customerLocation) {
+      if (originLocation === restaurantLocation && targetLocation === customerLocation && !isAfterPickup) {
+        // Stop fake route drawing!
+        return;
+      }
+      if (originLocation === targetLocation) {
+        return;
+      }
       setLoadingRoute(true);
       const fetchRoute = async () => {
         try {

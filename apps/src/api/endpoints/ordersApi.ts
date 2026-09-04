@@ -254,6 +254,12 @@ export const ordersApi = baseApi.injectEndpoints({
         { type: 'Order', id: 'LIST' },
       ],
     }),
+
+    getDeliveryPartner: builder.query<any, string>({
+      query: (orderId) => `/api/v1/customers/orders/${orderId}/delivery-partner`,
+      transformResponse: (response: any) => response.data || response,
+      providesTags: (_result, _error, orderId) => [{ type: 'Order', id: `partner-${orderId}` }],
+    }),
   }),
 });
 
@@ -268,4 +274,5 @@ export const {
   useGetOrderQuery,
   useGetMyOrdersQuery,
   useTransitionOrderStatusMutation,
+  useGetDeliveryPartnerQuery,
 } = ordersApi;

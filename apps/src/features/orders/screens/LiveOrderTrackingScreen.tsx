@@ -17,6 +17,7 @@ import {
 import {
   useGetOrderQuery,
   useTransitionOrderStatusMutation,
+  useGetDeliveryPartnerQuery,
 } from '../../../api/endpoints/ordersApi';
 import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
 import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
@@ -53,6 +54,12 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
   } | null>(null);
 
   const [transitionStatus, transitionState] = useTransitionOrderStatusMutation();
+
+  const partnerQuery = useGetDeliveryPartnerQuery(validId ? orderId : '', {
+    skip: !validId, // We could refine skip based on order status, but validId is fine
+    pollingInterval: 10000,
+  });
+  const deliveryPartner = partnerQuery.data;
 
   const orderQuery = useGetOrderQuery(orderId, {
     skip: !validId,
@@ -382,8 +389,9 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                 />
               </View>
             )}
-            {/* Mock Zomato-style Delivery Partner Block */}
-            {['ASSIGNED', 'REACHED_RESTAURANT', 'READY_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.status) && (
+
+            {/* Live Delivery Partner Block */}
+            {['ASSIGNED', 'REACHED_RESTAURANT', 'READY_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.status) && deliveryPartner && (
               <View style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -410,9 +418,9 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                   <Text style={{ fontSize: 28 }}>👨🏽‍✈️</Text>
                 </View>
                 <View style={{ flex: 1, marginLeft: tokens.spacing.md }}>
-                  <Text variant="heading3" style={{ fontWeight: '800', color: '#14532D' }}>Suresh Kumar</Text>
+                  <Text variant="heading3" style={{ fontWeight: '800', color: '#14532D' }}>{deliveryPartner.fullName}</Text>
                   <Text variant="caption" style={{ color: tokens.color.textSecondary, fontWeight: '600' }}>
-                    ★ 4.9 • KA-06-EN-4493
+                    ★ {deliveryPartner.signatureRating || '4.9'} • {deliveryPartner.vehicleNumber || 'Bike'} • {deliveryPartner.completedOrders || 0} deliveries
                   </Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -427,7 +435,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                     label="Call"
                     accessibilityLabel="Call Delivery Partner"
                     variant="primary"
-                    onPress={() => setToast({ message: 'Calling Suresh Kumar...', variant: 'info' })}
+                    onPress={() => setToast({ message: `Calling ${deliveryPartner.fullName}...`, variant: 'info' })}
                     style={{ borderRadius: tokens.radius.full, paddingHorizontal: 16, backgroundColor: '#14532D' }}
                   />
                 </View>
