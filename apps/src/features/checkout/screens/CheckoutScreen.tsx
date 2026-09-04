@@ -480,10 +480,6 @@ export function CheckoutScreen({ navigation, route }: any) {
 
           {/* Footer Proceed Action */}
           <View style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
             padding: 16,
             borderTopWidth: 1,
             borderTopColor: '#E5E7EB',
