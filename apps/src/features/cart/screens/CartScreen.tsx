@@ -238,6 +238,7 @@ export function CartScreen({ navigation, route }: Props) {
           style={{ flex: 1 }}
           data={showItems ? items : []}
           keyExtractor={(item) => item.cartItemId}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 120, flexGrow: 1 }}
           refreshControl={
             <RefreshControl
