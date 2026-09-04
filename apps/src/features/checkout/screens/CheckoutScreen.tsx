@@ -182,7 +182,7 @@ export function CheckoutScreen({ navigation, route }: any) {
   const grandTotal = Math.max(0, orderTotal - walletApplied);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right', 'bottom']}>
       <StatusBar backgroundColor="#14532D" barStyle="light-content" />
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: '#F2F2F7' }}
@@ -484,12 +484,10 @@ export function CheckoutScreen({ navigation, route }: any) {
           <View style={{
             position: 'absolute',
             bottom: 0, left: 0, right: 0,
-            padding: 16,
-            paddingBottom: 32,
+            padding: 12,
             borderTopWidth: 1,
             borderTopColor: '#E5E7EB',
             backgroundColor: '#FFFFFF',
-            paddingBottom: 24,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: -4 },
             shadowOpacity: 0.05,
@@ -502,39 +500,17 @@ export function CheckoutScreen({ navigation, route }: any) {
               onPress={() => { void onPlaceOrder(); }}
               style={({ pressed }) => ({
                 backgroundColor: pressed || (createState.isLoading || addresses.length === 0 || !addressId) ? '#114022' : '#14532D',
-                paddingVertical: 16,
+                paddingVertical: 14,
                 borderRadius: 12,
                 flexDirection: 'row',
                 justifyContent: 'center',
                 alignItems: 'center',
                 borderWidth: 1.5,
                 borderColor: '#FCD34D',
-                shadowColor: '#14532D',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.15,
-                shadowRadius: 8,
-                elevation: 4
               })}
             >
               <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 }}>
                 {createState.isLoading ? 'Processing Order...' : paymentMethod === 'COD' ? `Place COD Order (₹${formatMoney(grandTotal)}) ➔` : `Proceed to Payment (₹${formatMoney(grandTotal)}) ➔`}
-              </Text>
-            </Pressable>
-
-            <Pressable
-              accessibilityLabel="Go Back to Cart"
-              onPress={() => navigation.navigate('Cart')}
-              style={({ pressed }) => ({
-                paddingVertical: 12,
-                flexDirection: 'row',
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginTop: 8,
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <Text style={{ color: '#6B7280', fontWeight: '800', fontSize: 14 }}>
-                Back to Cart
               </Text>
             </Pressable>
           </View>
