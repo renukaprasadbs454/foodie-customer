@@ -299,7 +299,7 @@ export function CartScreen({ navigation, route }: Props) {
                 <View style={{ flexDirection: 'row', gap: 16, marginTop: 12, justifyContent: 'center' }}>
                   <Pressable onPress={() => {
                     if (restaurantId && validId && !isDarkStoreMock) {
-                      navigation.navigate('RestaurantDetail' as any, { restaurantId });
+                      navigation.navigate('RestaurantDetails' as any, { restaurantId });
                     } else {
                       navigation.navigate('Home');
                     }
@@ -516,7 +516,7 @@ export function CartScreen({ navigation, route }: Props) {
               <Pressable
                 onPress={() => {
                   if (restaurantId && validId && !isDarkStoreMock) {
-                    navigation.navigate('RestaurantDetail' as any, { restaurantId });
+                    navigation.navigate('RestaurantDetails' as any, { restaurantId });
                   } else {
                     navigation.navigate('Home');
                   }
