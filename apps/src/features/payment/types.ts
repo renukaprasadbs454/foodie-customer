@@ -3,10 +3,11 @@
  */
 
 export type PaymentInitiation = {
-  razorpayOrderId?: string | null; // optional — omit for mock/simple payment mode
+  paymentSessionId?: string | null; // optional — omit for mock/simple payment mode
+  cfOrderId?: string | null;
   amount: number | string;
   currency: string;
-  keyId: string;
+  appId: string;
   walletAmountUsed?: number | string;
   status?: string;
 };

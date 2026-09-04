@@ -389,7 +389,7 @@ export function CheckoutScreen({ navigation, route }: any) {
                         </View>
                         <View>
                           <Text style={{ fontWeight: '700', fontSize: 15, color: '#111827' }}>Online Payment</Text>
-                          <Text style={{ fontSize: 13, color: '#6B7280' }}>Cards, UPI, Netbanking (Razorpay)</Text>
+                          <Text style={{ fontSize: 13, color: '#6B7280' }}>Cards, UPI, Netbanking (Cashfree)</Text>
                         </View>
                       </View>
                     </Pressable>

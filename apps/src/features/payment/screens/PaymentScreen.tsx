@@ -18,7 +18,7 @@ import { toUnwrappedApiError } from '../../auth/apiError';
 import { parseMoney } from '../../menu/types';
 import { isOrderId } from '../../checkout/types';
 import type { BrowseStackParamList } from '../../../navigation/types';
-import { RazorpayWebView } from '../components/RazorpayWebView';
+import { CashfreeWebView } from '../components/CashfreeWebView';
 import {
   isConfirmedStatus,
   isPaymentFailedStatus,
@@ -167,20 +167,17 @@ export function PaymentScreen({ navigation, route }: Props) {
     }
   };
 
-  const handleRazorpaySuccess = async (data: {
-    razorpay_payment_id?: string;
-    razorpay_order_id?: string;
-    razorpay_signature?: string;
+  const handleCashfreeSuccess = async (data: {
+    orderId?: string;
+    cashfreeOrderId?: string;
   }) => {
     trackAnalyticsEvent('payment_checkout_success', { orderId });
     setPhase('awaiting_confirmed');
     try {
-      if (data.razorpay_order_id && data.razorpay_payment_id && data.razorpay_signature) {
+      if (data.cashfreeOrderId) {
         await verifyPayment({
           orderId,
-          razorpayOrderId: data.razorpay_order_id,
-          razorpayPaymentId: data.razorpay_payment_id,
-          razorpaySignature: data.razorpay_signature,
+          cashfreeOrderId: data.cashfreeOrderId,
         }).unwrap();
       }
       // Mark the mock order as CONFIRMED so polling immediately detects success
@@ -194,13 +191,13 @@ export function PaymentScreen({ navigation, route }: Props) {
     }
   };
 
-  const handleRazorpayCancel = () => {
+  const handleCashfreeCancel = () => {
     trackAnalyticsEvent('payment_checkout_cancelled', { orderId });
     setPhase('ready');
   };
 
-  const handleRazorpayError = (errorMsg: string) => {
-    setToast({ message: errorMsg || 'Razorpay payment was not completed.', variant: 'error' });
+  const handleCashfreeError = (errorMsg: string) => {
+    setToast({ message: errorMsg || 'Cashfree payment was not completed.', variant: 'error' });
     setPhase('ready');
   };
 
@@ -235,8 +232,8 @@ export function PaymentScreen({ navigation, route }: Props) {
             <ActivityIndicator size="large" color="#FCD34D" />
             <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '800', textAlign: 'center' }}>
               {phase === 'awaiting_confirmed'
-                ? 'Verifying Payment with Razorpay...'
-                : 'Opening Razorpay Secure Gateway...'}
+                ? 'Verifying Payment with Cashfree...'
+                : 'Opening Cashfree Secure Gateway...'}
             </Text>
             <Text style={{ color: '#A7F3D0', fontSize: 13, textAlign: 'center' }}>
               Please do not close or navigate away from this screen.
@@ -267,10 +264,10 @@ export function PaymentScreen({ navigation, route }: Props) {
               <Text style={{ fontSize: 32 }}>💳</Text>
             </View>
             <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', textAlign: 'center' }}>
-              Razorpay Payment Pending
+              Cashfree Payment Pending
             </Text>
             <Text style={{ color: '#A7F3D0', fontSize: 14, textAlign: 'center' }}>
-              Click below to launch the official Razorpay payment page.
+              Click below to launch the official Cashfree payment page.
             </Text>
 
             <Pressable
@@ -289,7 +286,7 @@ export function PaymentScreen({ navigation, route }: Props) {
               })}
             >
               <Text style={{ color: '#14532D', fontSize: 16, fontWeight: '900' }}>
-                Open Razorpay Payment Page ➔
+                Open Cashfree Payment Page ➔
               </Text>
             </Pressable>
 
@@ -305,23 +302,17 @@ export function PaymentScreen({ navigation, route }: Props) {
         )}
       </View>
 
-      {/* Official Real Razorpay Payment Web View */}
-      {phase === 'webview_checkout' && initiation && (
-        <RazorpayWebView
+      {/* Official Real Cashfree Payment Web View */}
+      {phase === 'webview_checkout' && initiation && initiation.paymentSessionId && (
+        <CashfreeWebView
           options={{
-            key: initiation.keyId,
-            amount: Math.round(parseMoney(initiation.amount) * 100),
-            currency: initiation.currency || 'INR',
-            // Only pass order_id if it is a real Razorpay Order ID (starts with order_ and not order_dev_)
-            ...(initiation.razorpayOrderId && initiation.razorpayOrderId.startsWith('order_') && !initiation.razorpayOrderId.startsWith('order_dev_')
-              ? { order_id: initiation.razorpayOrderId }
-              : {}),
-            name: 'Foodie',
-            description: 'Order payment',
+            paymentSessionId: initiation.paymentSessionId,
+            orderId: initiation.cfOrderId || orderId,
+            environment: initiation.appId?.includes('test') || initiation.appId?.includes('TEST') ? 'sandbox' : 'production'
           }}
-          onSuccess={handleRazorpaySuccess}
-          onCancel={handleRazorpayCancel}
-          onError={handleRazorpayError}
+          onSuccess={handleCashfreeSuccess}
+          onCancel={handleCashfreeCancel}
+          onError={handleCashfreeError}
         />
       )}
 

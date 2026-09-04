@@ -8,11 +8,10 @@ export type InitiatePaymentArg = {
   amount?: number;
 };
 
-// Razorpay Test Key (publishable — safe to be in frontend)
-const RAZORPAY_TEST_KEY = (process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID as string) ?? 'rzp_test_TR9mlA2zOImhpF';
+// Cashfree API configuration can be kept in backend, but frontend receives appId directly in PaymentInitiation.
 
 /**
- * Payment API — initiates backend Razorpay order or mock payment flow.
+ * Payment API — initiates backend Cashfree order or mock payment flow.
  */
 export const paymentsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -23,10 +22,11 @@ export const paymentsApi = baseApi.injectEndpoints({
         if (!arg.orderId || arg.orderId.startsWith('mock-') || arg.orderId.startsWith('ds-mock-')) {
           return {
             data: {
-              razorpayOrderId: undefined,
+              paymentSessionId: undefined,
+              cfOrderId: undefined,
               amount: targetAmount,
               currency: 'INR',
-              keyId: RAZORPAY_TEST_KEY,
+              appId: 'mock-cashfree-app-id',
               walletAmountUsed: arg.useWallet ? 50 : 0,
               status: 'PENDING',
             },
@@ -56,10 +56,9 @@ export const paymentsApi = baseApi.injectEndpoints({
             return {
               data: {
                 ...data,
-                keyId: data.keyId || RAZORPAY_TEST_KEY,
-                razorpayOrderId: data.razorpayOrderId && data.razorpayOrderId.startsWith('order_') && !data.razorpayOrderId.startsWith('order_dev_')
-                  ? data.razorpayOrderId
-                  : undefined,
+                appId: data.appId || 'mock-cashfree-app-id',
+                paymentSessionId: data.paymentSessionId,
+                cfOrderId: data.cfOrderId,
               },
             };
           }
@@ -69,10 +68,11 @@ export const paymentsApi = baseApi.injectEndpoints({
 
         return {
           data: {
-            razorpayOrderId: undefined,
+            paymentSessionId: undefined,
+            cfOrderId: undefined,
             amount: targetAmount,
             currency: 'INR',
-            keyId: RAZORPAY_TEST_KEY,
+            appId: 'mock-cashfree-app-id',
             walletAmountUsed: arg.useWallet ? 50 : 0,
             status: 'PENDING',
           },
@@ -82,7 +82,7 @@ export const paymentsApi = baseApi.injectEndpoints({
 
     verifyPayment: builder.mutation<
       boolean,
-      { orderId: string; razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }
+      { orderId: string; cashfreeOrderId: string }
     >({
       query: (body) => ({
         url: `/api/v1/payments/verify`,
