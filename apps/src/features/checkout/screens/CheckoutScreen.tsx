@@ -191,7 +191,7 @@ export function CheckoutScreen({ navigation, route }: any) {
         <Animated.View style={{ flex: 1, opacity: fadeValue, transform: [{ scale: scaleValue }] }}>
           <ScrollView
             contentContainerStyle={{
-              paddingBottom: 140,
+              paddingBottom: 240,
             }}
             refreshControl={
               <RefreshControl
