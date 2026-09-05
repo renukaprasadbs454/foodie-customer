@@ -56,55 +56,53 @@ export function TrackingMap({ location, orderStatus, restaurantLocation, custome
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
-    // Only fetch a route if we actually know where the driver is OR if it's an after pickup flow.
-    // We do NOT want to fetch a route from Restaurant -> Customer just because it's PREPARING
-    // since no delivery partner is assigned yet.
-    if (originLocation && targetLocation && restaurantLocation && customerLocation) {
-      if (originLocation === restaurantLocation && targetLocation === customerLocation && !isAfterPickup) {
-        // Stop fake route drawing!
-        return;
-      }
-      if (originLocation === targetLocation) {
-        return;
-      }
+    if (restaurantLocation && customerLocation) {
+      const startPt = originLocation || restaurantLocation;
+      const endPt = targetLocation || customerLocation;
+
       setLoadingRoute(true);
       const fetchRoute = async () => {
         try {
-          // Calculate direct route for map polyline
-          const res = await fetch(`https://router.project-osrm.org/route/v1/bike/${originLocation?.longitude},${originLocation?.latitude};${targetLocation?.longitude},${targetLocation?.latitude}?overview=full&geometries=geojson`);
+          // Fetch real route from OSRM router
+          const res = await fetch(`https://router.project-osrm.org/route/v1/bike/${startPt.longitude},${startPt.latitude};${endPt.longitude},${endPt.latitude}?overview=full&geometries=geojson`);
           const data = await res.json();
-          let currentRouteEta = 0;
+          let currentRouteEta = 25;
           if (data && data.routes && data.routes.length > 0) {
             const coords = data.routes[0].geometry.coordinates.map((coord: number[]) => ({
               latitude: coord[1],
               longitude: coord[0],
             }));
             setRouteCoords(coords);
-            currentRouteEta = Math.ceil(data.routes[0].duration / 60);
-
-            if (mapRef.current) {
-              mapRef.current.fitToCoordinates([originLocation, targetLocation, restaurantLocation], {
-                edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-                animated: true,
-              });
-            }
+            currentRouteEta = Math.max(15, Math.ceil(data.routes[0].duration / 60));
+          } else {
+            // Straight line polyline fallback
+            setRouteCoords([
+              startPt,
+              {
+                latitude: (startPt.latitude + endPt.latitude) / 2 + 0.002,
+                longitude: (startPt.longitude + endPt.longitude) / 2 + 0.002,
+              },
+              endPt,
+            ]);
           }
 
-          // Calculate full ETA sum if driver is heading to resto
-          if (isDriverToResto && onEtaUpdate) {
-            const res2 = await fetch(`https://router.project-osrm.org/route/v1/bike/${restaurantLocation.longitude},${restaurantLocation.latitude};${customerLocation.longitude},${customerLocation.latitude}?overview=false`);
-            const data2 = await res2.json();
-            let secondLegEta = 0;
-            if (data2 && data2.routes && data2.routes.length > 0) {
-              secondLegEta = Math.ceil(data2.routes[0].duration / 60);
-            }
-            onEtaUpdate(currentRouteEta + secondLegEta + 5); // total eta + 5 min buffer
-          } else if (onEtaUpdate) {
+          if (mapRef.current) {
+            mapRef.current.fitToCoordinates(
+              [startPt, endPt, restaurantLocation, customerLocation],
+              {
+                edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
+                animated: true,
+              }
+            );
+          }
+
+          if (onEtaUpdate) {
             onEtaUpdate(currentRouteEta);
           }
-
         } catch (e) {
           console.warn("Could not fetch route", e);
+          setRouteCoords([startPt, endPt]);
+          if (onEtaUpdate) onEtaUpdate(25);
         } finally {
           setLoadingRoute(false);
         }
@@ -113,11 +111,11 @@ export function TrackingMap({ location, orderStatus, restaurantLocation, custome
       void fetchRoute();
       const intervalId = setInterval(() => {
         void fetchRoute();
-      }, 10000);
+      }, 12000);
 
       return () => clearInterval(intervalId);
     }
-  }, [originLocation?.latitude, originLocation?.longitude, targetLocation?.latitude, targetLocation?.longitude]);
+  }, [originLocation?.latitude, originLocation?.longitude, targetLocation?.latitude, targetLocation?.longitude, restaurantLocation?.latitude, customerLocation?.latitude]);
 
   return (
     <View style={styles.container}>

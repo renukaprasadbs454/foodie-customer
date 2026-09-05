@@ -47,15 +47,19 @@ config.server = {
   enhanceMiddleware: (middleware) => {
     return (req, res, next) => {
       if (req.url && req.url.startsWith('/api/')) {
-        const targetUrl = 'https://api.foodie.kwiko.org' + req.url;
+        const targetHost = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8082';
+        const targetUrl = targetHost + req.url;
+        const isHttps = targetHost.startsWith('https');
+        const httpLib = isHttps ? require('https') : require('http');
+        const hostHeader = targetHost.replace(/^https?:\/\//, '');
         const options = {
           method: req.method,
           headers: {
             ...req.headers,
-            host: 'api.foodie.kwiko.org',
+            host: hostHeader,
           },
         };
-        const proxyReq = https.request(targetUrl, options, (proxyRes) => {
+        const proxyReq = httpLib.request(targetUrl, options, (proxyRes) => {
           res.writeHead(proxyRes.statusCode || 200, {
             ...proxyRes.headers,
             'access-control-allow-origin': '*',
@@ -65,7 +69,11 @@ config.server = {
           proxyRes.pipe(res, { end: true });
         });
         proxyReq.on('error', (err) => {
-          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.writeHead(502, {
+            'Content-Type': 'application/json',
+            'access-control-allow-origin': '*',
+            'access-control-allow-headers': '*',
+          });
           res.end(JSON.stringify({ success: false, error: { code: 'BAD_GATEWAY', message: err.message } }));
         });
         req.pipe(proxyReq, { end: true });

@@ -36,8 +36,8 @@ type Phase =
 
 export function PaymentScreen({ navigation, route }: Props) {
   const { orderId, useWallet, mockTotal } = route.params as { orderId: string; useWallet?: boolean; mockTotal?: number };
-  const isDarkStoreMock = orderId.startsWith('ds-mock-') || orderId.startsWith('mock-');
-  const validId = isDarkStoreMock ? true : isOrderId(orderId);
+  const isDarkStoreMock = orderId.startsWith('ds-mock-');
+  const validId = isDarkStoreMock ? true : (isOrderId(orderId) || orderId.startsWith('mock-'));
 
   const [phase, setPhase] = useState<Phase>('initiating');
   const [initiation, setInitiation] = useState<PaymentInitiation | null>(null);
@@ -143,25 +143,9 @@ export function PaymentScreen({ navigation, route }: Props) {
       }
 
       setInitiation(initiationData);
-
-      if (Platform.OS === 'web') {
-        trackAnalyticsEvent('payment_checkout_success', { orderId, method: 'web_checkout' });
-        setPhase('awaiting_confirmed');
-        updateMockOrderStatus(orderId, 'CONFIRMED');
-        void orderQuery.refetch();
-        return;
-      }
-
       setPhase('webview_checkout');
     } catch (err) {
       const unwrapped = toUnwrappedApiError(err);
-      if (unwrapped?.status === 404 || unwrapped?.message?.includes('not found') || unwrapped?.message?.includes('Order not found')) {
-        trackAnalyticsEvent('payment_checkout_success', { orderId, method: 'mock_fallback' });
-        setPhase('awaiting_confirmed');
-        updateMockOrderStatus(orderId, 'CONFIRMED');
-        void orderQuery.refetch();
-        return;
-      }
       setPhase('ready');
       handleError(unwrapped);
     }
@@ -308,7 +292,7 @@ export function PaymentScreen({ navigation, route }: Props) {
           options={{
             paymentSessionId: initiation.paymentSessionId,
             orderId: initiation.cfOrderId || orderId,
-            environment: initiation.appId?.includes('test') || initiation.appId?.includes('TEST') ? 'sandbox' : 'production'
+            environment: 'sandbox'
           }}
           onSuccess={handleCashfreeSuccess}
           onCancel={handleCashfreeCancel}

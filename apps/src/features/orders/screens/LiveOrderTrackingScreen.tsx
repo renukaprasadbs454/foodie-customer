@@ -172,14 +172,10 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
 
     switch (currentStatus) {
       case 'PLACED':
-        title = 'Order Placed';
-        subtitle = 'Your order has been received! Waiting for restaurant approval.';
-        icon = '📝';
-        break;
       case 'CONFIRMED':
-        title = 'Order Confirmed';
-        subtitle = 'Order confirmed. Restaurant is reviewing your order.';
-        icon = '✅';
+        title = 'Order Placed';
+        subtitle = 'Your order has been placed successfully! Waiting for restaurant approval.';
+        icon = '📝';
         break;
       case 'ACCEPTED':
         title = 'Restaurant Accepted Your Order';

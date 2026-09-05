@@ -116,8 +116,11 @@ export function OrderListItem({ order, onPress, onReorder, onRate }: Props) {
           <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>
             Reference #{order.orderNumber}
           </Text>
-          <Text style={{ fontSize: 13, color: '#6B7280', fontWeight: '600' }}>
-            Tap to track order progress
+          <Text style={{ fontSize: 12, color: '#14532D', fontWeight: '700', marginTop: 2 }}>
+            📅 {order.placedAt ? new Date(order.placedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : 'Recent Order'}
+          </Text>
+          <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>
+            Tap to view live order tracking
           </Text>
         </View>
         <View style={{ backgroundColor: labelBg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 }}>

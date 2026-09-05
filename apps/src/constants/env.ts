@@ -13,13 +13,17 @@ type Extra = {
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
 
-let apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? extra.apiBaseUrl ?? 'https://api.foodie.kwiko.org';
+let hostIp = '10.33.98.173';
+if (Constants.expoConfig?.hostUri) {
+  hostIp = Constants.expoConfig.hostUri.split(':')[0];
+}
 
-// Removed localhost web override to ensure direct connection to the online backend
+let apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? extra.apiBaseUrl ?? 'https://api.foodie.kwiko.org';
+let wsUrl = process.env.EXPO_PUBLIC_WS_URL ?? extra.wsUrl ?? 'wss://api.foodie.kwiko.org/ws';
 
 export const ENV = {
   apiBaseUrl,
-  wsUrl: process.env.EXPO_PUBLIC_WS_URL ?? extra.wsUrl ?? 'wss://api.foodie.kwiko.org/ws',
+  wsUrl,
   googleWebClientId:
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ??
     extra.googleWebClientId ??

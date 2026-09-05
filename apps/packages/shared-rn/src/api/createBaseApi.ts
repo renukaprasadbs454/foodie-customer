@@ -101,6 +101,10 @@ export function createBaseApi<TagTypes extends string = string>(
       if (token) {
         headers.set('Authorization', `Bearer ${String(token)}`);
       }
+
+      // Defensively bypass Localtunnel HTML warnings for external public endpoints
+      headers.set('Bypass-Tunnel-Reminder', 'true');
+      headers.set('User-Agent', 'FoodieApp/1.0');
       headers.set('Accept', 'application/json');
       return headers;
     },
