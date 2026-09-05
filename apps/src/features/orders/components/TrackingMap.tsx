@@ -21,35 +21,12 @@ const DEFAULT_REGION = {
 export function TrackingMap({ location, orderStatus, restaurantLocation, customerLocation, onEtaUpdate }: Props) {
   const { tokens } = useTheme();
 
-  const isDriverToResto = orderStatus === 'ASSIGNED' || orderStatus === 'READY_FOR_PICKUP';
-  const isAfterPickup = orderStatus === 'OUT_FOR_DELIVERY' || orderStatus === 'DELIVERED' || orderStatus === 'PICKED_UP';
+  const isPickedUp = orderStatus === 'PICKED_UP' || orderStatus === 'OUT_FOR_DELIVERY' || orderStatus === 'DELIVERED';
+  const driverLiveLocation = location ? { latitude: location.lat, longitude: location.lng } : null;
 
-  let targetLocation = isDriverToResto ? restaurantLocation : customerLocation;
-  let originLocation = location ? { latitude: location.lat, longitude: location.lng } : null;
-
-  // Mock driver location
-  if (!originLocation && isDriverToResto && restaurantLocation) {
-    originLocation = {
-      latitude: restaurantLocation.latitude + 0.015,
-      longitude: restaurantLocation.longitude + 0.015
-    };
-  } else if (!originLocation && isAfterPickup && restaurantLocation && customerLocation) {
-    if (orderStatus === 'OUT_FOR_DELIVERY') {
-      originLocation = customerLocation;
-    } else {
-      originLocation = {
-        latitude: restaurantLocation.latitude + (customerLocation.latitude - restaurantLocation.latitude) * 0.5,
-        longitude: restaurantLocation.longitude + (customerLocation.longitude - restaurantLocation.longitude) * 0.5
-      };
-    }
-  }
-
-  // Fallback map view if still no origin
-  let fallbackMode = false;
-  if (!originLocation && restaurantLocation && customerLocation) {
-    originLocation = restaurantLocation;
-    fallbackMode = true;
-  }
+  // Origin & Destination points
+  const startPt = (isPickedUp && driverLiveLocation) ? driverLiveLocation : (restaurantLocation || DEFAULT_REGION);
+  const endPt = customerLocation || DEFAULT_REGION;
 
   const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
   const [loadingRoute, setLoadingRoute] = useState(false);
@@ -57,14 +34,13 @@ export function TrackingMap({ location, orderStatus, restaurantLocation, custome
 
   useEffect(() => {
     if (restaurantLocation && customerLocation) {
-      const startPt = originLocation || restaurantLocation;
-      const endPt = targetLocation || customerLocation;
-
       setLoadingRoute(true);
       const fetchRoute = async () => {
         try {
-          // Fetch real route from OSRM router
-          const res = await fetch(`https://router.project-osrm.org/route/v1/bike/${startPt.longitude},${startPt.latitude};${endPt.longitude},${endPt.latitude}?overview=full&geometries=geojson`);
+          // Fetch route from startPt to endPt (Customer Added Address)
+          const res = await fetch(
+            `https://router.project-osrm.org/route/v1/bike/${startPt.longitude},${startPt.latitude};${endPt.longitude},${endPt.latitude}?overview=full&geometries=geojson`
+          );
           const data = await res.json();
           let currentRouteEta = 25;
           if (data && data.routes && data.routes.length > 0) {
@@ -75,25 +51,27 @@ export function TrackingMap({ location, orderStatus, restaurantLocation, custome
             setRouteCoords(coords);
             currentRouteEta = Math.max(15, Math.ceil(data.routes[0].duration / 60));
           } else {
-            // Straight line polyline fallback
+            // Straight line polyline fallback between restaurant and customer address
             setRouteCoords([
               startPt,
               {
-                latitude: (startPt.latitude + endPt.latitude) / 2 + 0.002,
-                longitude: (startPt.longitude + endPt.longitude) / 2 + 0.002,
+                latitude: (startPt.latitude + endPt.latitude) / 2 + 0.001,
+                longitude: (startPt.longitude + endPt.longitude) / 2 + 0.001,
               },
               endPt,
             ]);
           }
 
           if (mapRef.current) {
-            mapRef.current.fitToCoordinates(
-              [startPt, endPt, restaurantLocation, customerLocation],
-              {
-                edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
-                animated: true,
-              }
-            );
+            const fitPoints = [startPt, endPt];
+            if (restaurantLocation) fitPoints.push(restaurantLocation);
+            if (customerLocation) fitPoints.push(customerLocation);
+            if (driverLiveLocation) fitPoints.push(driverLiveLocation);
+
+            mapRef.current.fitToCoordinates(fitPoints, {
+              edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
+              animated: true,
+            });
           }
 
           if (onEtaUpdate) {
@@ -115,7 +93,7 @@ export function TrackingMap({ location, orderStatus, restaurantLocation, custome
 
       return () => clearInterval(intervalId);
     }
-  }, [originLocation?.latitude, originLocation?.longitude, targetLocation?.latitude, targetLocation?.longitude, restaurantLocation?.latitude, customerLocation?.latitude]);
+  }, [startPt.latitude, startPt.longitude, endPt.latitude, endPt.longitude, restaurantLocation?.latitude, customerLocation?.latitude]);
 
   return (
     <View style={styles.container}>
@@ -129,40 +107,43 @@ export function TrackingMap({ location, orderStatus, restaurantLocation, custome
       }]}>
         <MapView
           ref={mapRef}
-          provider="google"
           style={styles.map}
-          initialRegion={originLocation ? {
-            latitude: originLocation.latitude,
-            longitude: originLocation.longitude,
+          initialRegion={{
+            latitude: startPt.latitude,
+            longitude: startPt.longitude,
             latitudeDelta: 0.05,
             longitudeDelta: 0.05,
-          } : DEFAULT_REGION}
+          }}
           showsUserLocation={true}
         >
-          {originLocation && (
-            <Marker coordinate={originLocation} title={fallbackMode ? "Restaurant" : "Delivery Partner"} zIndex={10}>
-              <View style={[styles.markerBody, { backgroundColor: '#14532D' }]}>
-                <Text style={{ fontSize: 18 }}>{fallbackMode ? "🏪" : "🛵"}</Text>
-              </View>
-            </Marker>
-          )}
-
-          {targetLocation && !isDriverToResto && (
-            <Marker coordinate={customerLocation!} title="Home" zIndex={5}>
-              <View style={[styles.markerBody, { backgroundColor: '#2563EB' }]}>
-                <Text style={{ fontSize: 16 }}>🏠</Text>
-              </View>
-            </Marker>
-          )}
-
+          {/* Restaurant Marker */}
           {restaurantLocation && (
             <Marker coordinate={restaurantLocation} title="Restaurant" zIndex={6}>
               <View style={[styles.markerBody, { backgroundColor: '#B91C1C' }]}>
-                <Text style={{ fontSize: 16 }}>🏪</Text>
+                <Text style={{ fontSize: 18 }}>🏪</Text>
               </View>
             </Marker>
           )}
 
+          {/* Customer Address Marker */}
+          {customerLocation && (
+            <Marker coordinate={customerLocation} title="Customer Delivery Address" zIndex={5}>
+              <View style={[styles.markerBody, { backgroundColor: '#2563EB' }]}>
+                <Text style={{ fontSize: 18 }}>🏠</Text>
+              </View>
+            </Marker>
+          )}
+
+          {/* Delivery Partner Live Marker (when active) */}
+          {driverLiveLocation && (
+            <Marker coordinate={driverLiveLocation} title="Delivery Partner" zIndex={10}>
+              <View style={[styles.markerBody, { backgroundColor: '#14532D' }]}>
+                <Text style={{ fontSize: 20 }}>🛵</Text>
+              </View>
+            </Marker>
+          )}
+
+          {/* Polyline Route Line */}
           {routeCoords.length > 0 && (
             <Polyline
               coordinates={routeCoords}
