@@ -130,7 +130,9 @@ export function AddressesScreen({ navigation, route }: Props) {
   const openAddForm = () => {
     resetForm();
     setFormVisible(true);
-    void fetchExactLocation();
+    setTimeout(() => {
+      void fetchExactLocation();
+    }, 300);
   };
 
   const onAdd = async () => {
@@ -309,19 +311,22 @@ export function AddressesScreen({ navigation, route }: Props) {
         >
           <ScrollView style={{ maxHeight: 600 }}>
             <View style={{ gap: tokens.spacing.md }}>
-              <View style={{ height: 180, borderRadius: 12, overflow: 'hidden', borderColor: '#F59E0B', borderWidth: 1 }}>
+              <View style={{ height: 160, borderRadius: 12, overflow: 'hidden', borderColor: '#F59E0B', borderWidth: 1, backgroundColor: '#E5E7EB' }}>
                 <MapView
                   ref={mapRef}
-                  provider="google"
                   style={{ flex: 1 }}
                   region={mapRegion}
                   onRegionChangeComplete={(r) => {
-                    setMapRegion(r);
-                    setLatitude(r.latitude.toString());
-                    setLongitude(r.longitude.toString());
+                    if (r && r.latitude && r.longitude) {
+                      setMapRegion(r);
+                      setLatitude(r.latitude.toString());
+                      setLongitude(r.longitude.toString());
+                    }
                   }}
                 >
-                  <Marker coordinate={{ latitude: mapRegion.latitude, longitude: mapRegion.longitude }} pinColor="#14532D" />
+                  {mapRegion?.latitude && mapRegion?.longitude ? (
+                    <Marker coordinate={{ latitude: mapRegion.latitude, longitude: mapRegion.longitude }} pinColor="#14532D" />
+                  ) : null}
                 </MapView>
                 {fetchingLocation && (
                   <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
