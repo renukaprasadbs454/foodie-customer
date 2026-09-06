@@ -20,6 +20,7 @@ import {
   useAddAddressMutation,
   useGetAddressesQuery,
   useRemoveAddressMutation,
+  useUpdateAddressMutation,
 } from '../../../api/endpoints/addressesApi';
 import { toUnwrappedApiError } from '../../auth/apiError';
 import type {
@@ -46,8 +47,10 @@ export function AddressesScreen({ navigation, route }: Props) {
   const addressesQuery = useGetAddressesQuery();
   const [addAddress, addState] = useAddAddressMutation();
   const [removeAddress, removeState] = useRemoveAddressMutation();
+  const [updateAddress, updateState] = useUpdateAddressMutation();
 
   const [formVisible, setFormVisible] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [line1, setLine1] = useState('');
@@ -128,6 +131,7 @@ export function AddressesScreen({ navigation, route }: Props) {
   };
 
   const openAddForm = () => {
+    setEditingId(null);
     resetForm();
     setFormVisible(true);
     setTimeout(() => {
@@ -135,7 +139,27 @@ export function AddressesScreen({ navigation, route }: Props) {
     }, 300);
   };
 
-  const onAdd = async () => {
+  const openEditForm = (address: any) => {
+    setEditingId(address.addressId);
+    setLabel(address.label || 'Home');
+    setLine1(address.line1 || '');
+    setLine2(address.line2 || '');
+    setCity(address.city || '');
+    setPincode(address.pincode || '');
+    setLatitude(address.latitude?.toString() || '');
+    setLongitude(address.longitude?.toString() || '');
+    setIsDefault(!!address.isDefault);
+    if (address.latitude && address.longitude) {
+      setMapRegion(prev => ({
+        ...prev,
+        latitude: Number(address.latitude),
+        longitude: Number(address.longitude),
+      }));
+    }
+    setFormVisible(true);
+  };
+
+  const onSave = async () => {
     const validated = validateAddressForm({
       label,
       line1,
@@ -158,13 +182,19 @@ export function AddressesScreen({ navigation, route }: Props) {
       return;
     }
     try {
-      const created = await addAddress(validated.value).unwrap();
-      trackAnalyticsEvent('address_added', { addressId: created.addressId });
-      trackAnalyticsEvent('address_created', { addressId: created.addressId });
+      if (editingId) {
+        await updateAddress({ addressId: editingId, address: validated.value }).unwrap();
+        trackAnalyticsEvent('address_updated', { addressId: editingId });
+        setToast({ message: 'Address updated.', variant: 'success' });
+      } else {
+        const created = await addAddress(validated.value).unwrap();
+        trackAnalyticsEvent('address_added', { addressId: created.addressId });
+        setToast({ message: 'Address added.', variant: 'success' });
+      }
       setFormVisible(false);
       resetForm();
-      setToast({ message: 'Address added.', variant: 'success' });
-      if (selectMode) {
+      setEditingId(null);
+      if (selectMode && !editingId) {
         navigation.goBack();
       }
     } catch (error) {
@@ -288,6 +318,7 @@ export function AddressesScreen({ navigation, route }: Props) {
                 onRemove={() => {
                   void onRemove(address.addressId);
                 }}
+                onEdit={() => openEditForm(address)}
                 onSelect={
                   selectMode
                     ? () => {
@@ -306,8 +337,8 @@ export function AddressesScreen({ navigation, route }: Props) {
         <Modal
           visible={formVisible}
           onRequestClose={() => setFormVisible(false)}
-          title="Add Delivery Address"
-          accessibilityLabel="Add address dialog"
+          title={editingId ? "Edit Delivery Address" : "Add Delivery Address"}
+          accessibilityLabel="Delivery address dialog"
         >
           <ScrollView style={{ maxHeight: 600 }}>
             <View style={{ gap: tokens.spacing.md }}>
@@ -392,11 +423,11 @@ export function AddressesScreen({ navigation, route }: Props) {
               </View>
 
               <Button
-                label="Save Address and Proceed"
+                label={editingId ? "Save Changes" : "Save Address and Proceed"}
                 accessibilityLabel="Save address"
-                loading={addState.isLoading}
+                loading={addState.isLoading || updateState.isLoading}
                 onPress={() => {
-                  void onAdd();
+                  void onSave();
                 }}
               />
             </View>

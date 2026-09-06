@@ -69,9 +69,12 @@ export function MenuScreen({ navigation, route }: Props) {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') throw new Error('No permission');
 
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
+        let location = await Location.getLastKnownPositionAsync();
+        if (!location) {
+          location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+        }
 
         const dist = getDistanceKm(
           location.coords.latitude,

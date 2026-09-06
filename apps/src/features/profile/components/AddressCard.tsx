@@ -9,6 +9,7 @@ type Props = {
   onSelect?: () => void;
   selectMode?: boolean;
   removing?: boolean;
+  onEdit?: () => void;
 };
 
 export function AddressCard({
@@ -17,6 +18,7 @@ export function AddressCard({
   onSelect,
   selectMode,
   removing,
+  onEdit,
 }: Props) {
   const { tokens } = useTheme();
 
@@ -68,6 +70,25 @@ export function AddressCard({
           >
             <Text variant="caption" style={{ color: '#FFFFFF', fontWeight: '700' }}>
               Select Address
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {onEdit ? (
+          <Pressable
+            disabled={removing}
+            onPress={onEdit}
+            style={({ pressed }) => ({
+              backgroundColor: pressed ? '#F3F4F6' : 'transparent',
+              borderRadius: tokens.radius.md,
+              borderWidth: 1,
+              borderColor: '#D1D5DB',
+              paddingHorizontal: tokens.spacing.md,
+              paddingVertical: 8,
+            })}
+          >
+            <Text variant="caption" style={{ color: '#4B5563', fontWeight: '600' }}>
+              Edit
             </Text>
           </Pressable>
         ) : null}

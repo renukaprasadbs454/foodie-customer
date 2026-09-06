@@ -107,7 +107,7 @@ export function LoginScreen({ navigation }: Props) {
     }
   };
 
-  const busy = requestState.isLoading || googleState.isLoading;
+  const busy = requestState.isLoading;
 
   return (
     <KeyboardAvoidingView
@@ -269,34 +269,6 @@ export function LoginScreen({ navigation }: Props) {
                 </Text>
               </Pressable>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 8 }}>
-                <View style={{ flex: 1, height: 1, backgroundColor: '#E5E7EB' }} />
-                <Text style={{ color: '#9CA3AF', fontWeight: '800', fontSize: 12, marginHorizontal: 16 }}>
-                  SECURE ALTERNATIVE
-                </Text>
-                <View style={{ flex: 1, height: 1, backgroundColor: '#E5E7EB' }} />
-              </View>
-
-              <Pressable
-                disabled={busy}
-                onPress={() => { void onGoogle(); }}
-                style={({ pressed }) => ({
-                  borderRadius: 14,
-                  height: 56,
-                  backgroundColor: pressed ? '#F9FAFB' : '#FFFFFF',
-                  borderColor: '#E5E7EB',
-                  borderWidth: 1.5,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  flexDirection: 'row',
-                  gap: 10,
-                })}
-              >
-                <Text style={{ fontSize: 18 }}>🔑</Text>
-                <Text style={{ color: '#374151', fontWeight: '800', fontSize: 15 }}>
-                  {googleState.isLoading ? 'Connecting...' : 'Continue with Google'}
-                </Text>
-              </Pressable>
             </View>
           </View>
         </Animated.View>

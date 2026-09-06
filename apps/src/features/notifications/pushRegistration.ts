@@ -115,7 +115,7 @@ export async function requestLocalPushRegistration(
   userId: string,
 ): Promise<LocalPushRegistration> {
   // Push device APIs are native-oriented; skip on web (GAP-API-01 / Expo Web limitation).
-  if (isWebRuntime() || isExpoGo()) {
+  if (isWebRuntime()) {
     const current = await loadLocalPushRegistration();
     const next: LocalPushRegistration = {
       ...current,
@@ -145,7 +145,7 @@ export async function requestLocalPushRegistration(
 export async function ensureLocalPushRegistration(
   userId: string,
 ): Promise<LocalPushRegistration> {
-  if (isWebRuntime() || isExpoGo()) {
+  if (isWebRuntime()) {
     return requestLocalPushRegistration(userId);
   }
 

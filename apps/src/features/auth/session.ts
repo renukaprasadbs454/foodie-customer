@@ -8,6 +8,7 @@ import type { AuthTokenData } from '../../api/endpoints/authApi';
 import { authApi } from '../../api/endpoints/authApi';
 import { clearCredentials, setCredentials } from './authSlice';
 import type { AppDispatch, RootState } from '../../store/store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /** Apply contracted token data to SecureStore + authSlice (P2-AUTH-01). */
 export async function applyAuthSession(
@@ -15,6 +16,7 @@ export async function applyAuthSession(
   data: AuthTokenData,
 ): Promise<void> {
   await saveRefreshToken(data.refreshToken);
+  await AsyncStorage.setItem('foodie.isNewUser', data.isNewUser ? 'true' : 'false');
   dispatch(
     setCredentials({
       accessToken: data.accessToken,
@@ -45,6 +47,7 @@ export async function logoutCustomer(
     }
   }
   await clearRefreshToken();
+  await AsyncStorage.removeItem('foodie.isNewUser');
   dispatch(clearCredentials());
   dispatch(baseApi.util.resetApiState());
 }

@@ -9,7 +9,10 @@
     "scheme": "foodie",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.foodie.customer"
+      "bundleIdentifier": "com.foodie.customer",
+      "config": {
+        "googleMapsApiKey": "AIzaSyBef3prJr9YvHFDYczEJ-mzZfSlLd2vHbE"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,6 +22,11 @@
         "monochromeImage": "./src/assets/android-icon-monochrome.png"
       },
       "package": "com.foodie.customer",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBef3prJr9YvHFDYczEJ-mzZfSlLd2vHbE"
+        }
+      },
       "intentFilters": [
         {
           "action": "VIEW",

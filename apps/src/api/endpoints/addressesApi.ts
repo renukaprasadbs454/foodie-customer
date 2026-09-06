@@ -46,6 +46,18 @@ export const addressesApi = baseApi.injectEndpoints({
         { type: 'Address', id: 'LIST' },
       ],
     }),
+    updateAddress: builder.mutation<CustomerAddress, { addressId: string, address: AddAddressRequest }>({
+      query: ({ addressId, address }) => ({
+        url: `/api/v1/users/me/addresses/${addressId}`,
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: address,
+      }),
+      invalidatesTags: (_result, _error, { addressId }) => [
+        { type: 'Address', id: addressId },
+        { type: 'Address', id: 'LIST' },
+      ],
+    }),
   }),
 });
 
@@ -53,4 +65,5 @@ export const {
   useGetAddressesQuery,
   useAddAddressMutation,
   useRemoveAddressMutation,
+  useUpdateAddressMutation,
 } = addressesApi;

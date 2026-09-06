@@ -21,6 +21,8 @@ import { useUpdateMyProfileMutation } from '../../../api/endpoints/usersApi';
 import { useAppDispatch } from '../../../store/hooks';
 import { clearIsNewUser } from '../authSlice';
 import { toUnwrappedApiError } from '../apiError';
+import { logoutCustomer } from '../session';
+import { useStore } from 'react-redux';
 import {
   validateEmail,
   validateFullName,
@@ -40,6 +42,7 @@ export function ProfileCompletionGateScreen() {
     message: string;
     variant: 'info' | 'success' | 'error' | 'warning';
   } | null>(null);
+  const store = useStore();
 
   const handleError = useApiErrorHandler({
     onToast: (error) => setToast({ message: error.message, variant: 'error' }),
@@ -160,6 +163,18 @@ export function ProfileCompletionGateScreen() {
           >
             <Text style={styles.goldButtonText}>
               {updateState.isLoading ? 'SAVING PROFILE...' : 'SAVE & CONTINUE 🚀'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={() => {
+              void logoutCustomer(dispatch, store.getState as any);
+            }}
+            style={[styles.goldButton, { backgroundColor: '#F3F4F6', shadowColor: 'transparent', elevation: 0, borderWidth: 1, borderColor: '#E5E7EB' }]}
+          >
+            <Text style={[styles.goldButtonText, { color: '#4B5563' }]}>
+              Back to Login
             </Text>
           </TouchableOpacity>
         </View>

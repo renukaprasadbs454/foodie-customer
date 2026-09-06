@@ -17,10 +17,12 @@ import {
   setCredentials,
 } from '../../features/auth/authSlice';
 import type { AppDispatch } from '../../store/store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /** TD-011: clear SecureStore + Redux + RTK on forced session end. */
 async function terminateSession(dispatch: AppDispatch): Promise<void> {
   await clearRefreshToken();
+  await AsyncStorage.removeItem('foodie.isNewUser');
   dispatch(clearCredentials());
   dispatch(baseApi.util.resetApiState());
 }
@@ -53,6 +55,9 @@ export async function runBootstrap(dispatch: AppDispatch): Promise<void> {
       return;
     }
 
+    const isNewUserStr = await AsyncStorage.getItem('foodie.isNewUser');
+    const locallySavedIsNewUser = isNewUserStr === 'true';
+
     const pair = await performTokenRefresh({
       baseUrl: ENV.apiBaseUrl,
       refreshToken,
@@ -65,7 +70,7 @@ export async function runBootstrap(dispatch: AppDispatch): Promise<void> {
               refreshToken: String(tokens.refreshToken),
               userType: (raw?.userType as 'CUSTOMER') ?? 'CUSTOMER',
               userId: raw?.userId ?? '',
-              isNewUser: raw?.isNewUser,
+              isNewUser: raw?.isNewUser ?? locallySavedIsNewUser,
             }),
           );
         },

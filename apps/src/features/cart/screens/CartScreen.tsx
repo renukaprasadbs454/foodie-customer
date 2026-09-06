@@ -142,7 +142,10 @@ export function CartScreen({ navigation, route }: Props) {
           setDistanceInfo('Location needed');
           return;
         }
-        const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        let location = await Location.getLastKnownPositionAsync();
+        if (!location) {
+          location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        }
         const fakeDistanceKm = ((restaurantId.length % 10) / 2 + 1.2);
 
         let distanceVal = fakeDistanceKm;
