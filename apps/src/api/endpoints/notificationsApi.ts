@@ -15,6 +15,13 @@ function normalizeNotificationList(data: unknown): InboxNotification[] {
   ) {
     return (data as { content: InboxNotification[] }).content;
   }
+  if (
+    data &&
+    typeof data === 'object' &&
+    Array.isArray((data as { data?: unknown }).data)
+  ) {
+    return (data as { data: InboxNotification[] }).data;
+  }
   return [];
 }
 
