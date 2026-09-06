@@ -131,39 +131,41 @@ export function CartScreen({ navigation, route }: Props) {
     });
   }
 
-  const [userCity, setUserCity] = useState<string>('Bengaluru');
+  const defaultAddress = addresses?.find(a => a.isDefault) || addresses?.[0];
+
   const [distanceInfo, setDistanceInfo] = useState<string>('Estimating status...');
+  const [userCity, setUserCity] = useState<string>('Bengaluru');
+
   useEffect(() => {
     (async () => {
-      if (!restaurantId) return;
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setDistanceInfo('Location needed');
-          return;
-        }
-        let location = await Location.getLastKnownPositionAsync();
-        if (!location) {
-          location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        }
-        const fakeDistanceKm = ((restaurantId.length % 10) / 2 + 1.2);
-
-        let distanceVal = fakeDistanceKm;
-
-        // Attempt real distance but fallback silently if we don't have restaurant lat/lng in Context.
-        // Wait, we removed realRestaurant fetch! We can't know the restaurant location without fetching it!
+      const { globalLocation } = await import('../../../core/GlobalLocation');
+      if (globalLocation.address) {
+        setUserCity(globalLocation.address);
         setDistanceInfo(`Delivery in 25-30 mins`);
-
-        const reverseGeocode = await Location.reverseGeocodeAsync({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude
-        });
-        if (reverseGeocode.length > 0) {
-          const cityVal = reverseGeocode[0].city || reverseGeocode[0].subregion || reverseGeocode[0].district || 'Bengaluru';
-          setUserCity(cityVal);
+      } else {
+        if (!restaurantId) return;
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+            setDistanceInfo('Location needed');
+            return;
+          }
+          let location = await Location.getLastKnownPositionAsync();
+          if (!location) {
+            location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          }
+          setDistanceInfo(`Delivery in 25-30 mins`);
+          const reverseGeocode = await Location.reverseGeocodeAsync({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude
+          });
+          if (reverseGeocode.length > 0) {
+            const cityVal = reverseGeocode[0].city || reverseGeocode[0].subregion || reverseGeocode[0].district || 'Bengaluru';
+            setUserCity(cityVal);
+          }
+        } catch (err) {
+          setDistanceInfo('Delivery in 25-30 mins');
         }
-      } catch (err) {
-        setDistanceInfo('Delivery in 25-30 mins');
       }
     })();
   }, [restaurantId]);
@@ -377,13 +379,13 @@ export function CartScreen({ navigation, route }: Props) {
                     <Text style={{ fontSize: 16 }}>📍</Text>
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: '#111827', fontWeight: '800', fontSize: 14 }}>
-                        {addresses?.[0] ? `Delivery at ${addresses[0].label || 'Home'}` : 'Delivery Address'}
+                        {defaultAddress ? `Delivery at ${defaultAddress.label || 'Home'}` : 'Delivery Address'}
                       </Text>
                       <Text style={{ color: '#4B5563', fontWeight: '600', fontSize: 13, marginTop: 4 }}>
-                        {addresses?.[0]?.line1 || 'No address saved yet. Tap here to add one.'}
+                        {defaultAddress?.line1 || 'No address saved yet. Tap here to add one.'}
                       </Text>
                       <Text style={{ color: '#14532D', fontWeight: '800', fontSize: 13, marginTop: 10 }}>
-                        {addresses?.[0] ? 'Change delivery address ›' : '+ Add delivery address'}
+                        {defaultAddress ? 'Change delivery address ›' : '+ Add delivery address'}
                       </Text>
                     </View>
                   </Pressable>

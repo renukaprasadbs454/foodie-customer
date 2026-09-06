@@ -66,8 +66,8 @@ export function useRestaurantFeed(args: FeedArgs) {
 
     if (Array.isArray(apiItems)) {
       list = [...apiItems];
-      if (args.search || args.cuisineType) {
-        list = list.filter(item => checkRestaurantMatch(item, args.search || args.cuisineType || ''));
+      if (args.cuisineType) {
+        list = list.filter(item => checkRestaurantMatch(item, args.cuisineType || ''));
       }
     } else {
       list = [];

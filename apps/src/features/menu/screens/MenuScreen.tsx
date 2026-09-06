@@ -65,36 +65,53 @@ export function MenuScreen({ navigation, route }: Props) {
   useEffect(() => {
     (async () => {
       if (!restaurantData?.latitude || !restaurantData?.longitude) return;
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') throw new Error('No permission');
+      const { globalLocation } = await import('../../../core/GlobalLocation');
 
-        let location = await Location.getLastKnownPositionAsync();
-        if (!location) {
-          location = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-        }
-
+      if (globalLocation.coords) {
         const dist = getDistanceKm(
-          location.coords.latitude,
-          location.coords.longitude,
+          globalLocation.coords.latitude,
+          globalLocation.coords.longitude,
           Number(restaurantData.latitude),
           Number(restaurantData.longitude)
         );
         const eta = getEstimatedTimeMins(dist);
-        setDistanceInfo(`${eta.min}-${eta.max} mins • ${dist.toFixed(1)} km`);
-
-        const resGeocode = await Location.reverseGeocodeAsync({
-          latitude: Number(restaurantData.latitude),
-          longitude: Number(restaurantData.longitude)
-        });
-        if (resGeocode && resGeocode.length > 0) {
-          const cityVal = resGeocode[0].city || resGeocode[0].subregion || resGeocode[0].district || 'Area';
-          setDistanceInfo(prev => prev.replace('•', `• ${cityVal} •`));
+        let info = `${eta.min}-${eta.max} mins • ${dist.toFixed(1)} km`;
+        if (globalLocation.address) {
+          info = info.replace('•', `• ${globalLocation.address} •`);
         }
-      } catch (err) {
-        setDistanceInfo('25-30 mins • 3.0 km');
+        setDistanceInfo(info);
+      } else {
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') throw new Error('No permission');
+
+          let location = await Location.getLastKnownPositionAsync();
+          if (!location) {
+            location = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+          }
+
+          const dist = getDistanceKm(
+            location.coords.latitude,
+            location.coords.longitude,
+            Number(restaurantData.latitude),
+            Number(restaurantData.longitude)
+          );
+          const eta = getEstimatedTimeMins(dist);
+          setDistanceInfo(`${eta.min}-${eta.max} mins • ${dist.toFixed(1)} km`);
+
+          const resGeocode = await Location.reverseGeocodeAsync({
+            latitude: Number(restaurantData.latitude),
+            longitude: Number(restaurantData.longitude)
+          });
+          if (resGeocode && resGeocode.length > 0) {
+            const cityVal = resGeocode[0].city || resGeocode[0].subregion || resGeocode[0].district || 'Area';
+            setDistanceInfo(prev => prev.replace('•', `• ${cityVal} •`));
+          }
+        } catch (err) {
+          setDistanceInfo('25-30 mins • 3.0 km');
+        }
       }
     })();
   }, [restaurantData]);

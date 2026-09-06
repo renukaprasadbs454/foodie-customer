@@ -12,7 +12,7 @@ import { NavigationProvider } from './providers/NavigationProvider';
 import { ReduxProvider } from './providers/ReduxProvider';
 import { ThemeProvider } from './providers/ThemeProvider';
 import * as Notifications from 'expo-notifications';
-import * as Location from 'expo-location';
+import { initGlobalLocation } from './GlobalLocation';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -66,10 +66,7 @@ export default function App() {
     (async () => {
       try {
         await Notifications.requestPermissionsAsync();
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        }
+        await initGlobalLocation();
       } catch (e) { }
     })();
   }, []);
