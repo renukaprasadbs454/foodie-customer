@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "Foodie Customer",
-    "slug": "foodie-customer",
+    "name": "Delimo",
+    "slug": "delimo-customer",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./src/assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "scheme": "foodie",
+    "scheme": "delimo",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.foodie.customer",
+      "bundleIdentifier": "com.delimo.customer",
       "config": {
         "googleMapsApiKey": "AIzaSyBef3prJr9YvHFDYczEJ-mzZfSlLd2vHbE"
       }
@@ -21,7 +21,7 @@
         "backgroundImage": "./src/assets/android-icon-background.png",
         "monochromeImage": "./src/assets/android-icon-monochrome.png"
       },
-      "package": "com.foodie.customer",
+      "package": "com.delimo.customer",
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyBef3prJr9YvHFDYczEJ-mzZfSlLd2vHbE"
@@ -34,7 +34,7 @@
           "data": [
             {
               "scheme": "https",
-              "host": "app.foodie.example",
+              "host": "app.delimo.com",
               "pathPrefix": "/"
             }
           ],
