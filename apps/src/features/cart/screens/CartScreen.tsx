@@ -138,6 +138,12 @@ export function CartScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     (async () => {
+      if (defaultAddress && defaultAddress.city) {
+        setUserCity(defaultAddress.city);
+        setDistanceInfo(`Delivery in 25-30 mins`);
+        return;
+      }
+
       const { globalLocation } = await import('../../../core/GlobalLocation');
       if (globalLocation.address) {
         setUserCity(globalLocation.address);
@@ -168,7 +174,7 @@ export function CartScreen({ navigation, route }: Props) {
         }
       }
     })();
-  }, [restaurantId]);
+  }, [restaurantId, defaultAddress?.city]);
 
   const onRemove = async (cartItemId: string) => {
     if (isDarkStoreMock) {

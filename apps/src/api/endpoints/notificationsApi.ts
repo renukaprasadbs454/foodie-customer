@@ -42,16 +42,17 @@ export const notificationsApi = baseApi.injectEndpoints({
       providesTags: (result) =>
         result
           ? [
-              ...result.map(({ notificationLogId }) => ({
-                type: 'Notification' as const,
-                id: notificationLogId,
-              })),
-              { type: 'Notification', id: 'LIST' },
-            ]
+            ...result.map(({ notificationLogId }) => ({
+              type: 'Notification' as const,
+              id: notificationLogId,
+            })),
+            { type: 'Notification', id: 'LIST' },
+          ]
           : [{ type: 'Notification', id: 'LIST' }],
       keepUnusedDataFor: 60,
     }),
     markNotificationRead: builder.mutation<NotificationReadResult, string>({
+      // omitted for brevity... (will keep existing content, just adding endpoint below)
       query: (notificationLogId) => ({
         url: `/api/v1/notifications/${notificationLogId}/read`,
         method: 'PATCH',
@@ -98,10 +99,18 @@ export const notificationsApi = baseApi.injectEndpoints({
         { type: 'Notification', id: 'LIST' },
       ],
     }),
+    registerDeviceToken: builder.mutation<void, string>({
+      query: (deviceToken) => ({
+        url: `/api/v1/notifications/device-token`,
+        method: 'PUT',
+        body: { deviceToken }
+      }),
+    }),
   }),
 });
 
 export const {
   useGetNotificationsQuery,
   useMarkNotificationReadMutation,
+  useRegisterDeviceTokenMutation,
 } = notificationsApi;

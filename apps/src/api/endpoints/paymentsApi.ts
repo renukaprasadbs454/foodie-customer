@@ -90,6 +90,7 @@ export const paymentsApi = baseApi.injectEndpoints({
         body,
       }),
       transformResponse: (response: any) => response.data,
+      invalidatesTags: [{ type: 'Cart', id: 'CURRENT' }],
     }),
   }),
 });

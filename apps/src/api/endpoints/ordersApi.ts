@@ -81,7 +81,6 @@ export const ordersApi = baseApi.injectEndpoints({
           if (result.data) {
             const apiRes = result.data as any;
             const orderData = apiRes.data || apiRes;
-            resetMockCart();
             return { data: orderData };
           }
         } catch (e: any) {
@@ -125,11 +124,9 @@ export const ordersApi = baseApi.injectEndpoints({
         };
         mockOrdersStore[validUuid] = newOrder;
         void saveMockOrders();
-        resetMockCart();
         return { data: JSON.parse(JSON.stringify(newOrder)) };
       },
       invalidatesTags: [
-        { type: 'Cart', id: 'CURRENT' },
         { type: 'Order', id: 'LIST' },
       ],
     }),
@@ -190,7 +187,8 @@ export const ordersApi = baseApi.injectEndpoints({
           if (result.data) {
             const apiRes = result.data as any;
             const backendList = normalizeOrderList(apiRes.data || apiRes);
-            if (backendList.length > 0) return { data: backendList };
+            const filtered = backendList.filter(o => !['PAYMENT_PENDING', 'PAYMENT_FAILED'].includes((o.status || '').toUpperCase()));
+            if (filtered.length > 0) return { data: filtered };
           }
         } catch { }
         return { data: JSON.parse(JSON.stringify(Object.values(mockOrdersStore))) };
@@ -252,6 +250,7 @@ export const ordersApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, arg) => [
         { type: 'Order', id: arg.orderId },
         { type: 'Order', id: 'LIST' },
+        { type: 'Cart', id: 'CURRENT' },
       ],
     }),
 
