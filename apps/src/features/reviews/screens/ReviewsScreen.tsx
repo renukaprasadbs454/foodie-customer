@@ -125,8 +125,8 @@ export function ReviewsScreen({ navigation, route }: Props) {
       setToast({ message: 'Connect to the internet to submit a review.', variant: 'warning' });
       return;
     }
-    if (orderQuery.data && orderQuery.data.status !== 'DELIVERED') {
-      setToast({ message: 'Only delivered orders can be reviewed.', variant: 'error' });
+    if (orderQuery.data && !['DELIVERED', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(orderQuery.data.status)) {
+      setToast({ message: 'Only collected or delivered orders can be reviewed.', variant: 'error' });
       return;
     }
     try {

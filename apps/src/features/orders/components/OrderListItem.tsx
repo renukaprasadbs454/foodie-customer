@@ -77,11 +77,12 @@ export function OrderListItem({ order, onPress, onReorder, onRate }: Props) {
   // Color selection matching premium green & gold
   const isDelivered = order.status === 'DELIVERED';
   const isCancelled = order.status === 'CANCELLED' || order.status === 'REJECTED';
+  const isCompleted = isDelivered || order.status === 'PICKED_UP' || order.status === 'OUT_FOR_DELIVERY';
 
   let labelBg = '#FEF3C7'; // Default gold accent
   let labelText = '#D97706';
 
-  if (isDelivered) {
+  if (isCompleted) {
     labelBg = '#DCFCE7';
     labelText = '#15803D';
   } else if (isCancelled) {
@@ -130,7 +131,7 @@ export function OrderListItem({ order, onPress, onReorder, onRate }: Props) {
         </View>
       </View>
 
-      {isDelivered && (
+      {isCompleted && (
         <View style={{ marginTop: 4 }}>
           <View style={{ height: 1.5, backgroundColor: '#F3F4F6', marginBottom: 12 }} />
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
