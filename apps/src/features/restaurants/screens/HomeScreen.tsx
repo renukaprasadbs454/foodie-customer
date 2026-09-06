@@ -231,7 +231,7 @@ export function HomeScreen({ navigation }: Props) {
                   borderColor: '#14532D',
                 }}>
                   <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 'bold' }}>
-                    {unreadCount > 9 ? '9+' : unreadCount}
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </Text>
                 </View>
               )}
