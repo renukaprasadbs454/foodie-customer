@@ -21,6 +21,7 @@ import {
   useGetAddressesQuery,
   useRemoveAddressMutation,
   useUpdateAddressMutation,
+  useSetDefaultAddressMutation,
 } from '../../../api/endpoints/addressesApi';
 import { toUnwrappedApiError } from '../../auth/apiError';
 import type {
@@ -48,6 +49,7 @@ export function AddressesScreen({ navigation, route }: Props) {
   const [addAddress, addState] = useAddAddressMutation();
   const [removeAddress, removeState] = useRemoveAddressMutation();
   const [updateAddress, updateState] = useUpdateAddressMutation();
+  const [setDefault, setDefaultState] = useSetDefaultAddressMutation();
 
   const [formVisible, setFormVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -321,7 +323,15 @@ export function AddressesScreen({ navigation, route }: Props) {
                 onEdit={() => openEditForm(address)}
                 onSelect={
                   selectMode
-                    ? () => {
+                    ? async () => {
+                      if (!address.isDefault) {
+                        try {
+                          await setDefault(address.addressId).unwrap();
+                        } catch (err) {
+                          handleError(toUnwrappedApiError(err));
+                          return;
+                        }
+                      }
                       trackAnalyticsEvent('address_selected', {
                         addressId: address.addressId,
                       });

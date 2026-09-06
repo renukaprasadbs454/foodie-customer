@@ -23,8 +23,9 @@ export function AddressCard({
   const { tokens } = useTheme();
 
   return (
-    <View
-      style={{
+    <Pressable
+      onPress={onSelect}
+      style={({ pressed }) => ({
         padding: tokens.spacing.lg,
         borderRadius: tokens.radius.lg,
         borderWidth: 1,
@@ -36,7 +37,9 @@ export function AddressCard({
         shadowOpacity: 0.03,
         shadowRadius: 6,
         elevation: 2,
-      }}
+        opacity: pressed ? 0.8 : 1,
+      })}
+      accessibilityRole="button"
       accessibilityLabel={`Address ${address.label ?? address.line1}`}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -58,22 +61,6 @@ export function AddressCard({
       </Text>
 
       <View style={{ flexDirection: 'row', gap: tokens.spacing.sm, marginTop: tokens.spacing.xs, alignItems: 'center' }}>
-        {selectMode && onSelect ? (
-          <Pressable
-            onPress={onSelect}
-            style={({ pressed }) => ({
-              backgroundColor: pressed ? '#F5AE0B' : '#F59E0B', // Gold button
-              borderRadius: tokens.radius.md,
-              paddingHorizontal: tokens.spacing.md,
-              paddingVertical: 8,
-            })}
-          >
-            <Text variant="caption" style={{ color: '#FFFFFF', fontWeight: '700' }}>
-              Select Address
-            </Text>
-          </Pressable>
-        ) : null}
-
         {onEdit ? (
           <Pressable
             disabled={removing}
@@ -110,7 +97,7 @@ export function AddressCard({
           </Text>
         </Pressable>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

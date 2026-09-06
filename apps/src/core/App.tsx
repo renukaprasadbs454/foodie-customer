@@ -12,6 +12,7 @@ import { NavigationProvider } from './providers/NavigationProvider';
 import { ReduxProvider } from './providers/ReduxProvider';
 import { ThemeProvider } from './providers/ThemeProvider';
 import * as Notifications from 'expo-notifications';
+import * as Location from 'expo-location';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -61,6 +62,18 @@ class RootErrorBoundary extends Component<
  * Providers only + navigation; no business screens.
  */
 export default function App() {
+  React.useEffect(() => {
+    (async () => {
+      try {
+        await Notifications.requestPermissionsAsync();
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        }
+      } catch (e) { }
+    })();
+  }, []);
+
   return (
     <ThemeProvider>
       <RootErrorBoundary>

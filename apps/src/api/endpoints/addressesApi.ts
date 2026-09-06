@@ -58,6 +58,13 @@ export const addressesApi = baseApi.injectEndpoints({
         { type: 'Address', id: 'LIST' },
       ],
     }),
+    setDefaultAddress: builder.mutation<null, string>({
+      query: (addressId) => ({
+        url: `/api/v1/users/me/addresses/${addressId}/default`,
+        method: 'PUT',
+      }),
+      invalidatesTags: [{ type: 'Address', id: 'LIST' }],
+    }),
   }),
 });
 
@@ -66,4 +73,5 @@ export const {
   useAddAddressMutation,
   useRemoveAddressMutation,
   useUpdateAddressMutation,
+  useSetDefaultAddressMutation,
 } = addressesApi;
