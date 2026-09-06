@@ -212,8 +212,12 @@ export const ordersApi = baseApi.injectEndpoints({
           const result = await fetchWithBaseQuery({
             url: `/api/v1/orders/${orderId}/status`,
             method: 'PATCH',
-            body: { status: targetStatus, reason }
+            body: { targetStatus, reason }
           });
+          if (result.error) {
+            console.error("TRANSITION ORDER API REJECTED:", result.error);
+            return { error: result.error };
+          }
           if (result.data) {
             const apiRes = result.data as any;
             if (mockOrdersStore[orderId]) {

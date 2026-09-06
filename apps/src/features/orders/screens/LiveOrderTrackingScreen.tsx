@@ -136,7 +136,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
       setCancelVisible(false);
       setCancelReason('');
       setToast({ message: 'Order cancelled.', variant: 'success' });
-      navigation.navigate('Home' as never);
+      navigation.navigate('MyOrders' as never);
     } catch (error) {
       handleError(toUnwrappedApiError(error));
     }
