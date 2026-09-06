@@ -32,6 +32,7 @@ import { useRestaurantFeed } from '../hooks/useRestaurantFeed';
 import type { RestaurantSort } from '../types';
 import { RESTAURANT_SORT_WHITELIST } from '../types';
 import { useGetCartQuery } from '../../../api/endpoints/cartApi';
+import { useGetNotificationsQuery } from '../../../api/endpoints/notificationsApi';
 import { CATEGORY_ITEMS } from '../mockData';
 import { GlobalCartBanner } from '../../cart/components/GlobalCartBanner';
 
@@ -147,6 +148,9 @@ export function HomeScreen({ navigation }: Props) {
   const cartQuery = useGetCartQuery();
   const cartItemsCount = cartQuery?.data?.items?.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0) ?? 0;
 
+  const notificationsQuery = useGetNotificationsQuery({ unreadOnly: true, page: 0, size: 50 }, { pollingInterval: 15000 });
+  const unreadCount = notificationsQuery.data?.length ?? 0;
+
 
   const renderHeader = () => (
     <View style={{ gap: tokens.spacing.lg, paddingBottom: tokens.spacing.sm }}>
@@ -209,6 +213,26 @@ export function HomeScreen({ navigation }: Props) {
               })}
             >
               <Text style={{ fontSize: 18 }}>🔔</Text>
+              {unreadCount > 0 && (
+                <View style={{
+                  position: 'absolute',
+                  top: -2,
+                  right: -2,
+                  backgroundColor: '#EF4444',
+                  borderRadius: 10,
+                  paddingHorizontal: 4,
+                  minWidth: 16,
+                  height: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1.5,
+                  borderColor: '#14532D',
+                }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </Pressable>
 
             {/* Cart Button */}
