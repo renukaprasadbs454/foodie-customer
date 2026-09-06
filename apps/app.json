@@ -60,7 +60,15 @@
           "photosPermission": "Allow Foodie to access your photos for a profile picture."
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
