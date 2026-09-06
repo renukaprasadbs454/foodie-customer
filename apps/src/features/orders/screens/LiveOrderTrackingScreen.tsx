@@ -204,13 +204,13 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
         icon = '🏬';
         break;
       case 'PICKED_UP':
-        title = 'Order Picked Up';
-        subtitle = 'Rider collected your food and is on the way!';
+        title = 'Order Collected';
+        subtitle = 'Your order has been collected and is on the way. It will reach you soon!';
         icon = '🎒';
         break;
       case 'OUT_FOR_DELIVERY':
         title = 'Out for Delivery';
-        subtitle = 'Rider is on the way to your delivery address!';
+        subtitle = 'Your food is out for delivery to your address!';
         icon = '🛵';
         break;
       case 'DELIVERED':

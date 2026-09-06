@@ -58,7 +58,9 @@ export function NotificationListItem({ notification, onPress }: Props) {
           ) : null}
         </View>
         <Text style={{ color: '#4B5563', fontSize: 14, lineHeight: 20 }}>
-          {notification.body}
+          {notification.body.includes('is now PICKED_UP.')
+            ? notification.body.replace('is now PICKED_UP.', 'collected. It will reach you soon!')
+            : notification.body}
         </Text>
         {notification.sentAt ? (
           <Text style={{ color: '#9CA3AF', fontSize: 12, marginTop: 4, fontWeight: '500' }}>
