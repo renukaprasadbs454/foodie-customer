@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, ActivityIndicator, Pressable } from 'react-native';
+import { ScrollView, View, ActivityIndicator, Pressable, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
@@ -136,6 +136,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
       setCancelVisible(false);
       setCancelReason('');
       setToast({ message: 'Order cancelled.', variant: 'success' });
+      navigation.navigate('Home' as never);
     } catch (error) {
       handleError(toUnwrappedApiError(error));
     }
@@ -380,7 +381,12 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                   label="Call"
                   accessibilityLabel="Call Restaurant"
                   variant="primary"
-                  onPress={() => setToast({ message: `Calling ${restaurant?.name || 'Restaurant'}...`, variant: 'info' })}
+                  onPress={() => {
+                    const phone = restaurant?.phoneNumber || '9972301895';
+                    Linking.openURL(`tel:${phone}`).catch(() => {
+                      setToast({ message: `Cannot place call.`, variant: 'error' });
+                    });
+                  }}
                   style={{ borderRadius: tokens.radius.full, paddingHorizontal: 20, backgroundColor: '#14532D' }}
                 />
               </View>
@@ -431,7 +437,12 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                     label="Call"
                     accessibilityLabel="Call Delivery Partner"
                     variant="primary"
-                    onPress={() => setToast({ message: `Calling ${deliveryPartner.fullName}...`, variant: 'info' })}
+                    onPress={() => {
+                      const phone = deliveryPartner.mobileNumber || '9972301895';
+                      Linking.openURL(`tel:${phone}`).catch(() => {
+                        setToast({ message: `Cannot place call.`, variant: 'error' });
+                      });
+                    }}
                     style={{ borderRadius: tokens.radius.full, paddingHorizontal: 16, backgroundColor: '#14532D' }}
                   />
                 </View>

@@ -93,7 +93,7 @@ export function OrderListItem({ order, onPress, onReorder, onRate }: Props) {
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={isCancelled ? undefined : onPress}
       accessibilityRole="button"
       accessibilityLabel={`Order ${order.orderNumber}, ${order.status}`}
       style={({ pressed }) => ({
