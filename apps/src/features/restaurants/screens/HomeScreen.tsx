@@ -206,29 +206,31 @@ export function HomeScreen({ navigation }: Props) {
                 alignItems: 'center',
                 backgroundColor: pressed ? '#1B6A3A' : 'rgba(255, 255, 255, 0.15)',
                 paddingHorizontal: 12,
-                paddingVertical: 8,
+                paddingVertical: 10,
                 borderRadius: 24,
                 borderWidth: 1,
                 borderColor: 'rgba(255, 255, 255, 0.25)',
+                minWidth: 44,
+                justifyContent: 'center',
               })}
             >
-              <Text style={{ fontSize: 18 }}>🔔</Text>
+              <Text style={{ fontSize: 20 }}>🔔</Text>
               {unreadCount > 0 && (
                 <View style={{
                   position: 'absolute',
                   top: -2,
                   right: -2,
                   backgroundColor: '#EF4444',
-                  borderRadius: 10,
-                  paddingHorizontal: 4,
-                  minWidth: 16,
-                  height: 16,
+                  borderRadius: 12,
+                  paddingHorizontal: 5,
+                  minWidth: 20,
+                  height: 20,
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderWidth: 1.5,
                   borderColor: '#14532D',
                 }}>
-                  <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 'bold' }}>
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </Text>
                 </View>
