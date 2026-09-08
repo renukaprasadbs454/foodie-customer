@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, View } from 'react-native';
 import { Text, useTheme } from 'foodie-shared-rn';
 import { useNavigation } from '@react-navigation/native';
-import { useGetCartQuery } from '../../../api/endpoints/cartApi';
+import { useGetCartQuery, useRemoveCartItemMutation, useUpdateCartItemQuantityMutation } from '../../../api/endpoints/cartApi';
 import { formatMoney } from '../../menu/types';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -12,6 +12,8 @@ export function GlobalCartBanner() {
     const { tokens } = useTheme();
     const navigation = useNavigation<any>();
     const cartQuery = useGetCartQuery();
+    const [updateQuantity] = useUpdateCartItemQuantityMutation();
+    const [removeItem] = useRemoveCartItemMutation();
 
     const cartItemsCount = cartQuery?.data?.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
     const cartSubtotal = cartQuery?.data?.subtotal ?? 0;
@@ -27,6 +29,15 @@ export function GlobalCartBanner() {
     if (lastItem) {
         subtitleText = `${lastItem.name} ${cartItemsCount > 1 ? `+ ${cartItemsCount - 1} more` : ''}`;
     }
+
+    const handleRemove = () => {
+        if (!lastItem) return;
+        if (lastItem.quantity > 1) {
+            updateQuantity({ cartItemId: lastItem.cartItemId, quantity: lastItem.quantity - 1 });
+        } else {
+            removeItem(lastItem.cartItemId);
+        }
+    };
 
     return (
         <Pressable
@@ -87,15 +98,41 @@ export function GlobalCartBanner() {
                     </View>
                 </View>
 
-                <View style={{ flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-                    <Text variant="caption" style={{ color: '#A7F3D0', fontWeight: '700', fontSize: 10, letterSpacing: 0.5, marginBottom: 2 }}>
-                        {restaurantName}
-                    </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                        <Text variant="label" style={{ color: '#FCD34D', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 }}>
-                            View Cart
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Pressable
+                        onPress={(e) => {
+                            e.stopPropagation();
+                            handleRemove();
+                        }}
+                        style={({ pressed }) => ({
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            opacity: pressed ? 0.7 : 1,
+                            backgroundColor: 'rgba(255,255,255,0.15)',
+                            paddingHorizontal: 8,
+                            paddingVertical: 6,
+                            borderRadius: 16,
+                            borderWidth: 1,
+                            borderColor: 'rgba(255,255,255,0.3)',
+                        })}
+                    >
+                        <Feather name="minus" size={14} color="#FFF" />
+                        <Text variant="label" style={{ color: '#FFF', fontWeight: '800', fontSize: 11 }}>
+                            Remove
                         </Text>
-                        <Feather name="arrow-right" size={16} color="#FCD34D" />
+                    </Pressable>
+
+                    <View style={{ flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
+                        <Text variant="caption" style={{ color: '#A7F3D0', fontWeight: '700', fontSize: 10, letterSpacing: 0.5, marginBottom: 2 }}>
+                            {restaurantName}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                            <Text variant="label" style={{ color: '#FCD34D', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 }}>
+                                View Cart
+                            </Text>
+                            <Feather name="arrow-right" size={16} color="#FCD34D" />
+                        </View>
                     </View>
                 </View>
             </LinearGradient>
