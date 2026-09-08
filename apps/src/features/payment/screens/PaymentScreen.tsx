@@ -158,19 +158,31 @@ export function PaymentScreen({ navigation, route }: Props) {
     trackAnalyticsEvent('payment_checkout_success', { orderId });
     setPhase('awaiting_confirmed');
     try {
+      let isVerified = false;
       if (data.cashfreeOrderId) {
-        await verifyPayment({
+        isVerified = await verifyPayment({
           orderId,
           cashfreeOrderId: data.cashfreeOrderId,
         }).unwrap();
       }
-      // Mark the mock order as CONFIRMED so polling immediately detects success
-      updateMockOrderStatus(orderId, 'CONFIRMED');
+
+      if (!isDarkStoreMock && !orderId.startsWith('mock-') && !isVerified) {
+        handleCashfreeError('Payment verification failed or payment was not successful.');
+        return;
+      }
+
+      if (isDarkStoreMock || orderId.startsWith('mock-')) {
+        updateMockOrderStatus(orderId, 'CONFIRMED');
+      }
       void orderQuery.refetch();
     } catch (verifyError) {
       console.warn('Verification failed, polling order status...', verifyError);
-      // Still mark as confirmed for mock flow
-      updateMockOrderStatus(orderId, 'CONFIRMED');
+      if (isDarkStoreMock || orderId.startsWith('mock-')) {
+        updateMockOrderStatus(orderId, 'CONFIRMED');
+      } else {
+        handleCashfreeError('An error occurred during payment verification.');
+        return;
+      }
       void orderQuery.refetch();
     }
   };
