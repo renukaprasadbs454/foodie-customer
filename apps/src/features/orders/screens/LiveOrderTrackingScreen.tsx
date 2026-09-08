@@ -26,6 +26,7 @@ import type { OrdersStackParamList } from '../../../navigation/types';
 import { OrderStatusStepper } from '../components/OrderStatusStepper';
 import { TrackingMap } from '../components/TrackingMap';
 import { TrackingSkeleton } from '../components/TrackingSkeleton';
+import { OrderChat } from '../components/OrderChat';
 import { useOrderTrackingSubscription } from '../hooks/useOrderTrackingSubscription';
 import {
   canCustomerCancelOrder,
@@ -343,6 +344,13 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                 />
               </View>
             )}
+
+            {/* LIVE MESSAGE / CHAT OPTION */}
+            {order.status && !isTerminalOrderStatus(order.status) ? (
+              <View style={{ paddingHorizontal: tokens.spacing.md, marginTop: tokens.spacing.md }}>
+                <OrderChat orderId={order.orderId} senderRole="CUSTOMER" />
+              </View>
+            ) : null}
 
             {/* Restaurant Call Block */}
             {['PLACED', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP'].includes(order.status) && (

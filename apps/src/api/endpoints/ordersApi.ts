@@ -263,6 +263,28 @@ export const ordersApi = baseApi.injectEndpoints({
       transformResponse: (response: any) => response.data || response,
       providesTags: (_result, _error, orderId) => [{ type: 'Order', id: `partner-${orderId}` }],
     }),
+
+    getOrderMessages: builder.query<any[], string>({
+      query: (orderId) => `/api/v1/orders/${orderId}/messages`,
+      providesTags: (_result, _error, orderId) => [
+        { type: 'Order', id: orderId },
+      ],
+      keepUnusedDataFor: 0,
+    }),
+    sendOrderMessage: builder.mutation<
+      any,
+      { orderId: string; senderRole: string; messageText: string }
+    >({
+      query: ({ orderId, senderRole, messageText }) => ({
+        url: `/api/v1/orders/${orderId}/messages`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: { senderRole, messageText },
+      }),
+      invalidatesTags: (_result, _error, arg) => [
+        { type: 'Order', id: arg.orderId },
+      ],
+    }),
   }),
 });
 
@@ -278,4 +300,6 @@ export const {
   useGetMyOrdersQuery,
   useTransitionOrderStatusMutation,
   useGetDeliveryPartnerQuery,
+  useGetOrderMessagesQuery,
+  useSendOrderMessageMutation,
 } = ordersApi;
