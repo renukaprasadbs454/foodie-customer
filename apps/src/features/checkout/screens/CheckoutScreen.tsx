@@ -26,6 +26,7 @@ import {
 import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import { useGetCartQuery } from '../../../api/endpoints/cartApi';
 import { useCreateOrderMutation, useTransitionOrderStatusMutation } from '../../../api/endpoints/ordersApi';
+import { useGetEligibleCouponsQuery, useApplyCouponMutation } from '../../../api/endpoints/couponsApi';
 import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
 import { useGetWalletBalanceQuery } from '../../../api/endpoints/walletApi';
 import { toUnwrappedApiError } from '../../auth/apiError';
@@ -33,6 +34,7 @@ import { formatMoney, parseMoney } from '../../menu/types';
 import type { BrowseStackParamList } from '../../../navigation/types';
 import { AddressPickerRow } from '../components/AddressPickerRow';
 import { CheckoutSkeleton } from '../components/CheckoutSkeleton';
+import { CouponsModal } from '../components/CouponsModal';
 import { isAddressId } from '../types';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Checkout'>;
@@ -49,8 +51,16 @@ export function CheckoutScreen({ navigation, route }: any) {
   const addressesQuery = useGetAddressesQuery();
   const [createOrder, createState] = useCreateOrderMutation();
   const [transitionStatus] = useTransitionOrderStatusMutation();
+  const [applyCouponMutation, applyState] = useApplyCouponMutation();
 
   const [addressId, setAddressId] = useState<string | null>(null);
+  const [selectedCouponCode, setSelectedCouponCode] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discountAmount: number;
+    finalTotal: number;
+  } | null>(null);
+  const [showCouponsModal, setShowCouponsModal] = useState<boolean>(false);
   const [useWallet, setUseWallet] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'COD'>('ONLINE');
   const placeAttemptKey = useRef<string | null>(null);
@@ -105,7 +115,42 @@ export function CheckoutScreen({ navigation, route }: any) {
     }
   }, [addressId, addressesQuery.data]);
 
-  const loading = cartQuery.isLoading || addressesQuery.isLoading || createState.isLoading || walletQuery.isLoading;
+  const subtotalBeforeCoupons = isDarkStoreMock ? mockItems.reduce((acc: number, mi: any) => acc + (mi.price * mi.quantity), 0) : Number(cart?.subtotal || 0);
+
+  const couponsQuery = useGetEligibleCouponsQuery({
+    restaurantId: restaurantId || '',
+    cartTotal: subtotalBeforeCoupons,
+  }, { skip: !restaurantId || isDarkStoreMock });
+
+  useEffect(() => {
+    if (couponsQuery.data && couponsQuery.data.length > 0 && !selectedCouponCode && !appliedCoupon) {
+      const best = couponsQuery.data[0];
+      setSelectedCouponCode(best.code);
+    }
+  }, [couponsQuery.data, selectedCouponCode, appliedCoupon]);
+
+  useEffect(() => {
+    if (selectedCouponCode && restaurantId) {
+      applyCouponMutation({ code: selectedCouponCode, restaurantId, cartTotal: subtotalBeforeCoupons })
+        .unwrap()
+        .then((res) => {
+          setAppliedCoupon({
+            code: res.code,
+            discountAmount: Number(res.discountAmount),
+            finalTotal: Number(res.finalTotal)
+          });
+        })
+        .catch((err) => {
+          setToast({ message: 'Coupon could not be applied.', variant: 'error' });
+          setSelectedCouponCode(null);
+          setAppliedCoupon(null);
+        });
+    } else {
+      setAppliedCoupon(null);
+    }
+  }, [selectedCouponCode, subtotalBeforeCoupons, restaurantId]);
+
+  const loading = cartQuery.isLoading || addressesQuery.isLoading || createState.isLoading || walletQuery.isLoading || applyState.isLoading;
 
   const onPlaceOrder = async () => {
     if (!addressId || !isAddressId(addressId)) {
@@ -129,6 +174,7 @@ export function CheckoutScreen({ navigation, route }: any) {
     try {
       const order = await createOrder({
         addressId,
+        couponCode: appliedCoupon?.code || undefined,
         idempotencyKey: placeAttemptKey.current,
       }).unwrap();
       trackAnalyticsEvent('checkout_completed', { orderId: order.orderId, paymentMethod });
@@ -176,9 +222,11 @@ export function CheckoutScreen({ navigation, route }: any) {
     );
   }
 
-  const subtotal = isDarkStoreMock ? mockItems.reduce((acc: number, mi: any) => acc + (mi.price * mi.quantity), 0) : Number(cart?.subtotal || 0);
+  const subtotal = subtotalBeforeCoupons;
   const routeDiscount = route.params?.discount ?? 0;
-  const orderTotal = Math.max(0, subtotal + 25 + 18 - routeDiscount);
+  const backendDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0;
+  const totalDiscount = backendDiscount + routeDiscount;
+  const orderTotal = Math.max(0, subtotal + 25 + 18 - totalDiscount);
   const walletApplied = useWallet ? Math.min(walletBalance, orderTotal) : 0;
   const grandTotal = Math.max(0, orderTotal - walletApplied);
 
@@ -293,6 +341,54 @@ export function CheckoutScreen({ navigation, route }: any) {
                       </View>
                     )}
                   </View>
+
+                  {/* Coupon Section */}
+                  {couponsQuery.data && couponsQuery.data.length > 0 && (
+                    <View style={{
+                      backgroundColor: '#FFFFFF',
+                      padding: 16,
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: '#E5E7EB',
+                      shadowColor: '#14532D',
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.04,
+                      shadowRadius: 10,
+                      elevation: 2
+                    }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                        <Text style={{ fontSize: 18 }}>🎟</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '800', color: '#14532D' }}>Coupons & Offers</Text>
+                      </View>
+
+                      {appliedCoupon ? (
+                        <View style={{ gap: 12 }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontWeight: '800', fontSize: 15, color: '#111827' }}>
+                                Saved ₹{formatMoney(appliedCoupon.discountAmount)}
+                              </Text>
+                              <Text style={{ fontSize: 13, color: '#059669', marginTop: 2, fontWeight: '700' }}>
+                                Code {appliedCoupon.code} applied
+                              </Text>
+                            </View>
+                            <Pressable onPress={() => setShowCouponsModal(true)} style={{ padding: 6 }}>
+                              <Text style={{ color: '#14532D', fontWeight: '800', fontSize: 14 }}>CHANGE</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 14, color: '#6B7280', fontWeight: '600' }}>
+                            {couponsQuery.data.length} offer{couponsQuery.data.length > 1 ? 's' : ''} available
+                          </Text>
+                          <Pressable onPress={() => setShowCouponsModal(true)} style={{ padding: 6 }}>
+                            <Text style={{ color: '#14532D', fontWeight: '800', fontSize: 14 }}>VIEW ALL</Text>
+                          </Pressable>
+                        </View>
+                      )}
+                    </View>
+                  )}
 
                   {/* Wallet Section */}
                   <View style={{
@@ -540,6 +636,14 @@ export function CheckoutScreen({ navigation, route }: any) {
               <ActivityIndicator color="#FCD34D" size="large" />
             </View>
           )}
+
+          <CouponsModal
+            visible={showCouponsModal}
+            onClose={() => setShowCouponsModal(false)}
+            coupons={couponsQuery.data || []}
+            selectedCode={selectedCouponCode}
+            onApply={(code) => setSelectedCouponCode(code)}
+          />
 
           <Toast
             visible={Boolean(toast)}
