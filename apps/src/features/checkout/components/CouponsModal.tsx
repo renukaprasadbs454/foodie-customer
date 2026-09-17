@@ -1,8 +1,8 @@
-import React from 'react';
-import { View, Pressable, ScrollView, Modal as RNModal } from 'react-native';
+import React, { useState } from 'react';
+import { View, Pressable, ScrollView, Modal as RNModal, SafeAreaView } from 'react-native';
 import { Text, useTheme } from 'foodie-shared-rn';
 import type { EligibleCoupon } from '../types';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { formatMoney } from '../../menu/types';
 
 type Props = {
     visible: boolean;
@@ -14,132 +14,217 @@ type Props = {
 
 export function CouponsModal({ visible, onClose, coupons, selectedCode, onApply }: Props) {
     const { tokens } = useTheme();
-    const insets = useSafeAreaInsets();
 
-    const renderDescription = (coupon: EligibleCoupon) => {
+    // Track local selection before hitting the final Apply bottom bar button
+    const [localSelection, setLocalSelection] = useState<string | null>(selectedCode);
+
+    // Sync when opened
+    React.useEffect(() => {
+        if (visible) {
+            setLocalSelection(selectedCode);
+        }
+    }, [visible, selectedCode]);
+
+    const renderSubtitle = (coupon: EligibleCoupon) => {
+        // If not eligible (mock condition based on minOrderAmount)
+        // Actually the EligibleCoupon comes from backend. We assume they are all selectable, 
+        // but we can render the required text based on discountType.
         if (coupon.discountType === 'FLAT') {
-            return `Get flat ₹${coupon.value} OFF on this order`;
+            return `Save ₹${formatMoney(Number(coupon.value))} with this code`;
         }
         if (coupon.discountType === 'PERCENTAGE') {
-            let desc = `Get ${coupon.value}% OFF on this order`;
+            let desc = `Save ${coupon.value}% on this order`;
             if (coupon.maxDiscountAmount) {
                 desc += ` up to ₹${coupon.maxDiscountAmount}`;
             }
             return desc;
         }
-        return `Use code ${coupon.code} for an exclusive discount`;
+        return `Special offer for you`;
     };
 
-    const renderCondition = (coupon: EligibleCoupon) => {
-        if (coupon.minOrderAmount && Number(coupon.minOrderAmount) > 0) {
-            return `Applicable on orders above ₹${coupon.minOrderAmount}`;
+    const getTitle = (coupon: EligibleCoupon) => {
+        if (coupon.discountType === 'FLAT') {
+            return `Flat ₹${formatMoney(Number(coupon.value))} OFF`;
         }
-        return `No minimum order value`;
+        return `${coupon.value}% OFF`;
     };
+
+    // The bottom bar appears if ANY coupon is selected locally.
+    const selectedCouponObj = coupons.find(c => c.code === localSelection);
 
     return (
         <RNModal
             visible={visible}
             animationType="slide"
             onRequestClose={onClose}
-            presentationStyle="formSheet"
+            presentationStyle="pageSheet"
         >
-            <View style={{ flex: 1, backgroundColor: '#F2F2F7', paddingTop: insets.top }}>
-                {/* Header */}
+            <SafeAreaView style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
+                {/* Header like Image 2 */}
                 <View style={{
                     flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
                     paddingHorizontal: 16,
-                    paddingVertical: 14,
+                    paddingVertical: 16,
                     backgroundColor: '#FFFFFF',
                     borderBottomWidth: 1,
                     borderBottomColor: '#E5E7EB',
                 }}>
-                    <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }}>Coupons & Offers</Text>
-                    <Pressable onPress={onClose} style={{ padding: 4 }}>
-                        <Text style={{ fontSize: 18, color: '#6B7280', fontWeight: 'bold' }}>✕</Text>
+                    <Pressable onPress={onClose} style={{ paddingRight: 16 }}>
+                        <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#111827' }}>←</Text>
                     </Pressable>
+                    <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827' }}>Coupons</Text>
                 </View>
 
-                <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+                <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }}>Available coupons</Text>
+                        {localSelection && (
+                            <Pressable onPress={() => setLocalSelection(null)}>
+                                <Text style={{ color: '#EF4444', fontWeight: '700', fontSize: 15 }}>Clear</Text>
+                            </Pressable>
+                        )}
+                    </View>
+
                     {coupons.length === 0 ? (
                         <View style={{ alignItems: 'center', marginTop: 40 }}>
                             <Text style={{ fontSize: 40 }}>🎫</Text>
                             <Text style={{ fontSize: 16, fontWeight: '700', color: '#374151', marginTop: 12 }}>
-                                No active coupons available right now
+                                No active coupons available
                             </Text>
                         </View>
                     ) : (
-                        coupons.map((coupon) => {
-                            const isSelected = selectedCode === coupon.code;
-                            return (
-                                <View
-                                    key={coupon.code}
-                                    style={{
-                                        backgroundColor: isSelected ? '#F0FDF4' : '#FFFFFF',
-                                        borderRadius: 16,
-                                        padding: 16,
-                                        borderWidth: 1.5,
-                                        borderColor: isSelected ? '#22C55E' : '#E5E7EB',
-                                        shadowColor: '#000',
-                                        shadowOffset: { width: 0, height: 2 },
-                                        shadowOpacity: 0.05,
-                                        shadowRadius: 6,
-                                        elevation: 2,
-                                    }}
-                                >
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <View style={{ flex: 1, paddingRight: 12 }}>
+                        <View style={{ gap: 20 }}>
+                            {coupons.map((coupon) => {
+                                const isSelected = localSelection === coupon.code;
+                                return (
+                                    <Pressable
+                                        key={coupon.code}
+                                        onPress={() => setLocalSelection(coupon.code)}
+                                        style={{
+                                            flexDirection: 'row',
+                                            alignItems: 'flex-start',
+                                            backgroundColor: 'transparent',
+                                        }}
+                                    >
+                                        {/* Left Icon */}
+                                        <View style={{
+                                            width: 24,
+                                            height: 24,
+                                            borderRadius: 12,
+                                            backgroundColor: '#DBEAFE',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginTop: 2,
+                                            marginRight: 12
+                                        }}>
+                                            <Text style={{ color: '#1D4ED8', fontSize: 12, fontWeight: 'bold' }}>%</Text>
+                                        </View>
+
+                                        {/* Center Details */}
+                                        <View style={{ flex: 1, marginRight: 12 }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>
+                                                    {getTitle(coupon)}
+                                                </Text>
+                                                <Text style={{ marginLeft: 6, fontSize: 13, color: '#6B7280' }}>ⓘ</Text>
+                                            </View>
+
+                                            <Text style={{ fontSize: 13, color: '#1D4ED8', fontWeight: '600', marginTop: 4, marginBottom: 8 }}>
+                                                {renderSubtitle(coupon)}
+                                            </Text>
+
                                             <View style={{
                                                 alignSelf: 'flex-start',
-                                                backgroundColor: isSelected ? '#DCFCE7' : '#FEF3C7',
+                                                backgroundColor: '#FFFFFF',
+                                                borderWidth: 1,
+                                                borderColor: '#E5E7EB',
+                                                borderRadius: 6,
                                                 paddingHorizontal: 8,
                                                 paddingVertical: 4,
-                                                borderRadius: 6,
-                                                borderWidth: 1,
-                                                borderColor: isSelected ? '#86EFAC' : '#FCD34D',
-                                                marginBottom: 10,
                                             }}>
-                                                <Text style={{ fontSize: 13, fontWeight: '800', color: isSelected ? '#166534' : '#92400E', letterSpacing: 0.5 }}>
+                                                <Text style={{ fontSize: 12, fontWeight: '700', color: '#374151', letterSpacing: 0.5 }}>
                                                     {coupon.code}
                                                 </Text>
                                             </View>
-                                            <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 6 }}>
-                                                {renderDescription(coupon)}
-                                            </Text>
-                                            <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>
-                                                {renderCondition(coupon)}
-                                            </Text>
                                         </View>
 
-                                        <Pressable
-                                            onPress={() => {
-                                                onApply(isSelected ? null : coupon.code);
-                                                onClose();
-                                            }}
-                                            style={({ pressed }) => ({
-                                                backgroundColor: "transparent",
-                                                paddingHorizontal: 0,
-                                                paddingVertical: 6,
-                                                opacity: pressed ? 0.7 : 1,
-                                            })}
-                                        >
-                                            <Text style={{
-                                                color: isSelected ? '#EF4444' : '#14532D',
-                                                fontWeight: '800',
-                                                fontSize: 14,
-                                            }}>
-                                                {isSelected ? 'REMOVE' : 'APPLY'}
-                                            </Text>
-                                        </Pressable>
-                                    </View>
-                                </View>
-                            );
-                        })
+                                        {/* Right Radio Button */}
+                                        <View style={{
+                                            width: 20, height: 20, borderRadius: 10, borderWidth: 2,
+                                            borderColor: isSelected ? '#14532D' : '#D1D5DB',
+                                            justifyContent: 'center', alignItems: 'center',
+                                            marginTop: 4
+                                        }}>
+                                            {isSelected && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#14532D' }} />}
+                                        </View>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
                     )}
                 </ScrollView>
-            </View>
+
+                {/* Bottom bar with Tap to Apply */}
+                <View style={{
+                    position: 'absolute',
+                    bottom: 0, left: 0, right: 0,
+                    backgroundColor: '#FFFFFF',
+                    borderTopWidth: 1,
+                    borderTopColor: '#E5E7EB',
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: -4 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 6,
+                    elevation: 10,
+                }}>
+                    {selectedCouponObj && (
+                        <View style={{
+                            backgroundColor: '#1E3A8A', // Foodie secondary deep blue/green or dark theme
+                            borderRadius: 12,
+                            padding: 12,
+                            marginBottom: 12,
+                            flexDirection: 'row',
+                            alignItems: 'center'
+                        }}>
+                            <View style={{
+                                width: 24,
+                                height: 24,
+                                borderRadius: 12,
+                                backgroundColor: '#DBEAFE',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginRight: 10
+                            }}>
+                                <Text style={{ color: '#1D4ED8', fontSize: 12, fontWeight: 'bold' }}>%</Text>
+                            </View>
+                            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                                Save ₹{formatMoney(Number(selectedCouponObj.value))} with '{selectedCouponObj.code}'
+                            </Text>
+                        </View>
+                    )}
+
+                    <Pressable
+                        onPress={() => {
+                            onApply(localSelection);
+                            onClose();
+                        }}
+                        disabled={!localSelection && localSelection === selectedCode}
+                        style={({ pressed }) => ({
+                            backgroundColor: pressed ? '#114022' : '#14532D',
+                            borderRadius: 12,
+                            paddingVertical: 14,
+                            alignItems: 'center',
+                        })}
+                    >
+                        <Text style={{ color: '#FCD34D', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 }}>
+                            Tap to apply
+                        </Text>
+                    </Pressable>
+                </View>
+            </SafeAreaView>
         </RNModal>
     );
 }
