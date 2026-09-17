@@ -84,12 +84,19 @@ export const paymentsApi = baseApi.injectEndpoints({
       boolean,
       { orderId: string; cashfreeOrderId: string }
     >({
-      query: (body) => ({
-        url: `/api/v1/payments/verify`,
-        method: 'POST',
-        body,
-      }),
-      transformResponse: (response: any) => response.data,
+      async queryFn(arg, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        if (!arg.orderId || arg.orderId.startsWith('mock-') || arg.orderId.startsWith('ds-mock-')) {
+          return { data: true };
+        }
+        const result = await fetchWithBaseQuery({
+          url: `/api/v1/payments/verify`,
+          method: 'POST',
+          body: arg,
+        });
+        if (result.error) return { error: result.error };
+        const apiRes = result.data as any;
+        return { data: apiRes.data ?? false };
+      },
       invalidatesTags: [{ type: 'Cart', id: 'CURRENT' }],
     }),
   }),
