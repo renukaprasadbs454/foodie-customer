@@ -137,7 +137,7 @@ export function DarkStoreItemsScreen({ navigation, route }: Props) {
                                     ₹{cartTotal.toFixed(2)}
                                 </Text>
                                 <Text style={{ color: '#E8F5E9', fontWeight: '600', fontSize: 11, marginTop: 1 }} numberOfLines={1}>
-                                    From Dark Store
+                                    From Quick Store
                                 </Text>
                             </View>
                         </View>

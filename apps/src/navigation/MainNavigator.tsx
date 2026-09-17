@@ -94,7 +94,7 @@ function BrowseStackNavigator() {
       <BrowseStack.Screen
         name="DarkStore"
         component={DarkStoreScreen as any}
-        options={{ title: 'Dark Store' }}
+        options={{ title: 'Quick Store' }}
       />
       <BrowseStack.Screen
         name="DarkStoreSubCategory"
@@ -150,7 +150,7 @@ function DarkStoreStackNavigator() {
       <DarkStoreStack.Screen
         name="DarkStore"
         component={DarkStoreScreen as any}
-        options={{ title: 'Dark Store' }}
+        options={{ title: 'Quick Store' }}
       />
       <DarkStoreStack.Screen
         name="DarkStoreSubCategory"
@@ -281,7 +281,7 @@ export function MainNavigator() {
       <Tab.Screen
         name="DarkStoreTab"
         component={DarkStoreStackNavigator as any}
-        options={{ title: 'Dark Store' }}
+        options={{ title: 'Quick Store' }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();

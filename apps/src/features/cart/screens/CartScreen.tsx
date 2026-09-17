@@ -110,7 +110,7 @@ export function CartScreen({ navigation, route }: Props) {
   const menuQuery = useGetMenuQuery(restaurantId || '', { skip: !validId || isMock });
 
   const mockRestaurant = isMock ? MOCK_RESTAURANTS.find((r: any) => r.id === restaurantId) : null;
-  const restaurantName = isDarkStoreMock ? 'FoodieMart Dark Store' : cartQuery?.data?.restaurantName || mockRestaurant?.name || 'Restaurant';
+  const restaurantName = isDarkStoreMock ? 'FoodieMart Quick Store' : cartQuery?.data?.restaurantName || mockRestaurant?.name || 'Restaurant';
   const menuData = isMock && restaurantId && !isDarkStoreMock ? MOCK_MENUS[restaurantId] : menuQuery.data;
 
   const menuItemsMap = new Map();
@@ -178,7 +178,7 @@ export function CartScreen({ navigation, route }: Props) {
 
   const onRemove = async (cartItemId: string) => {
     if (isDarkStoreMock) {
-      setToast({ message: 'Dark store cart mock handles checkout locally.', variant: 'info' });
+      setToast({ message: 'Quick store cart mock handles checkout locally.', variant: 'info' });
       return;
     }
     if (!isConnected) {
@@ -199,7 +199,7 @@ export function CartScreen({ navigation, route }: Props) {
 
   const onUpdateQuantity = async (cartItemId: string, newQty: number) => {
     if (isDarkStoreMock) {
-      setToast({ message: 'Dark store cart mock handles checkout locally.', variant: 'info' });
+      setToast({ message: 'Quick store cart mock handles checkout locally.', variant: 'info' });
       return;
     }
     if (!isConnected) {
@@ -238,8 +238,25 @@ export function CartScreen({ navigation, route }: Props) {
 
   const showItems = (!cartQuery.isLoading && !cartQuery.isError && items.length > 0) || isDarkStoreMock;
   const deliveryFee = 25;
-  const taxes = 18;
-  const totalBill = Math.max(0, subtotalAmt + deliveryFee + taxes - discount);
+
+  let calculatedTaxes = 0;
+  if (isDarkStoreMock) {
+    calculatedTaxes = 18;
+  } else {
+    items.forEach(item => {
+      const menuItem = menuItemsMap.get(item.menuItemId);
+      const gstPctStr = menuItem?.gstPct;
+      const gstPct = typeof gstPctStr === 'number' ? gstPctStr : (gstPctStr ? Number(gstPctStr) : 5); // Fallback to 5% if not present
+      const lineTotal = item.lineTotal || (Number(item.unitPrice) * Number(item.quantity)) || 0;
+      calculatedTaxes += (Number(lineTotal) * gstPct) / 100;
+    });
+    if (calculatedTaxes === 0 && subtotalAmt > 0) {
+      // Deep fallback
+      calculatedTaxes = subtotalAmt * 0.05;
+    }
+  }
+
+  const totalBill = Math.max(0, subtotalAmt + deliveryFee + calculatedTaxes - discount);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
@@ -442,7 +459,7 @@ export function CartScreen({ navigation, route }: Props) {
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                       <Text style={{ color: '#6B7280', fontWeight: '600' }}>Taxes & Charges</Text>
-                      <Text style={{ color: '#111827', fontWeight: '700' }}>₹{formatMoney(taxes)}</Text>
+                      <Text style={{ color: '#111827', fontWeight: '700' }}>₹{formatMoney(calculatedTaxes)}</Text>
                     </View>
                     {discount > 0 && (
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>

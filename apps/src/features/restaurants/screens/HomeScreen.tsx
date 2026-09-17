@@ -8,6 +8,10 @@ import {
   ScrollView,
   StatusBar,
   Animated,
+  Modal as RNModal,
+  KeyboardAvoidingView,
+  Platform,
+  TextInput as RNTextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -56,12 +60,12 @@ export function HomeScreen({ navigation }: Props) {
   const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [currentAddress, setCurrentAddress] = useState('Locating...');
 
-  // Support / Complaint Modal State
+  // Support / Complaint Chat State
   const [helpModalVisible, setHelpModalVisible] = useState(false);
-  const [customerName, setCustomerName] = useState('');
-  const [mobileNumber, setMobileNumber] = useState('');
-  const [complaintText, setComplaintText] = useState('');
-  const [submittingComplaint, setSubmittingComplaint] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState([
+    { id: '1', text: 'Hi! How can we help you today with your order or application?', from: 'admin', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+  ]);
 
   const feed = useRestaurantFeed({
     cuisineType,
@@ -539,84 +543,142 @@ export function HomeScreen({ navigation }: Props) {
             )}
           />
         )}
-        <Modal
+        <RNModal
           visible={helpModalVisible}
+          animationType="slide"
           onRequestClose={() => setHelpModalVisible(false)}
-          title="Customer Support & Complaints"
-          accessibilityLabel="Customer support and complaint form"
         >
-          <View style={{ gap: 14, paddingVertical: 4 }}>
-            <Text style={{ fontSize: 13, color: '#6B7280', fontWeight: '600' }}>
-              Submit your issue or complaint directly to the Admin Support panel.
-            </Text>
+          <View style={{ flex: 1, backgroundColor: '#E5DDD5' }}>
+            <View style={{
+              backgroundColor: '#075E54', // WhatsApp Green
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingTop: insets.top + 10,
+              paddingBottom: 12,
+              paddingHorizontal: 16,
+            }}>
+              <Pressable onPress={() => setHelpModalVisible(false)} style={{ marginRight: 12 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: 'bold' }}>←</Text>
+              </Pressable>
 
-            <TextInput
-              label="Full Name"
-              value={customerName}
-              onChangeText={setCustomerName}
-              placeholder="e.g. Rahul Sharma"
-              accessibilityLabel="Customer Name"
-              containerStyle={{ backgroundColor: '#F9FAFB', borderRadius: 10 }}
-            />
-
-            <TextInput
-              label="Mobile Number"
-              value={mobileNumber}
-              onChangeText={setMobileNumber}
-              placeholder="e.g. +91 9876543210"
-              keyboardType="phone-pad"
-              accessibilityLabel="Mobile Number"
-              containerStyle={{ backgroundColor: '#F9FAFB', borderRadius: 10 }}
-            />
-
-            <TextInput
-              label="Issue / Complaint Facing"
-              value={complaintText}
-              onChangeText={setComplaintText}
-              placeholder="Describe your issue with order, payment, or delivery..."
-              multiline
-              maxLength={500}
-              accessibilityLabel="Issue facing"
-              containerStyle={{ backgroundColor: '#F9FAFB', borderRadius: 10, height: 90 }}
-            />
-
-            <View style={{ gap: 10, marginTop: 8 }}>
-              <Button
-                label={submittingComplaint ? "Submitting to Admin..." : "Submit Complaint to Admin"}
-                accessibilityLabel="Submit complaint"
-                disabled={submittingComplaint}
-                onPress={async () => {
-                  if (!complaintText.trim()) {
-                    setToast({ message: 'Please describe the issue you are facing.', variant: 'error' });
-                    return;
-                  }
-                  setSubmittingComplaint(true);
-                  try {
-                    // Send request to support endpoint or log ticket
-                    const ticketId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
-                    await new Promise(r => setTimeout(r, 600));
-                    setHelpModalVisible(false);
-                    setComplaintText('');
-                    setToast({
-                      message: `Ticket #${ticketId} submitted to Admin Panel Support! We will contact ${mobileNumber || 'you'} shortly.`,
-                      variant: 'success'
-                    });
-                  } catch (e) {
-                    setToast({ message: 'Failed to submit complaint. Try again.', variant: 'error' });
-                  } finally {
-                    setSubmittingComplaint(false);
-                  }
-                }}
-              />
-              <Button
-                label="Cancel"
-                accessibilityLabel="Cancel support complaint"
-                variant="secondary"
-                onPress={() => setHelpModalVisible(false)}
-              />
+              <View style={{ width: 40, height: 40, backgroundColor: '#128C7E', borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                <Text style={{ fontSize: 20 }}>🎧</Text>
+              </View>
+              <View>
+                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' }}>Admin Support</Text>
+                <Text style={{ color: '#D5F5E3', fontSize: 12 }}>online</Text>
+              </View>
             </View>
+
+            <KeyboardAvoidingView
+              style={{ flex: 1 }}
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+              <ScrollView
+                contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
+                style={{ flex: 1 }}
+              >
+                {chatHistory.map((msg) => {
+                  const isAdmin = msg.from === 'admin';
+                  return (
+                    <View key={msg.id} style={{
+                      alignSelf: isAdmin ? 'flex-start' : 'flex-end',
+                      backgroundColor: isAdmin ? '#FFFFFF' : '#DCF8C6',
+                      borderRadius: 12,
+                      padding: 10,
+                      maxWidth: '80%',
+                      marginBottom: 12,
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 1,
+                      elevation: 1,
+                      borderTopLeftRadius: isAdmin ? 0 : 12,
+                      borderTopRightRadius: isAdmin ? 12 : 0,
+                    }}>
+                      <Text style={{ color: '#111827', fontSize: 15, lineHeight: 20 }}>{msg.text}</Text>
+                      <Text style={{ color: '#9CA3AF', fontSize: 10, textAlign: 'right', marginTop: 4 }}>{msg.time}</Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'flex-end',
+                padding: 8,
+                paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+                backgroundColor: 'transparent',
+              }}>
+                <View style={{
+                  flex: 1,
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 24,
+                  minHeight: 48,
+                  maxHeight: 120,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 16,
+                  marginRight: 8,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 2,
+                  elevation: 2,
+                }}>
+                  <RNTextInput
+                    value={chatMessage}
+                    onChangeText={setChatMessage}
+                    placeholder="Message"
+                    multiline
+                    placeholderTextColor="#9CA3AF"
+                    style={{ flex: 1, fontSize: 16, color: '#111827', paddingVertical: 12, maxHeight: 100 }}
+                  />
+                </View>
+                <Pressable
+                  onPress={() => {
+                    if (!chatMessage.trim()) return;
+
+                    const newMsg = {
+                      id: Date.now().toString(),
+                      text: chatMessage.trim(),
+                      from: 'user',
+                      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    };
+
+                    setChatHistory(prev => [...prev, newMsg]);
+                    setChatMessage('');
+
+                    // Simulate admin reply
+                    setTimeout(() => {
+                      setChatHistory(prev => [...prev, {
+                        id: (Date.now() + 1).toString(),
+                        text: "Thanks for reaching out! A support agent will look into this shortly.",
+                        from: 'admin',
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      }]);
+                    }, 1500);
+                  }}
+                  style={{
+                    backgroundColor: '#128C7E',
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 2,
+                    elevation: 2,
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>Send</Text>
+                </Pressable>
+              </View>
+            </KeyboardAvoidingView>
           </View>
-        </Modal>
+        </RNModal>
 
         <GlobalCartBanner />
         <Toast

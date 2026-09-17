@@ -17,6 +17,8 @@ export type MenuItem = {
   basePrice: number | string;
   isVeg: boolean;
   isAvailable: boolean;
+  packageSize?: string | null;
+  gstPct?: number | string | null;
   imageUrl?: string | null;
   variants: MenuVariant[];
 };

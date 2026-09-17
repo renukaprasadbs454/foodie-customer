@@ -46,7 +46,7 @@ export function DarkStoreScreen({ navigation }: Props) {
                     <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
                         <Text style={styles.backButtonText}>←</Text>
                     </Pressable>
-                    <Text style={styles.headerTitle}>DARK STORE</Text>
+                    <Text style={styles.headerTitle}>QUICK STORE</Text>
                 </View>
                 <View style={styles.searchIconContainer}>
                     <Text style={{ fontSize: 18 }}>🔍</Text>

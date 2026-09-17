@@ -160,7 +160,17 @@ export function ProfileScreen({ navigation }: Props) {
 
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: '#F2F2F7' }}
+      contentContainerStyle={{ minHeight: '100%', paddingBottom: 20 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={profileQuery.isFetching}
+          onRefresh={() => { void profileQuery.refetch(); }}
+          tintColor="#FCD34D"
+        />
+      }
+    >
       {/* Curved Dark Green brand banner top arch with smooth gradient */}
       <LinearGradient
         colors={['#0F3E22', '#14532D', '#1B6A3A']}
@@ -219,16 +229,7 @@ export function ProfileScreen({ navigation }: Props) {
         </Pressable>
       </View>
 
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 60, paddingTop: insets.top + 16 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={profileQuery.isFetching}
-            onRefresh={() => { void profileQuery.refetch(); }}
-            tintColor="#FCD34D"
-          />
-        }
-      >
+      <View style={{ paddingTop: insets.top + 16 }}>
         <Animated.View style={{ opacity: fadeValue, transform: [{ scale: scaleValue }], paddingHorizontal: tokens.spacing.lg }}>
           <View style={{ paddingTop: 16, paddingBottom: 20 }}>
             <Text style={{ fontSize: 34, fontWeight: '900', color: '#FCD34D', letterSpacing: 0.5 }}>Profile</Text>
@@ -549,7 +550,7 @@ export function ProfileScreen({ navigation }: Props) {
             </View>
           )}
         </Animated.View>
-      </ScrollView>
+      </View>
 
       <Toast
         visible={Boolean(toast)}
@@ -558,6 +559,6 @@ export function ProfileScreen({ navigation }: Props) {
         accessibilityLabel={toast?.message ?? 'Toast'}
         onDismiss={() => setToast(null)}
       />
-    </View>
+    </ScrollView>
   );
 }
