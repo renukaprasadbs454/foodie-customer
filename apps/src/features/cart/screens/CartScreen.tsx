@@ -18,6 +18,8 @@ import {
   useRemoveCartItemMutation,
   useUpdateCartItemQuantityMutation,
 } from '../../../api/endpoints/cartApi';
+import { useGetEligibleCouponsQuery, useApplyCouponMutation } from '../../../api/endpoints/couponsApi';
+import { CouponsModal } from '../../checkout/components/CouponsModal';
 import { toUnwrappedApiError } from '../../auth/apiError';
 import type { BrowseStackParamList } from '../../../navigation/types';
 import { formatMoney, isMenuRestaurantId } from '../../menu/types';
@@ -45,8 +47,11 @@ export function CartScreen({ navigation, route }: Props) {
   const { data: addresses } = useGetAddressesQuery();
   const { data: myProfile } = useGetMyProfileQuery();
 
-  const [couponCode, setCouponCode] = useState('');
-  const [discount, setDiscount] = useState(0);
+  const [applyCouponMutation, applyState] = useApplyCouponMutation();
+  const [selectedCouponCode, setSelectedCouponCode] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountAmount: number; finalTotal: number; } | null>(null);
+  const [showCouponsModal, setShowCouponsModal] = useState<boolean>(false);
+
 
   const [toast, setToast] = useState<{
     message: string;
@@ -130,6 +135,39 @@ export function CartScreen({ navigation, route }: Props) {
       });
     });
   }
+
+  const couponsQuery = useGetEligibleCouponsQuery({
+    restaurantId: restaurantId || '',
+    cartTotal: subtotalAmt,
+  }, { skip: !restaurantId || isDarkStoreMock });
+
+  useEffect(() => {
+    if (couponsQuery.data && couponsQuery.data.length > 0 && !selectedCouponCode && !appliedCoupon) {
+      const best = couponsQuery.data[0];
+      setSelectedCouponCode(best.code);
+    }
+  }, [couponsQuery.data, selectedCouponCode, appliedCoupon]);
+
+  useEffect(() => {
+    if (selectedCouponCode && restaurantId) {
+      applyCouponMutation({ code: selectedCouponCode, restaurantId, cartTotal: subtotalAmt })
+        .unwrap()
+        .then((res) => {
+          setAppliedCoupon({
+            code: res.code,
+            discountAmount: Number(res.discountAmount),
+            finalTotal: Number(res.finalTotal)
+          });
+        })
+        .catch((err) => {
+          setToast({ message: 'Coupon could not be applied.', variant: 'error' });
+          setSelectedCouponCode(null);
+          setAppliedCoupon(null);
+        });
+    } else {
+      setAppliedCoupon(null);
+    }
+  }, [selectedCouponCode, subtotalAmt, restaurantId]);
 
   const defaultAddress = addresses?.find(a => a.isDefault) || addresses?.[0];
 
@@ -256,7 +294,8 @@ export function CartScreen({ navigation, route }: Props) {
     }
   }
 
-  const totalBill = Math.max(0, subtotalAmt + deliveryFee + calculatedTaxes - discount);
+  const resolvedDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0;
+  const totalBill = Math.max(0, subtotalAmt + deliveryFee + calculatedTaxes - resolvedDiscount);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
@@ -340,39 +379,83 @@ export function CartScreen({ navigation, route }: Props) {
                   </Pressable>
                 </View>
 
-                {/* Promo Code Card */}
-                <View style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  backgroundColor: '#FFFFFF',
-                  padding: 12,
-                  borderRadius: 16,
-                  borderWidth: 1.5,
-                  borderColor: '#E5E7EB',
-                }}>
-                  <View style={{ backgroundColor: '#FEF3C7', padding: 8, borderRadius: 10 }}>
-                    <Text style={{ fontSize: 18 }}>🏷️</Text>
+                {/* Coupon Section */}
+                {couponsQuery.data && couponsQuery.data.length > 0 && (
+                  <View style={{
+                    backgroundColor: '#FFFFFF',
+                    padding: 16,
+                    borderRadius: 16,
+                    borderWidth: 1.5,
+                    borderColor: '#E5E7EB',
+                    borderStyle: 'dashed',
+                    shadowColor: '#14532D',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 10,
+                    elevation: 2,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        backgroundColor: appliedCoupon ? '#DCFCE7' : '#F3F4F6',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: 12
+                      }}>
+                        <Text style={{ fontSize: 16, color: appliedCoupon ? '#166534' : '#374151' }}>%</Text>
+                      </View>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        {appliedCoupon ? (
+                          <>
+                            <Text style={{ fontWeight: '800', fontSize: 14, color: '#111827' }}>
+                              Save ₹{formatMoney(appliedCoupon.discountAmount)} with '{appliedCoupon.code}'
+                            </Text>
+                            <Pressable onPress={() => setShowCouponsModal(true)} style={{ marginTop: 2 }}>
+                              <Text style={{ color: '#059669', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>
+                            </Pressable>
+                          </>
+                        ) : (
+                          <>
+                            <Text style={{ fontWeight: '800', fontSize: 14, color: '#111827' }}>
+                              Apply a coupon
+                            </Text>
+                            <Pressable onPress={() => setShowCouponsModal(true)} style={{ marginTop: 2 }}>
+                              <Text style={{ color: '#059669', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>
+                            </Pressable>
+                          </>
+                        )}
+                      </View>
+                    </View>
+
+                    <Pressable
+                      onPress={() => setShowCouponsModal(true)}
+                      style={({ pressed }) => ({
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        opacity: pressed ? 0.8 : 1,
+                        borderColor: '#14532D',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        backgroundColor: appliedCoupon ? '#F9FAFB' : '#14532D',
+                      })}
+                    >
+                      <Text style={{
+                        color: appliedCoupon ? '#14532D' : '#FCD34D',
+                        fontWeight: '800',
+                        fontSize: 12,
+                        letterSpacing: 0.5
+                      }}>
+                        {appliedCoupon ? 'CHANGE' : 'APPLY'}
+                      </Text>
+                    </Pressable>
                   </View>
-                  <RNTextInput
-                    placeholder="Enter Promo Code"
-                    placeholderTextColor="#6B7280"
-                    style={{ flex: 1, color: '#111827', fontSize: 16, fontWeight: '700' }}
-                    value={couponCode}
-                    onChangeText={setCouponCode}
-                  />
-                  <Pressable
-                    onPress={() => {
-                      if (couponCode) {
-                        setDiscount(40);
-                        setToast({ message: 'Coupon Applied!', variant: 'success' });
-                      }
-                    }}
-                    style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#14532D', borderRadius: 10 }}
-                  >
-                    <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 13 }}>APPLY</Text>
-                  </Pressable>
-                </View>
+                )}
 
                 {/* Delivery Information Block */}
                 <View style={{
@@ -461,10 +544,10 @@ export function CartScreen({ navigation, route }: Props) {
                       <Text style={{ color: '#6B7280', fontWeight: '600' }}>Taxes & Charges</Text>
                       <Text style={{ color: '#111827', fontWeight: '700' }}>₹{formatMoney(calculatedTaxes)}</Text>
                     </View>
-                    {discount > 0 && (
+                    {resolvedDiscount > 0 && (
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                         <Text style={{ color: '#10B981', fontWeight: '700' }}>Coupon Discount</Text>
-                        <Text style={{ color: '#10B981', fontWeight: '700' }}>-₹{formatMoney(discount)}</Text>
+                        <Text style={{ color: '#10B981', fontWeight: '700' }}>-₹{formatMoney(resolvedDiscount)}</Text>
                       </View>
                     )}
                     <View style={{ height: 1, backgroundColor: '#F3F4F6', marginVertical: 4 }} />
@@ -518,7 +601,7 @@ export function CartScreen({ navigation, route }: Props) {
           {checkoutEnabled ? (
             <Pressable
               accessibilityLabel="Continue to Checkout"
-              onPress={() => navigation.navigate('Checkout' as any, { mockItems: isDarkStoreMock ? mockItems : undefined, discount })}
+              onPress={() => navigation.navigate('Checkout' as any, { mockItems: isDarkStoreMock ? mockItems : undefined, discount: appliedCoupon?.discountAmount || 0, couponCode: appliedCoupon?.code })}
               style={({ pressed }) => ({
                 backgroundColor: pressed ? '#0F3E22' : '#14532D',
                 paddingVertical: 16,
@@ -564,6 +647,14 @@ export function CartScreen({ navigation, route }: Props) {
             </View>
           )}
         </View>
+
+        <CouponsModal
+          visible={showCouponsModal}
+          onClose={() => setShowCouponsModal(false)}
+          coupons={couponsQuery.data || []}
+          selectedCode={selectedCouponCode}
+          onApply={(code) => setSelectedCouponCode(code)}
+        />
 
         <Modal
           visible={clearVisible}
