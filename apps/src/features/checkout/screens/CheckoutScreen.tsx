@@ -183,7 +183,9 @@ export function CheckoutScreen({ navigation, route }: any) {
   const subtotal = subtotalBeforeCoupons;
   const routeDiscount = route.params?.discount ?? 0;
   const totalDiscount = routeDiscount;
-  const orderTotal = Math.max(0, subtotal + 25 + 18 - totalDiscount);
+  const routeTaxes = route.params?.taxes ?? 18;
+  const routeDelivery = route.params?.deliveryFee ?? 25;
+  const orderTotal = Math.max(0, subtotal + routeDelivery + routeTaxes - totalDiscount);
   const walletApplied = useWallet ? Math.min(walletBalance, orderTotal) : 0;
   const grandTotal = Math.max(0, orderTotal - walletApplied);
 
@@ -456,11 +458,11 @@ export function CheckoutScreen({ navigation, route }: any) {
                       </View>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                         <Text style={{ color: '#6B7280', fontWeight: '600' }}>Delivery Fee</Text>
-                        <Text style={{ color: '#111827', fontWeight: '700' }}>₹25.00</Text>
+                        <Text style={{ color: '#111827', fontWeight: '700' }}>₹{formatMoney(routeDelivery)}</Text>
                       </View>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                         <Text style={{ color: '#6B7280', fontWeight: '600' }}>Taxes & Charges</Text>
-                        <Text style={{ color: '#111827', fontWeight: '700' }}>₹18.00</Text>
+                        <Text style={{ color: '#111827', fontWeight: '700' }}>₹{formatMoney(routeTaxes)}</Text>
                       </View>
 
                       {routeDiscount > 0 && (
