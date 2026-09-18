@@ -141,12 +141,7 @@ export function CartScreen({ navigation, route }: Props) {
     cartTotal: subtotalAmt,
   }, { skip: !restaurantId || isDarkStoreMock });
 
-  useEffect(() => {
-    if (couponsQuery.data && couponsQuery.data.length > 0 && !selectedCouponCode && !appliedCoupon) {
-      const best = couponsQuery.data[0];
-      setSelectedCouponCode(best.code);
-    }
-  }, [couponsQuery.data, selectedCouponCode, appliedCoupon]);
+
 
   useEffect(() => {
     if (selectedCouponCode && restaurantId) {
@@ -417,6 +412,17 @@ export function CartScreen({ navigation, route }: Props) {
                             <Text style={{ color: '#059669', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>
                           </Pressable>
                         </>
+                      ) : (couponsQuery.data && couponsQuery.data.length > 0) ? (
+                        <>
+                          <Text style={{ fontWeight: '800', fontSize: 14, color: '#111827' }}>
+                            {couponsQuery.data[0].discountType === 'FLAT'
+                              ? `Save ₹${formatMoney(Number(couponsQuery.data[0].value))} with '${couponsQuery.data[0].code}'`
+                              : `Save ${couponsQuery.data[0].value}% with '${couponsQuery.data[0].code}'`}
+                          </Text>
+                          <Pressable onPress={() => setShowCouponsModal(true)} style={{ marginTop: 2 }}>
+                            <Text style={{ color: '#059669', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>
+                          </Pressable>
+                        </>
                       ) : (
                         <>
                           <Text style={{ fontWeight: '800', fontSize: 14, color: '#111827' }}>
@@ -431,7 +437,13 @@ export function CartScreen({ navigation, route }: Props) {
                   </View>
 
                   <Pressable
-                    onPress={() => setShowCouponsModal(true)}
+                    onPress={() => {
+                      if (!appliedCoupon && couponsQuery.data && couponsQuery.data.length > 0) {
+                        setSelectedCouponCode(couponsQuery.data[0].code);
+                      } else {
+                        setShowCouponsModal(true);
+                      }
+                    }}
                     style={({ pressed }) => ({
                       paddingHorizontal: 16,
                       paddingVertical: 10,
