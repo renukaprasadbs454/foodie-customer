@@ -219,8 +219,8 @@ export function CouponsModal({ visible, onClose, coupons, selectedCode, onApply 
                             alignItems: 'center',
                         })}
                     >
-                        <Text style={{ color: '#FCD34D', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 }}>
-                            Tap to apply
+                        <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: '#FCD34D', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 }}>
+                            Apply Coupon
                         </Text>
                     </Pressable>
                 </View>

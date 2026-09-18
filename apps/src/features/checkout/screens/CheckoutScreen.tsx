@@ -26,7 +26,6 @@ import {
 import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import { useGetCartQuery } from '../../../api/endpoints/cartApi';
 import { useCreateOrderMutation, useTransitionOrderStatusMutation } from '../../../api/endpoints/ordersApi';
-import { useGetEligibleCouponsQuery, useApplyCouponMutation } from '../../../api/endpoints/couponsApi';
 import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
 import { useGetWalletBalanceQuery } from '../../../api/endpoints/walletApi';
 import { toUnwrappedApiError } from '../../auth/apiError';
@@ -34,7 +33,6 @@ import { formatMoney, parseMoney } from '../../menu/types';
 import type { BrowseStackParamList } from '../../../navigation/types';
 import { AddressPickerRow } from '../components/AddressPickerRow';
 import { CheckoutSkeleton } from '../components/CheckoutSkeleton';
-import { CouponsModal } from '../components/CouponsModal';
 import { isAddressId } from '../types';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Checkout'>;
@@ -51,16 +49,7 @@ export function CheckoutScreen({ navigation, route }: any) {
   const addressesQuery = useGetAddressesQuery();
   const [createOrder, createState] = useCreateOrderMutation();
   const [transitionStatus] = useTransitionOrderStatusMutation();
-  const [applyCouponMutation, applyState] = useApplyCouponMutation();
-
   const [addressId, setAddressId] = useState<string | null>(null);
-  const [selectedCouponCode, setSelectedCouponCode] = useState<string | null>(null);
-  const [appliedCoupon, setAppliedCoupon] = useState<{
-    code: string;
-    discountAmount: number;
-    finalTotal: number;
-  } | null>(null);
-  const [showCouponsModal, setShowCouponsModal] = useState<boolean>(false);
   const [useWallet, setUseWallet] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'COD'>('ONLINE');
   const placeAttemptKey = useRef<string | null>(null);
@@ -117,40 +106,9 @@ export function CheckoutScreen({ navigation, route }: any) {
 
   const subtotalBeforeCoupons = isDarkStoreMock ? mockItems.reduce((acc: number, mi: any) => acc + (mi.price * mi.quantity), 0) : Number(cart?.subtotal || 0);
 
-  const couponsQuery = useGetEligibleCouponsQuery({
-    restaurantId: restaurantId || '',
-    cartTotal: subtotalBeforeCoupons,
-  }, { skip: !restaurantId || isDarkStoreMock });
 
-  useEffect(() => {
-    if (couponsQuery.data && couponsQuery.data.length > 0 && !selectedCouponCode && !appliedCoupon) {
-      const best = couponsQuery.data[0];
-      setSelectedCouponCode(best.code);
-    }
-  }, [couponsQuery.data, selectedCouponCode, appliedCoupon]);
 
-  useEffect(() => {
-    if (selectedCouponCode && restaurantId) {
-      applyCouponMutation({ code: selectedCouponCode, restaurantId, cartTotal: subtotalBeforeCoupons })
-        .unwrap()
-        .then((res) => {
-          setAppliedCoupon({
-            code: res.code,
-            discountAmount: Number(res.discountAmount),
-            finalTotal: Number(res.finalTotal)
-          });
-        })
-        .catch((err) => {
-          setToast({ message: 'Coupon could not be applied.', variant: 'error' });
-          setSelectedCouponCode(null);
-          setAppliedCoupon(null);
-        });
-    } else {
-      setAppliedCoupon(null);
-    }
-  }, [selectedCouponCode, subtotalBeforeCoupons, restaurantId]);
-
-  const loading = cartQuery.isLoading || addressesQuery.isLoading || createState.isLoading || walletQuery.isLoading || applyState.isLoading;
+  const loading = cartQuery.isLoading || addressesQuery.isLoading || createState.isLoading || walletQuery.isLoading;
 
   const onPlaceOrder = async () => {
     if (!addressId || !isAddressId(addressId)) {
@@ -174,7 +132,7 @@ export function CheckoutScreen({ navigation, route }: any) {
     try {
       const order = await createOrder({
         addressId,
-        couponCode: appliedCoupon?.code || undefined,
+        couponCode: route.params?.couponCode || undefined,
         idempotencyKey: placeAttemptKey.current,
       }).unwrap();
       trackAnalyticsEvent('checkout_completed', { orderId: order.orderId, paymentMethod });
@@ -224,8 +182,7 @@ export function CheckoutScreen({ navigation, route }: any) {
 
   const subtotal = subtotalBeforeCoupons;
   const routeDiscount = route.params?.discount ?? 0;
-  const backendDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0;
-  const totalDiscount = backendDiscount + routeDiscount;
+  const totalDiscount = routeDiscount;
   const orderTotal = Math.max(0, subtotal + 25 + 18 - totalDiscount);
   const walletApplied = useWallet ? Math.min(walletBalance, orderTotal) : 0;
   const grandTotal = Math.max(0, orderTotal - walletApplied);
@@ -341,84 +298,6 @@ export function CheckoutScreen({ navigation, route }: any) {
                       </View>
                     )}
                   </View>
-
-                  {/* Coupon Section */}
-                  {couponsQuery.data && couponsQuery.data.length > 0 && (
-                    <View style={{
-                      backgroundColor: '#FFFFFF',
-                      padding: 16,
-                      borderRadius: 16,
-                      borderWidth: 1.5,
-                      borderColor: appliedCoupon ? '#22C55E' : '#E5E7EB',
-                      borderStyle: appliedCoupon ? 'solid' : 'dashed',
-                      shadowColor: '#14532D',
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.04,
-                      shadowRadius: 10,
-                      elevation: 2,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                    }}>
-                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 16,
-                          backgroundColor: appliedCoupon ? '#DCFCE7' : '#F3F4F6',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          marginRight: 12
-                        }}>
-                          <Text style={{ fontSize: 16, color: appliedCoupon ? '#166534' : '#374151' }}>%</Text>
-                        </View>
-                        <View style={{ flex: 1, marginRight: 8 }}>
-                          {appliedCoupon ? (
-                            <>
-                              <Text style={{ fontWeight: '800', fontSize: 14, color: '#111827' }}>
-                                Save ₹{formatMoney(appliedCoupon.discountAmount)} with '{appliedCoupon.code}'
-                              </Text>
-                              <Pressable onPress={() => setShowCouponsModal(true)} style={{ marginTop: 2 }}>
-                                <Text style={{ color: '#059669', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>
-                              </Pressable>
-                            </>
-                          ) : (
-                            <>
-                              <Text style={{ fontWeight: '800', fontSize: 14, color: '#111827' }}>
-                                Apply a coupon
-                              </Text>
-                              <Pressable onPress={() => setShowCouponsModal(true)} style={{ marginTop: 2 }}>
-                                <Text style={{ color: '#059669', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>
-                              </Pressable>
-                            </>
-                          )}
-                        </View>
-                      </View>
-
-                      <Pressable 
-                        onPress={() => setShowCouponsModal(true)} 
-                        style={({ pressed }) => ({
-                          paddingHorizontal: 16,
-                          paddingVertical: 10,
-                          borderRadius: 12,
-                          borderWidth: 1,
-                          opacity: pressed ? 0.8 : 1,
-                          borderColor: '#14532D',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          backgroundColor: appliedCoupon ? '#F9FAFB' : '#14532D',
-                        })}
-                      >
-                        <Text style={{ 
-                          color: appliedCoupon ? '#14532D' : '#FCD34D', 
-                          fontWeight: '800', 
-                          fontSize: 12,
-                          letterSpacing: 0.5
-                        }}>
-                          {appliedCoupon ? 'CHANGE' : 'APPLY'}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  )}
 
                   {/* Wallet Section */}
                   <View style={{

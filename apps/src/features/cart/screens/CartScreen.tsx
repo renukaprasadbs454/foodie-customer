@@ -438,7 +438,10 @@ export function CartScreen({ navigation, route }: Props) {
 
                   <Pressable
                     onPress={() => {
-                      if (!appliedCoupon && couponsQuery.data && couponsQuery.data.length > 0) {
+                      if (appliedCoupon) {
+                        setSelectedCouponCode(null);
+                        setAppliedCoupon(null);
+                      } else if (couponsQuery.data && couponsQuery.data.length > 0) {
                         setSelectedCouponCode(couponsQuery.data[0].code);
                       } else {
                         setShowCouponsModal(true);
@@ -450,19 +453,19 @@ export function CartScreen({ navigation, route }: Props) {
                       borderRadius: 12,
                       borderWidth: 1,
                       opacity: pressed ? 0.8 : 1,
-                      borderColor: '#14532D',
+                      borderColor: appliedCoupon ? '#EF4444' : '#14532D',
                       justifyContent: 'center',
                       alignItems: 'center',
-                      backgroundColor: appliedCoupon ? '#F9FAFB' : '#14532D',
+                      backgroundColor: appliedCoupon ? '#FEF2F2' : '#14532D',
                     })}
                   >
                     <Text style={{
-                      color: appliedCoupon ? '#14532D' : '#FCD34D',
+                      color: appliedCoupon ? '#DC2626' : '#FCD34D',
                       fontWeight: '800',
                       fontSize: 12,
                       letterSpacing: 0.5
                     }}>
-                      {appliedCoupon ? 'CHANGE' : 'APPLY'}
+                      {appliedCoupon ? 'REMOVE' : 'APPLY'}
                     </Text>
                   </Pressable>
                 </View>
