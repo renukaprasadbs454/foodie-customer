@@ -449,7 +449,7 @@ export function CartScreen({ navigation, route }: Props) {
                     }}
                     style={({ pressed }) => ({
                       paddingHorizontal: 16,
-                      paddingVertical: 10,
+                      height: 36,
                       borderRadius: 12,
                       borderWidth: 1,
                       opacity: pressed ? 0.8 : 1,
@@ -463,7 +463,9 @@ export function CartScreen({ navigation, route }: Props) {
                       color: appliedCoupon ? '#DC2626' : '#FCD34D',
                       fontWeight: '800',
                       fontSize: 12,
-                      letterSpacing: 0.5
+                      lineHeight: 14,
+                      letterSpacing: 0.5,
+                      includeFontPadding: false
                     }}>
                       {appliedCoupon ? 'REMOVE' : 'APPLY'}
                     </Text>

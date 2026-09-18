@@ -546,13 +546,6 @@ export function CheckoutScreen({ navigation, route }: any) {
             </View>
           )}
 
-          <CouponsModal
-            visible={showCouponsModal}
-            onClose={() => setShowCouponsModal(false)}
-            coupons={couponsQuery.data || []}
-            selectedCode={selectedCouponCode}
-            onApply={(code) => setSelectedCouponCode(code)}
-          />
 
           <Toast
             visible={Boolean(toast)}
