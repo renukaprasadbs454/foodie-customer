@@ -21,7 +21,8 @@ export const couponsApi = baseApi.injectEndpoints({
         params: { restaurantId, cartTotal },
       }),
       transformResponse: (response: unknown) => {
-        if (Array.isArray(response)) return response as EligibleCoupon[];
+        const unwrapped = (response as any)?.data ?? response;
+        if (Array.isArray(unwrapped)) return unwrapped as EligibleCoupon[];
         return [];
       },
       providesTags: [{ type: 'Coupon', id: 'ELIGIBLE' }],
@@ -33,6 +34,9 @@ export const couponsApi = baseApi.injectEndpoints({
         method: 'POST',
         body,
       }),
+      transformResponse: (response: unknown) => {
+        return ((response as any)?.data ?? response) as ApplyCouponResult;
+      },
       invalidatesTags: [{ type: 'Coupon', id: 'ELIGIBLE' }],
     }),
   }),
