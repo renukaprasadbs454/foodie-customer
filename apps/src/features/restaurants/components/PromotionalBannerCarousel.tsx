@@ -117,7 +117,7 @@ export function PromotionalBannerCarousel() {
     const emojis = [['✨', '🎉', '🎁'], ['🍔', '🔥', '🛵'], ['🎊', '🤑', '💥'], ['🍰', '✨', '🎈']];
 
     return (
-        <View style={{ marginVertical: tokens.spacing.md }}>
+        <View style={{ marginVertical: tokens.spacing.md, marginHorizontal: -tokens.spacing.md }}>
             <FlatList
                 ref={flatListRef}
                 data={banners}
