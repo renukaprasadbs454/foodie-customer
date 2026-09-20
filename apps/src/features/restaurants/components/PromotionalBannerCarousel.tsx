@@ -4,6 +4,7 @@ import { Text, useTheme } from 'foodie-shared-rn';
 import { useGetActiveBannersQuery } from '../../../api/endpoints/bannersApi';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -67,13 +68,13 @@ export function PromotionalBannerCarousel() {
                 flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
                 return nextIndex;
             });
-        }, 5000);
+        }, 3000);
         return () => clearInterval(interval);
     }, [banners]);
 
     if (isLoading) {
         return (
-            <View style={{ height: 180, marginHorizontal: tokens.spacing.md, backgroundColor: '#E5E7EB', borderRadius: 20 }} />
+            <View style={{ height: 145, marginHorizontal: tokens.spacing.md, backgroundColor: '#E5E7EB', borderRadius: 20 }} />
         );
     }
 
@@ -106,9 +107,14 @@ export function PromotionalBannerCarousel() {
         }
     };
 
-    // Predefined vibrant fallback colors in case Image fails or takes time
-    const vibrantColors = ['#8B5CF6', '#F97316', '#EC4899', '#14B8A6'];
-    const emojis = [['✨', '🎉', '🎁'], ['🍔', '🔥', '🛵'], ['🎊', '🤑', '💥']];
+    // Predefined vibrant gradients
+    const vibrantGradients: [string, string][] = [
+        ['#8B5CF6', '#6D28D9'], // Purple
+        ['#F97316', '#EA580C'], // Orange
+        ['#EC4899', '#BE185D'], // Pink
+        ['#14B8A6', '#0F766E'], // Teal
+    ];
+    const emojis = [['✨', '🎉', '🎁'], ['🍔', '🔥', '🛵'], ['🎊', '🤑', '💥'], ['🍰', '✨', '🎈']];
 
     return (
         <View style={{ marginVertical: tokens.spacing.md }}>
@@ -121,7 +127,7 @@ export function PromotionalBannerCarousel() {
                 onScroll={handleScroll}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item, index }) => {
-                    const bgColor = vibrantColors[index % vibrantColors.length];
+                    const gradient = vibrantGradients[index % vibrantGradients.length];
                     const activeEmojis = emojis[index % emojis.length];
 
                     return (
@@ -134,10 +140,9 @@ export function PromotionalBannerCarousel() {
                         >
                             <View style={{
                                 width: '100%',
-                                height: 180,
+                                height: 145,
                                 borderRadius: 20,
                                 overflow: 'hidden',
-                                backgroundColor: bgColor,
                                 position: 'relative',
                                 elevation: 4,
                                 shadowColor: '#000',
@@ -145,7 +150,12 @@ export function PromotionalBannerCarousel() {
                                 shadowOpacity: 0.2,
                                 shadowRadius: 6,
                             }}>
-                                {/* No image! Vibrant background color only */}
+                                <LinearGradient
+                                    colors={gradient}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}
+                                />
 
                                 {/* Floating Animated Elements */}
                                 <FloatingShape emoji={activeEmojis[0]} size={45} top={-10} right={10} initialDelay={0} />
@@ -162,7 +172,7 @@ export function PromotionalBannerCarousel() {
                                     <Text style={{
                                         color: '#FFFFFF',
                                         fontWeight: '900',
-                                        fontSize: 24,
+                                        fontSize: 22,
                                         fontStyle: 'italic',
                                         letterSpacing: -0.5,
                                         textShadowColor: 'rgba(0, 0, 0, 0.4)',
@@ -175,10 +185,10 @@ export function PromotionalBannerCarousel() {
                                     {item.subtitle && (
                                         <Text style={{
                                             color: '#FEF3C7',
-                                            fontSize: 14,
+                                            fontSize: 13,
                                             fontWeight: '600',
-                                            marginTop: 6,
-                                            marginBottom: 12,
+                                            marginTop: 4,
+                                            marginBottom: 8,
                                             letterSpacing: 0.2,
                                             textShadowColor: 'rgba(0, 0, 0, 0.4)',
                                             textShadowOffset: { width: 1, height: 1 },
@@ -192,10 +202,10 @@ export function PromotionalBannerCarousel() {
                                     <View style={{
                                         alignSelf: 'flex-start',
                                         backgroundColor: '#FFFFFF',
-                                        paddingHorizontal: 16,
-                                        paddingVertical: 8,
+                                        paddingHorizontal: 14,
+                                        paddingVertical: 6,
                                         borderRadius: 20,
-                                        marginTop: item.subtitle ? 0 : 16,
+                                        marginTop: item.subtitle ? 0 : 12,
                                         shadowColor: '#000',
                                         shadowOffset: { width: 0, height: 2 },
                                         shadowOpacity: 0.2,
@@ -217,13 +227,13 @@ export function PromotionalBannerCarousel() {
                                 {item.ctaType === 'OPEN_COUPON' && (
                                     <Animated.View style={{
                                         position: 'absolute',
-                                        bottom: 16,
-                                        right: 16,
+                                        bottom: 12,
+                                        right: 12,
                                         backgroundColor: '#EC4899',
                                         borderWidth: 2,
                                         borderColor: '#FFFFFF',
-                                        paddingHorizontal: 12,
-                                        paddingVertical: 8,
+                                        paddingHorizontal: 10,
+                                        paddingVertical: 6,
                                         borderRadius: 16,
                                         transform: [{ rotate: '-3deg' }],
                                         shadowColor: '#000',
@@ -232,7 +242,7 @@ export function PromotionalBannerCarousel() {
                                         shadowRadius: 4,
                                         elevation: 5,
                                     }}>
-                                        <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 16 }}>
+                                        <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 13 }}>
                                             USE {item.ctaTarget || 'CODE'}
                                         </Text>
                                     </Animated.View>
