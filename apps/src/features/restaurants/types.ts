@@ -3,11 +3,12 @@
  * Never include commissionPct on the customer surface.
  */
 
-export type RestaurantSort = 'nearby' | 'avgRating' | 'createdAt';
+export type RestaurantSort = 'nearby' | 'avgRating' | 'createdAt' | 'topPosition';
 
 export const RESTAURANT_SORT_WHITELIST: readonly RestaurantSort[] = [
-  'nearby',
+  'topPosition',
   'avgRating',
+  'nearby',
   'createdAt',
 ] as const;
 
@@ -34,6 +35,7 @@ export type RestaurantSummary = {
   latitude?: number | string | null;
   longitude?: number | string | null;
   isOpen?: boolean;
+  topPosition?: number | null;
 };
 
 /** §3.2 public profile — never commissionPct. */

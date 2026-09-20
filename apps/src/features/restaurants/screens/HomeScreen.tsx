@@ -41,6 +41,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CATEGORY_ITEMS } from '../mockData';
 import { GlobalCartBanner } from '../../cart/components/GlobalCartBanner';
 import { syncSupportChatMessages, connectToAgentAndCreateEnquiry, STORAGE_KEY, EnquiryRecord, generateSupportReply } from '../../profile/supportAiEngine';
+import { PromotionalBannerCarousel } from '../components/PromotionalBannerCarousel';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Home'>;
 
@@ -53,7 +54,7 @@ export function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { isConnected } = useConnectivity();
   const [cuisineType, setCuisineType] = useState<string | undefined>();
-  const [sort, setSort] = useState<RestaurantSort>('avgRating');
+  const [sort, setSort] = useState<RestaurantSort>('topPosition');
   const [cuisineDraft, setCuisineDraft] = useState('');
   const [toast, setToast] = useState<{
     message: string;
@@ -94,7 +95,7 @@ export function HomeScreen({ navigation }: Props) {
             break;
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // 2. Fallback to AsyncStorage / localStorage
@@ -109,7 +110,7 @@ export function HomeScreen({ navigation }: Props) {
         if (rawData) {
           enquiries = JSON.parse(rawData);
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // Purge test tickets > 905
@@ -502,6 +503,9 @@ export function HomeScreen({ navigation }: Props) {
           </ScrollView>
         </View>
 
+        {/* Promotional Banner Carousel */}
+        <PromotionalBannerCarousel />
+
         {/* Top Restaurants Header */}
         <View style={{
           flexDirection: 'row',
@@ -564,7 +568,7 @@ export function HomeScreen({ navigation }: Props) {
                   color: active ? '#FFFFFF' : tokens.color.textPrimary,
                   fontWeight: active ? '700' : '500',
                 }}>
-                  {option === 'createdAt' ? '🆕 New Arrivals' : option === 'avgRating' ? '★ Top Rated' : '📍 Nearby Restaurants'}
+                  {option === 'topPosition' ? '👑 Top Restaurants' : option === 'createdAt' ? '🆕 New Arrivals' : option === 'avgRating' ? '★ Top Rated' : '📍 Nearby'}
                 </Text>
               </Pressable>
             );

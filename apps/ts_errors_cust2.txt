@@ -1,0 +1,2 @@
+src/api/endpoints/bannersApi.ts(19,28): error TS2322: Type '"Banners"' is not assignable to type 'TagDescription<"Auth" | "User" | "Restaurant" | "Review" | "Menu" | "Cart" | "Address" | "Coupon" | "Order" | "Notification" | "WalletBalance"> | null | undefined'.
+src/features/orders/components/TrackingMap.tsx(175,5): error TS2698: Spread types may only be created from object types.
