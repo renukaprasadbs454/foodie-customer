@@ -37,8 +37,10 @@ import type { RestaurantSort } from '../types';
 import { RESTAURANT_SORT_WHITELIST } from '../types';
 import { useGetCartQuery } from '../../../api/endpoints/cartApi';
 import { useGetNotificationsQuery } from '../../../api/endpoints/notificationsApi';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CATEGORY_ITEMS } from '../mockData';
 import { GlobalCartBanner } from '../../cart/components/GlobalCartBanner';
+import { syncSupportChatMessages, connectToAgentAndCreateEnquiry, STORAGE_KEY, EnquiryRecord, generateSupportReply } from '../../profile/supportAiEngine';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Home'>;
 
@@ -63,9 +65,120 @@ export function HomeScreen({ navigation }: Props) {
   // Support / Complaint Chat State
   const [helpModalVisible, setHelpModalVisible] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
+  const [activeEnquiryId, setActiveEnquiryId] = useState<string | null>('ENQ-901');
+  const [isAgentConnected, setIsAgentConnected] = useState(false);
+  const [showAgentOption, setShowAgentOption] = useState(false);
   const [chatHistory, setChatHistory] = useState([
     { id: '1', text: 'Hi! How can we help you today with your order or application?', from: 'admin', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
   ]);
+
+  // Sync Help chat modal history with persistent storage key `foodie_support_enquiries` and API route
+  const syncChatFromStorage = async () => {
+    let enquiries: EnquiryRecord[] = [];
+
+    // 1. Try fetching from server endpoints
+    const endpoints = [
+      'http://10.59.183.92:3000/api/support-tickets',
+      'http://10.59.183.92:3001/api/support-tickets',
+      'http://localhost:3000/api/support-tickets',
+      'http://localhost:3001/api/support-tickets',
+    ];
+
+    for (const ep of endpoints) {
+      try {
+        const res = await fetch(ep, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            enquiries = json.data;
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fallback to AsyncStorage / localStorage
+    if (enquiries.length === 0) {
+      try {
+        let rawData: string | null = null;
+        rawData = await AsyncStorage.getItem(STORAGE_KEY);
+        if (!rawData && Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+          rawData = window.localStorage.getItem(STORAGE_KEY);
+        }
+
+        if (rawData) {
+          enquiries = JSON.parse(rawData);
+        }
+      } catch (e) {}
+    }
+
+    // Purge test tickets > 905
+    enquiries = enquiries.filter((e) => {
+      const num = parseInt((e.id || '').replace('ENQ-', ''), 10);
+      return isNaN(num) || num <= 905;
+    });
+
+    if (enquiries.length > 0) {
+      const activeRec = enquiries.find((e) => e.id === 'ENQ-901') || enquiries[0];
+
+      if (activeRec && activeRec.messages && activeRec.messages.length > 0) {
+        const formatted = activeRec.messages.map((m) => ({
+          id: m.id,
+          text: m.message,
+          from: m.sender === 'admin' ? 'admin' : 'user',
+          time: m.timestamp,
+        }));
+        setChatHistory(formatted);
+        if (!activeEnquiryId) {
+          setActiveEnquiryId(activeRec.id);
+        }
+
+        // Auto-end agent mode ONLY when an actual human admin replies or resolves the ticket
+        const lastMsg = activeRec.messages[activeRec.messages.length - 1];
+        const isRealAdminReply =
+          lastMsg &&
+          lastMsg.sender === 'admin' &&
+          !lastMsg.senderName?.includes('Assistant') &&
+          !lastMsg.senderName?.includes('Desk') &&
+          !lastMsg.senderName?.includes('Bot') &&
+          !lastMsg.message.includes('Message sent to Admin Support') &&
+          !lastMsg.message.includes('Message delivered to Admin Support');
+
+        const isResolved = activeRec.status === 'RESOLVED';
+
+        if (isRealAdminReply || isResolved) {
+          setIsAgentConnected(false);
+          setShowAgentOption(false);
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (helpModalVisible) {
+      void syncChatFromStorage();
+      const interval = setInterval(() => {
+        void syncChatFromStorage();
+      }, 2000);
+
+      const handleStorageChange = () => {
+        void syncChatFromStorage();
+      };
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.addEventListener('storage', handleStorageChange);
+        window.addEventListener('foodie_enquiry_updated', handleStorageChange);
+      }
+
+      return () => {
+        clearInterval(interval);
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.removeEventListener('storage', handleStorageChange);
+          window.removeEventListener('foodie_enquiry_updated', handleStorageChange);
+        }
+      };
+    }
+  }, [helpModalVisible]);
 
   const feed = useRestaurantFeed({
     cuisineType,
@@ -566,7 +679,7 @@ export function HomeScreen({ navigation }: Props) {
               </View>
               <View>
                 <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' }}>Admin Support</Text>
-                <Text style={{ color: '#D5F5E3', fontSize: 12 }}>online</Text>
+                <Text style={{ color: '#D5F5E3', fontSize: 12 }}>online • Instant replies</Text>
               </View>
             </View>
 
@@ -579,28 +692,123 @@ export function HomeScreen({ navigation }: Props) {
                 style={{ flex: 1 }}
               >
                 {chatHistory.map((msg) => {
-                  const isAdmin = msg.from === 'admin';
+                  const isAdminOrBot = msg.from === 'admin' || msg.from === 'bot';
+                  const isHumanAdmin = msg.from === 'admin' && (
+                    msg.text.includes('Ticket #') ||
+                    msg.text.includes('Admin Support') ||
+                    msg.text.includes('reviewing your message') ||
+                    msg.text.includes('validating') ||
+                    msg.text.includes('investigating') ||
+                    msg.text.includes('Response sent') ||
+                    msg.text.includes('Our team')
+                  ) && !msg.text.includes('Foodie Customer Support Assistant') && !msg.text.includes('Orders are typically delivered');
+
+                  const isAutoBot = isAdminOrBot && !isHumanAdmin;
+
                   return (
                     <View key={msg.id} style={{
-                      alignSelf: isAdmin ? 'flex-start' : 'flex-end',
-                      backgroundColor: isAdmin ? '#FFFFFF' : '#DCF8C6',
-                      borderRadius: 12,
-                      padding: 10,
-                      maxWidth: '80%',
+                      alignSelf: isAdminOrBot ? 'flex-start' : 'flex-end',
+                      maxWidth: '85%',
                       marginBottom: 12,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 1,
-                      elevation: 1,
-                      borderTopLeftRadius: isAdmin ? 0 : 12,
-                      borderTopRightRadius: isAdmin ? 12 : 0,
                     }}>
-                      <Text style={{ color: '#111827', fontSize: 15, lineHeight: 20 }}>{msg.text}</Text>
-                      <Text style={{ color: '#9CA3AF', fontSize: 10, textAlign: 'right', marginTop: 4 }}>{msg.time}</Text>
+                      {/* Sender Designation Badge */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, alignSelf: isAdminOrBot ? 'flex-start' : 'flex-end', gap: 6 }}>
+                        {isHumanAdmin ? (
+                          <View style={{ backgroundColor: '#14532D', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                            <Text style={{ color: '#FCD34D', fontSize: 10, fontWeight: '800' }}>🎧 Live Admin Agent</Text>
+                          </View>
+                        ) : isAutoBot ? (
+                          <View style={{ backgroundColor: '#0284C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                            <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '800' }}>🤖 Foodie Assistant</Text>
+                          </View>
+                        ) : (
+                          <Text style={{ color: '#64748B', fontSize: 10, fontWeight: '700' }}>You</Text>
+                        )}
+                        <Text style={{ color: '#94A3B8', fontSize: 10 }}>{msg.time}</Text>
+                      </View>
+
+                      {/* Message Bubble */}
+                      <View style={{
+                        backgroundColor: isAdminOrBot ? (isHumanAdmin ? '#FFFFFF' : '#F1F5F9') : '#14532D',
+                        borderRadius: 16,
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                        borderWidth: isHumanAdmin ? 1.5 : 1,
+                        borderColor: isHumanAdmin ? '#FCD34D' : (isAdminOrBot ? '#CBD5E1' : '#14532D'),
+                        borderTopLeftRadius: isAdminOrBot ? 2 : 16,
+                        borderTopRightRadius: isAdminOrBot ? 16 : 2,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.08,
+                        shadowRadius: 2,
+                        elevation: 1,
+                      }}>
+                        <Text style={{ color: isAdminOrBot ? '#0F172A' : '#FFFFFF', fontSize: 14, lineHeight: 20 }}>
+                          {msg.text}
+                        </Text>
+                      </View>
                     </View>
                   );
                 })}
+              </ScrollView>
+
+              {/* Quick Action Suggestion Chips & Conditional Agent Escalation */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 44, paddingHorizontal: 12, marginBottom: 4 }}>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  {/* Show Connect to Agent chip ONLY when required or requested */}
+                  {(showAgentOption && !isAgentConnected) && (
+                    <Pressable
+                      onPress={async () => {
+                        const userText = chatMessage.trim() || 'I want to connect to a live support agent.';
+                        setChatMessage('');
+                        const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                        const { enquiryRecord, systemConfirmationMsg } = await connectToAgentAndCreateEnquiry(
+                          userText,
+                          'Ananya Sharma',
+                          'ananya.s@gmail.com',
+                          '+91 98765 12345',
+                          undefined,
+                          'ENQ-901'
+                        );
+
+                        setActiveEnquiryId(enquiryRecord.id);
+                        setIsAgentConnected(true);
+                        setShowAgentOption(false);
+
+                        setChatHistory((prev) => [
+                          ...prev,
+                          { id: `user-${Date.now()}`, text: userText, from: 'user', time: nowTime },
+                          { id: systemConfirmationMsg.id, text: systemConfirmationMsg.message, from: 'admin', time: systemConfirmationMsg.timestamp },
+                        ]);
+                      }}
+                      style={{ backgroundColor: '#14532D', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#FCD34D' }}
+                    >
+                      <Text style={{ color: '#FCD34D', fontSize: 12, fontWeight: '800' }}>🎧 Connect to Live Support Agent</Text>
+                    </Pressable>
+                  )}
+
+                  <Pressable
+                    onPress={() => setChatMessage('Where is my delivery?')}
+                    style={{ backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#CBD5E1' }}
+                  >
+                    <Text style={{ color: '#0F172A', fontSize: 12, fontWeight: '700' }}>📍 Live Tracking</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setChatMessage('Refund status for my order')}
+                    style={{ backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#CBD5E1' }}
+                  >
+                    <Text style={{ color: '#0F172A', fontSize: 12, fontWeight: '700' }}>💳 Refund Info</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setChatMessage('Are there active coupons or offers?')}
+                    style={{ backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#CBD5E1' }}
+                  >
+                    <Text style={{ color: '#0F172A', fontSize: 12, fontWeight: '700' }}>🏷️ Offers & Coupons</Text>
+                  </Pressable>
+                </View>
               </ScrollView>
 
               <View style={{
@@ -629,35 +837,80 @@ export function HomeScreen({ navigation }: Props) {
                   <RNTextInput
                     value={chatMessage}
                     onChangeText={setChatMessage}
-                    placeholder="Message"
+                    placeholder="Message Foodie Support..."
                     multiline
                     placeholderTextColor="#9CA3AF"
                     style={{ flex: 1, fontSize: 16, color: '#111827', paddingVertical: 12, maxHeight: 100 }}
                   />
                 </View>
                 <Pressable
-                  onPress={() => {
+                  onPress={async () => {
                     if (!chatMessage.trim()) return;
 
+                    const userText = chatMessage.trim();
+                    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
                     const newMsg = {
-                      id: Date.now().toString(),
-                      text: chatMessage.trim(),
+                      id: `user-${Date.now()}`,
+                      text: userText,
                       from: 'user',
-                      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      time: nowTime,
                     };
 
-                    setChatHistory(prev => [...prev, newMsg]);
+                    setChatHistory((prev) => [...prev, newMsg]);
                     setChatMessage('');
 
-                    // Simulate admin reply
-                    setTimeout(() => {
-                      setChatHistory(prev => [...prev, {
-                        id: (Date.now() + 1).toString(),
-                        text: "Thanks for reaching out! A support agent will look into this shortly.",
-                        from: 'admin',
-                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      }]);
-                    }, 1500);
+                    const textLower = userText.toLowerCase();
+                    const isExplicitAgentRequest =
+                      textLower.includes('connect') ||
+                      textLower.includes('agent') ||
+                      textLower.includes('human') ||
+                      textLower.includes('representative') ||
+                      textLower.includes('talk to someone');
+
+                    if (isExplicitAgentRequest || isAgentConnected) {
+                      const { enquiryRecord, systemConfirmationMsg } = await connectToAgentAndCreateEnquiry(
+                        userText,
+                        'Ananya Sharma',
+                        'ananya.s@gmail.com',
+                        '+91 98765 12345',
+                        undefined,
+                        'ENQ-901'
+                      );
+
+                      setActiveEnquiryId(enquiryRecord.id);
+                      setIsAgentConnected(true);
+                      setShowAgentOption(false);
+
+                      setChatHistory((prev) => [
+                        ...prev,
+                        {
+                          id: systemConfirmationMsg.id,
+                          text: systemConfirmationMsg.message,
+                          from: 'admin',
+                          time: systemConfirmationMsg.timestamp,
+                        },
+                      ]);
+                    } else {
+                      // Smart Chatbot Engine & Real-Time Sync with Admin Support Desk
+                      const { aiMsg, aiResult } = await syncSupportChatMessages(userText, 'ENQ-901', 'Ananya Sharma');
+
+                      if (aiResult && aiResult.suggestAgent) {
+                        setShowAgentOption(true);
+                      } else {
+                        setShowAgentOption(false);
+                      }
+
+                      setChatHistory((prev) => [
+                        ...prev,
+                        {
+                          id: aiMsg.id,
+                          text: aiMsg.message,
+                          from: 'admin',
+                          time: aiMsg.timestamp,
+                        },
+                      ]);
+                    }
                   }}
                   style={{
                     backgroundColor: '#128C7E',

@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     height: Dimensions.get('window').height * 0.45,
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   markerBody: {
     padding: 6,

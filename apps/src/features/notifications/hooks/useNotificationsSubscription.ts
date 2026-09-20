@@ -10,6 +10,7 @@ import {
   websocketUnsubscribe,
 } from '../../../store/websocketMiddleware';
 import * as Notifications from 'expo-notifications';
+import { isExpoGo } from '../pushRegistration';
 
 /**
  * Focus-scoped optional `/topic/user/{userCredentialId}/notifications`.
@@ -33,16 +34,18 @@ export function useNotificationsSubscription() {
           ]),
         );
 
-        // Schedule a local heads-up notification in case the user is outside the notifications screen
-        const payload = message.payload as any;
-        void Notifications.scheduleNotificationAsync({
-          content: {
-            title: payload?.title || 'New Notification',
-            body: payload?.body || 'You have received a new update from Foodie.',
-            data: payload || {},
-          },
-          trigger: null, // trigger immediately
-        });
+        if (!isExpoGo()) {
+          // Schedule a local heads-up notification in case the user is outside the notifications screen
+          const payload = message.payload as any;
+          void Notifications.scheduleNotificationAsync({
+            content: {
+              title: payload?.title || 'New Notification',
+              body: payload?.body || 'You have received a new update from Foodie.',
+              data: payload || {},
+            },
+            trigger: null, // trigger immediately
+          }).catch(() => {});
+        }
       }
     });
 

@@ -48,7 +48,10 @@ export async function runBootstrap(dispatch: AppDispatch): Promise<void> {
   logger.info('Bootstrap started', { app: ENV.appName });
 
   try {
-    const refreshToken = await loadRefreshToken();
+    const refreshTokenPromise = loadRefreshToken();
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+    const refreshToken = await Promise.race([refreshTokenPromise, timeoutPromise]);
+
     if (!refreshToken) {
       await terminateSession(dispatch);
       logger.info('Bootstrap: no refresh token — unauthenticated');
@@ -58,7 +61,7 @@ export async function runBootstrap(dispatch: AppDispatch): Promise<void> {
     const isNewUserStr = await AsyncStorage.getItem('foodie.isNewUser');
     const locallySavedIsNewUser = isNewUserStr === 'true';
 
-    const pair = await performTokenRefresh({
+    const pairPromise = performTokenRefresh({
       baseUrl: ENV.apiBaseUrl,
       refreshToken,
       callbacks: {
@@ -82,6 +85,9 @@ export async function runBootstrap(dispatch: AppDispatch): Promise<void> {
         },
       },
     });
+
+    const refreshTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+    const pair = await Promise.race([pairPromise, refreshTimeout]);
 
     if (!pair) {
       await terminateSession(dispatch);

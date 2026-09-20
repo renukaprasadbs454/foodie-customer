@@ -13,16 +13,21 @@ import { ReduxProvider } from './providers/ReduxProvider';
 import { ThemeProvider } from './providers/ThemeProvider';
 import * as Notifications from 'expo-notifications';
 import { initGlobalLocation } from './GlobalLocation';
+import { isExpoGo } from '../features/notifications/pushRegistration';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (!isExpoGo()) {
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch {}
+}
 
 type BoundaryState = { hasError: boolean };
 
@@ -63,12 +68,18 @@ class RootErrorBoundary extends Component<
  */
 export default function App() {
   React.useEffect(() => {
-    (async () => {
-      try {
-        await Notifications.requestPermissionsAsync();
-        await initGlobalLocation();
-      } catch (e) { }
-    })();
+    setTimeout(() => {
+      void (async () => {
+        if (!isExpoGo()) {
+          try {
+            await Notifications.requestPermissionsAsync();
+          } catch { }
+        }
+        try {
+          await initGlobalLocation();
+        } catch { }
+      })();
+    }, 100);
   }, []);
 
   return (
