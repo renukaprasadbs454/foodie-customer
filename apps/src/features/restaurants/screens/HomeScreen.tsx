@@ -40,7 +40,7 @@ import { useGetNotificationsQuery } from '../../../api/endpoints/notificationsAp
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CATEGORY_ITEMS } from '../mockData';
 import { GlobalCartBanner } from '../../cart/components/GlobalCartBanner';
-import { syncSupportChatMessages, connectToAgentAndCreateEnquiry, STORAGE_KEY, EnquiryRecord, generateSupportReply } from '../../profile/supportAiEngine';
+import { syncSupportChatMessages, connectToAgentAndCreateEnquiry, STORAGE_KEY, EnquiryRecord, generateSupportReply, evaluateSmartSupportReply, AiActionButton } from '../../profile/supportAiEngine';
 import { PromotionalBannerCarousel } from '../components/PromotionalBannerCarousel';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Home'>;
@@ -69,9 +69,94 @@ export function HomeScreen({ navigation }: Props) {
   const [activeEnquiryId, setActiveEnquiryId] = useState<string | null>('ENQ-901');
   const [isAgentConnected, setIsAgentConnected] = useState(false);
   const [showAgentOption, setShowAgentOption] = useState(false);
-  const [chatHistory, setChatHistory] = useState([
-    { id: '1', text: 'Hi! How can we help you today with your order or application?', from: 'admin', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+  const [chatHistory, setChatHistory] = useState<Array<{
+    id: string;
+    text: string;
+    from: 'admin' | 'user' | 'bot';
+    time: string;
+    buttons?: AiActionButton[];
+  }>>([
+    {
+      id: '1',
+      text: 'Hi! How can we help you today with your order or application?',
+      from: 'admin',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      buttons: [
+        { label: '📍 Track Active Order', actionText: 'Where is my order?' },
+        { label: '💳 Check Refund Status', actionText: 'Refund status for my order' },
+        { label: '❌ Cancel Order #ORD-9821', actionText: 'I want to cancel my order' },
+        { label: '🏷️ Active Offers & Coupons', actionText: 'Are there active coupons or offers?' },
+      ],
+    },
   ]);
+
+  const handleUserSubmitMessage = async (rawText: string) => {
+    const userText = rawText.trim();
+    if (!userText) return;
+
+    setChatMessage('');
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setChatHistory((prev) => [
+      ...prev,
+      { id: `user-${Date.now()}`, text: userText, from: 'user', time: nowTime },
+    ]);
+
+    const textLower = userText.toLowerCase();
+    const isExplicitAgentRequest =
+      textLower.includes('connect') ||
+      textLower.includes('agent') ||
+      textLower.includes('human') ||
+      textLower.includes('representative') ||
+      textLower.includes('talk to someone') ||
+      textLower.includes('speak to agent');
+
+    if (isExplicitAgentRequest || isAgentConnected) {
+      const isFirstConnect = !isAgentConnected;
+      const { enquiryRecord, systemConfirmationMsg } = await connectToAgentAndCreateEnquiry(
+        userText,
+        'Ananya Sharma',
+        'ananya.s@gmail.com',
+        '+91 98765 12345',
+        'ORD-9821',
+        'ENQ-901'
+      );
+
+      setActiveEnquiryId(enquiryRecord.id);
+      setIsAgentConnected(true);
+      setShowAgentOption(false);
+
+      if (isFirstConnect) {
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            id: systemConfirmationMsg.id,
+            text: systemConfirmationMsg.message,
+            from: 'admin',
+            time: systemConfirmationMsg.timestamp,
+            buttons: [
+              { label: '❌ End Agent Session', actionText: 'Disconnect' },
+            ],
+          },
+        ]);
+      }
+    } else {
+      const { aiMsg, aiResult } = await syncSupportChatMessages(userText, 'ENQ-901', 'Ananya Sharma');
+
+      setShowAgentOption(aiResult.suggestAgent);
+
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          id: aiMsg.id,
+          text: aiMsg.message,
+          from: 'admin',
+          time: aiMsg.timestamp,
+          buttons: aiResult.actionButtons,
+        },
+      ]);
+    }
+  };
 
   // Sync Help chat modal history with persistent storage key `foodie_support_enquiries` and API route
   const syncChatFromStorage = async () => {
@@ -79,10 +164,13 @@ export function HomeScreen({ navigation }: Props) {
 
     // 1. Try fetching from server endpoints
     const endpoints = [
+      'http://10.205.58.92:3000/api/support-tickets',
+      'http://10.205.58.92:3001/api/support-tickets',
       'http://10.59.183.92:3000/api/support-tickets',
       'http://10.59.183.92:3001/api/support-tickets',
       'http://localhost:3000/api/support-tickets',
       'http://localhost:3001/api/support-tickets',
+      '/api/support-tickets',
     ];
 
     for (const ep of endpoints) {
@@ -122,34 +210,51 @@ export function HomeScreen({ navigation }: Props) {
     if (enquiries.length > 0) {
       const activeRec = enquiries.find((e) => e.id === 'ENQ-901') || enquiries[0];
 
-      if (activeRec && activeRec.messages && activeRec.messages.length > 0) {
-        const formatted = activeRec.messages.map((m) => ({
-          id: m.id,
-          text: m.message,
-          from: m.sender === 'admin' ? 'admin' : 'user',
-          time: m.timestamp,
-        }));
-        setChatHistory(formatted);
-        if (!activeEnquiryId) {
-          setActiveEnquiryId(activeRec.id);
+      if (activeRec) {
+        const rawMsgs = activeRec.messages || [];
+        const cleanMsgs = rawMsgs.filter(
+          (m) => !m.message.includes('Message sent to Admin Support') && !m.message.includes('Message delivered to Admin Support')
+        );
+
+        if (activeRec.replyMessage) {
+          const alreadyHasReply = cleanMsgs.some(
+            (m) => m.sender === 'admin' && m.message.trim() === activeRec.replyMessage?.trim()
+          );
+          if (!alreadyHasReply) {
+            cleanMsgs.push({
+              id: `msg-reply-rec`,
+              enquiryId: activeRec.id,
+              sender: 'admin',
+              senderName: 'Admin Support',
+              message: activeRec.replyMessage,
+              timestamp: 'Recently',
+            });
+          }
         }
 
-        // Auto-end agent mode ONLY when an actual human admin replies or resolves the ticket
-        const lastMsg = activeRec.messages[activeRec.messages.length - 1];
-        const isRealAdminReply =
-          lastMsg &&
-          lastMsg.sender === 'admin' &&
-          !lastMsg.senderName?.includes('Assistant') &&
-          !lastMsg.senderName?.includes('Desk') &&
-          !lastMsg.senderName?.includes('Bot') &&
-          !lastMsg.message.includes('Message sent to Admin Support') &&
-          !lastMsg.message.includes('Message delivered to Admin Support');
+        if (cleanMsgs.length > 0) {
+          const formatted = cleanMsgs.map((m) => ({
+            id: m.id,
+            text: m.message,
+            from: (m.sender === 'admin' ? 'admin' : 'user') as 'admin' | 'user' | 'bot',
+            time: m.timestamp,
+          }));
 
-        const isResolved = activeRec.status === 'RESOLVED';
+          setChatHistory((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const existingTexts = new Set(prev.map((p) => p.text.trim()));
 
-        if (isRealAdminReply || isResolved) {
-          setIsAgentConnected(false);
-          setShowAgentOption(false);
+            const newFromSet = formatted.filter(
+              (f) => !existingIds.has(f.id) && (f.from === 'admin' ? !existingTexts.has(f.text.trim()) : true)
+            );
+
+            if (newFromSet.length === 0) return prev;
+            return [...prev, ...newFromSet];
+          });
+
+          if (!activeEnquiryId) {
+            setActiveEnquiryId(activeRec.id);
+          }
         }
       }
     }
@@ -665,26 +770,75 @@ export function HomeScreen({ navigation }: Props) {
           animationType="slide"
           onRequestClose={() => setHelpModalVisible(false)}
         >
-          <View style={{ flex: 1, backgroundColor: '#E5DDD5' }}>
+          <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+            {/* Header Bar */}
             <View style={{
-              backgroundColor: '#075E54', // WhatsApp Green
+              backgroundColor: '#14532D',
               flexDirection: 'row',
               alignItems: 'center',
-              paddingTop: insets.top + 10,
-              paddingBottom: 12,
+              justifyContent: 'space-between',
+              paddingTop: insets.top + 8,
+              paddingBottom: 14,
               paddingHorizontal: 16,
+              elevation: 4,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.15,
+              shadowRadius: 4,
             }}>
-              <Pressable onPress={() => setHelpModalVisible(false)} style={{ marginRight: 12 }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: 'bold' }}>←</Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <Pressable
+                  onPress={() => setHelpModalVisible(false)}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: 'rgba(255,255,255,0.15)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginRight: 12,
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' }}>←</Text>
+                </Pressable>
 
-              <View style={{ width: 40, height: 40, backgroundColor: '#128C7E', borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                <Text style={{ fontSize: 20 }}>🎧</Text>
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  backgroundColor: '#166534',
+                  borderRadius: 20,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: 12,
+                  borderWidth: 1.5,
+                  borderColor: '#FCD34D',
+                }}>
+                  <Text style={{ fontSize: 20 }}>🎧</Text>
+                </View>
+                <View>
+                  <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '800' }}>Foodie Support Desk</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#34D399' }} />
+                    <Text style={{ color: '#A7F3D0', fontSize: 12, fontWeight: '600' }}>
+                      {isAgentConnected ? 'Live Admin Agent Active' : 'Online • 2-Way Desk'}
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <View>
-                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' }}>Admin Support</Text>
-                <Text style={{ color: '#D5F5E3', fontSize: 12 }}>online • Instant replies</Text>
-              </View>
+
+              <Pressable
+                onPress={() => setHelpModalVisible(false)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(255,255,255,0.15)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>✕</Text>
+              </Pressable>
             </View>
 
             <KeyboardAvoidingView
@@ -692,9 +846,68 @@ export function HomeScreen({ navigation }: Props) {
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
               <ScrollView
-                contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
+                contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
                 style={{ flex: 1 }}
               >
+                {/* Welcome Card & Common Quick Action Chips */}
+                <View style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 16,
+                  padding: 16,
+                  marginBottom: 16,
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  shadowColor: '#14532D',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.05,
+                  shadowRadius: 6,
+                  elevation: 2,
+                }}>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A', marginBottom: 4 }}>
+                    Hi! Welcome to Foodie Support 👋
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#475569', marginBottom: 12 }}>
+                    Recent Order: <Text style={{ fontWeight: '700', color: '#14532D' }}>#ORD-9821</Text> • Preparing for Delivery 🚴
+                  </Text>
+
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#1E293B', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Quick Help Options
+                  </Text>
+
+                  {/* Vertical Quick FAQ Action Cards */}
+                  <View style={{ gap: 8 }}>
+                    {[
+                      { icon: '📍', label: 'Where is my order?', action: 'Where is my order?' },
+                      { icon: '💳', label: 'Payment or refund issue', action: 'Refund status for my order' },
+                      { icon: '❌', label: 'I want to cancel my order', action: 'I want to cancel my order' },
+                      { icon: '🏷️', label: 'Offers & Promo Codes', action: 'Are there active coupons or offers?' },
+                    ].map((item, idx) => (
+                      <Pressable
+                        key={idx}
+                        onPress={() => void handleUserSubmitMessage(item.action)}
+                        style={({ pressed }) => ({
+                          backgroundColor: pressed ? '#DCFCE7' : '#F8FAFC',
+                          borderRadius: 12,
+                          paddingHorizontal: 14,
+                          paddingVertical: 12,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          borderWidth: 1,
+                          borderColor: '#E2E8F0',
+                        })}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <Text style={{ fontSize: 16 }}>{item.icon}</Text>
+                          <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E293B' }}>{item.label}</Text>
+                        </View>
+                        <Text style={{ fontSize: 16, color: '#14532D', fontWeight: 'bold' }}>›</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Chat Messages */}
                 {chatHistory.map((msg) => {
                   const isAdminOrBot = msg.from === 'admin' || msg.from === 'bot';
                   const isHumanAdmin = msg.from === 'admin' && (
@@ -704,7 +917,10 @@ export function HomeScreen({ navigation }: Props) {
                     msg.text.includes('validating') ||
                     msg.text.includes('investigating') ||
                     msg.text.includes('Response sent') ||
-                    msg.text.includes('Our team')
+                    msg.text.includes('Our team') ||
+                    msg.text.includes('processed') ||
+                    msg.text.includes('credited') ||
+                    msg.text.includes('dispatched')
                   ) && !msg.text.includes('Foodie Customer Support Assistant') && !msg.text.includes('Orders are typically delivered');
 
                   const isAutoBot = isAdminOrBot && !isHumanAdmin;
@@ -713,22 +929,25 @@ export function HomeScreen({ navigation }: Props) {
                     <View key={msg.id} style={{
                       alignSelf: isAdminOrBot ? 'flex-start' : 'flex-end',
                       maxWidth: '85%',
-                      marginBottom: 12,
+                      marginBottom: 14,
                     }}>
-                      {/* Sender Designation Badge */}
+                      {/* Sender Badge */}
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, alignSelf: isAdminOrBot ? 'flex-start' : 'flex-end', gap: 6 }}>
                         {isHumanAdmin ? (
-                          <View style={{ backgroundColor: '#14532D', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                          <View style={{ backgroundColor: '#14532D', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
                             <Text style={{ color: '#FCD34D', fontSize: 10, fontWeight: '800' }}>🎧 Live Admin Agent</Text>
                           </View>
                         ) : isAutoBot ? (
-                          <View style={{ backgroundColor: '#0284C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                          <View style={{ backgroundColor: '#0284C7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
                             <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '800' }}>🤖 Foodie Assistant</Text>
                           </View>
                         ) : (
                           <Text style={{ color: '#64748B', fontSize: 10, fontWeight: '700' }}>You</Text>
                         )}
                         <Text style={{ color: '#94A3B8', fontSize: 10 }}>{msg.time}</Text>
+                        {!isAdminOrBot && (
+                          <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '800' }}>✓✓</Text>
+                        )}
                       </View>
 
                       {/* Message Bubble */}
@@ -751,186 +970,110 @@ export function HomeScreen({ navigation }: Props) {
                           {msg.text}
                         </Text>
                       </View>
+
+                      {/* Dynamic 2-4 Contextual Action Buttons */}
+                      {msg.buttons && msg.buttons.length > 0 && (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8, alignSelf: 'flex-start' }}>
+                          {msg.buttons.map((btn, bIdx) => (
+                            <Pressable
+                              key={bIdx}
+                              onPress={() => void handleUserSubmitMessage(btn.actionText)}
+                              style={({ pressed }) => ({
+                                backgroundColor: pressed ? '#DCFCE7' : '#FFFFFF',
+                                borderColor: '#14532D',
+                                borderWidth: 1.5,
+                                borderRadius: 20,
+                                paddingHorizontal: 12,
+                                paddingVertical: 7,
+                                shadowColor: '#14532D',
+                                shadowOffset: { width: 0, height: 1 },
+                                shadowOpacity: 0.1,
+                                shadowRadius: 2,
+                                elevation: 1,
+                              })}
+                            >
+                              <Text style={{ color: '#14532D', fontSize: 12, fontWeight: '700' }}>
+                                {btn.label}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      )}
                     </View>
                   );
                 })}
               </ScrollView>
 
-              {/* Quick Action Suggestion Chips & Conditional Agent Escalation */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 44, paddingHorizontal: 12, marginBottom: 4 }}>
-                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                  {/* Show Connect to Agent chip ONLY when required or requested */}
-                  {(showAgentOption && !isAgentConnected) && (
-                    <Pressable
-                      onPress={async () => {
-                        const userText = chatMessage.trim() || 'I want to connect to a live support agent.';
-                        setChatMessage('');
-                        const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                        const { enquiryRecord, systemConfirmationMsg } = await connectToAgentAndCreateEnquiry(
-                          userText,
-                          'Ananya Sharma',
-                          'ananya.s@gmail.com',
-                          '+91 98765 12345',
-                          undefined,
-                          'ENQ-901'
-                        );
-
-                        setActiveEnquiryId(enquiryRecord.id);
-                        setIsAgentConnected(true);
-                        setShowAgentOption(false);
-
-                        setChatHistory((prev) => [
-                          ...prev,
-                          { id: `user-${Date.now()}`, text: userText, from: 'user', time: nowTime },
-                          { id: systemConfirmationMsg.id, text: systemConfirmationMsg.message, from: 'admin', time: systemConfirmationMsg.timestamp },
-                        ]);
-                      }}
-                      style={{ backgroundColor: '#14532D', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#FCD34D' }}
-                    >
-                      <Text style={{ color: '#FCD34D', fontSize: 12, fontWeight: '800' }}>🎧 Connect to Live Support Agent</Text>
-                    </Pressable>
-                  )}
-
+              {/* Conditional Agent Escalation Banner if AI recommended agent */}
+              {(showAgentOption && !isAgentConnected) && (
+                <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
                   <Pressable
-                    onPress={() => setChatMessage('Where is my delivery?')}
-                    style={{ backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#CBD5E1' }}
+                    onPress={() => void handleUserSubmitMessage('I want to connect to a live support agent.')}
+                    style={{
+                      backgroundColor: '#14532D',
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderRadius: 16,
+                      borderWidth: 1.5,
+                      borderColor: '#FCD34D',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      elevation: 2,
+                    }}
                   >
-                    <Text style={{ color: '#0F172A', fontSize: 12, fontWeight: '700' }}>📍 Live Tracking</Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => setChatMessage('Refund status for my order')}
-                    style={{ backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#CBD5E1' }}
-                  >
-                    <Text style={{ color: '#0F172A', fontSize: 12, fontWeight: '700' }}>💳 Refund Info</Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => setChatMessage('Are there active coupons or offers?')}
-                    style={{ backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#CBD5E1' }}
-                  >
-                    <Text style={{ color: '#0F172A', fontSize: 12, fontWeight: '700' }}>🏷️ Offers & Coupons</Text>
+                    <Text style={{ color: '#FCD34D', fontSize: 14, fontWeight: '800' }}>
+                      🎧 Connect to Live Support Agent
+                    </Text>
                   </Pressable>
                 </View>
-              </ScrollView>
+              )}
 
+              {/* Chat Input Bar */}
               <View style={{
                 flexDirection: 'row',
                 alignItems: 'flex-end',
-                padding: 8,
-                paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
-                backgroundColor: 'transparent',
+                padding: 12,
+                paddingBottom: insets.bottom > 0 ? insets.bottom : 12,
+                backgroundColor: '#FFFFFF',
+                borderTopWidth: 1,
+                borderTopColor: '#E2E8F0',
               }}>
                 <View style={{
                   flex: 1,
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: '#F8FAFC',
                   borderRadius: 24,
-                  minHeight: 48,
+                  minHeight: 46,
                   maxHeight: 120,
                   flexDirection: 'row',
                   alignItems: 'center',
                   paddingHorizontal: 16,
                   marginRight: 8,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 2,
-                  elevation: 2,
+                  borderWidth: 1,
+                  borderColor: '#CBD5E1',
                 }}>
                   <RNTextInput
                     value={chatMessage}
                     onChangeText={setChatMessage}
-                    placeholder="Message Foodie Support..."
+                    placeholder="Type your query..."
                     multiline
-                    placeholderTextColor="#9CA3AF"
-                    style={{ flex: 1, fontSize: 16, color: '#111827', paddingVertical: 12, maxHeight: 100 }}
+                    placeholderTextColor="#94A3B8"
+                    style={{ flex: 1, fontSize: 15, color: '#0F172A', paddingVertical: 10, maxHeight: 100 }}
                   />
                 </View>
                 <Pressable
-                  onPress={async () => {
-                    if (!chatMessage.trim()) return;
-
-                    const userText = chatMessage.trim();
-                    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                    const newMsg = {
-                      id: `user-${Date.now()}`,
-                      text: userText,
-                      from: 'user',
-                      time: nowTime,
-                    };
-
-                    setChatHistory((prev) => [...prev, newMsg]);
-                    setChatMessage('');
-
-                    const textLower = userText.toLowerCase();
-                    const isExplicitAgentRequest =
-                      textLower.includes('connect') ||
-                      textLower.includes('agent') ||
-                      textLower.includes('human') ||
-                      textLower.includes('representative') ||
-                      textLower.includes('talk to someone');
-
-                    if (isExplicitAgentRequest || isAgentConnected) {
-                      const { enquiryRecord, systemConfirmationMsg } = await connectToAgentAndCreateEnquiry(
-                        userText,
-                        'Ananya Sharma',
-                        'ananya.s@gmail.com',
-                        '+91 98765 12345',
-                        undefined,
-                        'ENQ-901'
-                      );
-
-                      setActiveEnquiryId(enquiryRecord.id);
-                      setIsAgentConnected(true);
-                      setShowAgentOption(false);
-
-                      setChatHistory((prev) => [
-                        ...prev,
-                        {
-                          id: systemConfirmationMsg.id,
-                          text: systemConfirmationMsg.message,
-                          from: 'admin',
-                          time: systemConfirmationMsg.timestamp,
-                        },
-                      ]);
-                    } else {
-                      // Smart Chatbot Engine & Real-Time Sync with Admin Support Desk
-                      const { aiMsg, aiResult } = await syncSupportChatMessages(userText, 'ENQ-901', 'Ananya Sharma');
-
-                      if (aiResult && aiResult.suggestAgent) {
-                        setShowAgentOption(true);
-                      } else {
-                        setShowAgentOption(false);
-                      }
-
-                      setChatHistory((prev) => [
-                        ...prev,
-                        {
-                          id: aiMsg.id,
-                          text: aiMsg.message,
-                          from: 'admin',
-                          time: aiMsg.timestamp,
-                        },
-                      ]);
-                    }
-                  }}
+                  onPress={() => void handleUserSubmitMessage(chatMessage)}
                   style={{
-                    backgroundColor: '#128C7E',
-                    width: 48,
-                    height: 48,
-                    borderRadius: 24,
+                    backgroundColor: chatMessage.trim() ? '#14532D' : '#94A3B8',
+                    width: 46,
+                    height: 46,
+                    borderRadius: 23,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 2,
-                    elevation: 2,
                   }}
                 >
-                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>Send</Text>
+                  <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' }}>Send</Text>
                 </Pressable>
               </View>
             </KeyboardAvoidingView>

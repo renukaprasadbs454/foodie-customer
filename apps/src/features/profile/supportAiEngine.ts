@@ -29,20 +29,40 @@ export interface EnquiryRecord {
 
 export const STORAGE_KEY = 'foodie_support_enquiries';
 
+export interface AiActionButton {
+  label: string;
+  actionText: string;
+}
+
 export interface AiResponseResult {
   reply: string;
   canResolve: boolean;
   suggestAgent: boolean;
+  actionButtons: AiActionButton[];
 }
 
 /**
- * Intelligent Flipkart/Meesho-style Customer Support Reply Generator.
- * Answers customer questions directly when resolvable, or recommends live agent connection for complex queries.
+ * Intelligent Customer Support Reply & Contextual Action Button Generator.
+ * Answers customer questions directly with 2-4 contextual action buttons tailored to the specific query.
  */
 export function evaluateSmartSupportReply(userMsg: string): AiResponseResult {
   const text = (userMsg || '').toLowerCase().trim();
 
-  // 1. Explicit Agent Escalation Request
+  // 1. Explicit Disconnect / End Agent Chat
+  if (text === 'disconnect' || text.includes('end chat') || text.includes('stop agent')) {
+    return {
+      reply: "Agent chat session ended. You are back in Foodie AI Assistant mode. How else can we help you today?",
+      canResolve: true,
+      suggestAgent: false,
+      actionButtons: [
+        { label: '📍 Track Active Order', actionText: 'Where is my order?' },
+        { label: '💳 Check Refund Status', actionText: 'Refund status for my order' },
+        { label: '🏷️ Browse Coupons & Offers', actionText: 'Are there active coupons or offers?' },
+      ],
+    };
+  }
+
+  // 2. Explicit Agent Escalation Request
   if (
     text.includes('connect') ||
     text.includes('agent') ||
@@ -55,10 +75,13 @@ export function evaluateSmartSupportReply(userMsg: string): AiResponseResult {
       reply: "I am connecting your query directly to an Admin Support Agent. Please hold while our team reviews your account...",
       canResolve: false,
       suggestAgent: true,
+      actionButtons: [
+        { label: '🎧 Connect with Agent', actionText: 'I want to connect to a live support agent.' },
+      ],
     };
   }
 
-  // 2. Complex / Complaint queries requiring Human Desk verification
+  // 3. Complex / Complaint queries requiring Human Desk verification
   if (
     text.includes('return') ||
     text.includes('missing') ||
@@ -79,10 +102,14 @@ export function evaluateSmartSupportReply(userMsg: string): AiResponseResult {
       reply: "I'm sorry to hear that! Because this issue requires personal account inspection and manual verification, would you like to connect directly with an Admin Support Agent?",
       canResolve: false,
       suggestAgent: true,
+      actionButtons: [
+        { label: '🎧 Connect to Live Support Agent', actionText: 'I want to connect to a live support agent.' },
+        { label: '📷 Report Item Issue', actionText: 'I want to report a food quality issue.' },
+      ],
     };
   }
 
-  // 3. Auto-Resolvable: Delivery / Tracking / Rider Location
+  // 4. Auto-Resolvable: Delivery / Tracking / Rider Location
   if (
     text.includes('delivery') ||
     text.includes('late') ||
@@ -96,13 +123,19 @@ export function evaluateSmartSupportReply(userMsg: string): AiResponseResult {
     text.includes('location')
   ) {
     return {
-      reply: "Orders are typically delivered within 30-45 minutes. You can track your delivery rider live on the Tracking screen. Our operations team is also monitoring your active order to ensure on-time delivery!",
+      reply: "Order #ORD-9821 is being prepared by Royal Biryani House and will be delivered within 30-45 minutes. You can track your delivery rider live on the Tracking screen!",
       canResolve: true,
       suggestAgent: false,
+      actionButtons: [
+        { label: '📍 Live Map Tracking', actionText: 'Where is my order?' },
+        { label: '⏱️ Check Delivery Time', actionText: 'What is the estimated delivery time?' },
+        { label: '📞 Contact Delivery Rider', actionText: 'How to call rider?' },
+        { label: '🎧 Connect to Agent', actionText: 'I want to connect to a live support agent.' },
+      ],
     };
   }
 
-  // 4. Auto-Resolvable: Order Cancellations
+  // 5. Auto-Resolvable: Order Cancellations
   if (
     text.includes('cancel') ||
     text.includes('cancellation') ||
@@ -114,10 +147,15 @@ export function evaluateSmartSupportReply(userMsg: string): AiResponseResult {
       reply: "You can cancel active orders directly from the Live Order Tracking screen before the kitchen accepts it. If food preparation has started, our support desk will verify cancellation and refund eligibility.",
       canResolve: true,
       suggestAgent: false,
+      actionButtons: [
+        { label: '❌ Cancel Order #ORD-9821', actionText: 'I want to cancel my order' },
+        { label: '📜 View Cancellation Policy', actionText: 'What is the cancellation policy?' },
+        { label: '🎧 Talk to Support Agent', actionText: 'I want to connect to a live support agent.' },
+      ],
     };
   }
 
-  // 5. Auto-Resolvable: Refunds & Payment Deductions
+  // 6. Auto-Resolvable: Refunds & Payment Deductions
   if (
     text.includes('refund') ||
     text.includes('money') ||
@@ -135,10 +173,15 @@ export function evaluateSmartSupportReply(userMsg: string): AiResponseResult {
       reply: "Refunds for cancelled or failed orders are automatically processed. Bank refunds take 3-5 business days, while Foodie Wallet credits reflect instantly. Check your wallet balance anytime in Profile > Wallet.",
       canResolve: true,
       suggestAgent: false,
+      actionButtons: [
+        { label: '💳 Check Wallet Balance', actionText: 'Refund status for my order' },
+        { label: '📜 Refund Policy Details', actionText: 'How do refunds work?' },
+        { label: '🎧 Speak to Admin Agent', actionText: 'I want to connect to a live support agent.' },
+      ],
     };
   }
 
-  // 6. Auto-Resolvable: Coupons & Offers
+  // 7. Auto-Resolvable: Coupons & Offers
   if (
     text.includes('coupon') ||
     text.includes('promo') ||
@@ -151,10 +194,15 @@ export function evaluateSmartSupportReply(userMsg: string): AiResponseResult {
       reply: "To use a promo code like WELCOME100, ensure your cart total meets the minimum requirement and enter the code at checkout under 'Apply Coupon'!",
       canResolve: true,
       suggestAgent: false,
+      actionButtons: [
+        { label: '🏷️ Active Offers & Deals', actionText: 'Are there active coupons or offers?' },
+        { label: '🛒 Go to Cart & Checkout', actionText: 'Where is my order?' },
+        { label: '🎧 Need Code Assistance?', actionText: 'I want to connect to a live support agent.' },
+      ],
     };
   }
 
-  // 7. Auto-Resolvable: Recommendations
+  // 8. Auto-Resolvable: Recommendations / Hotels / Food
   if (
     text.includes('suggest') ||
     text.includes('recommend') ||
@@ -164,6 +212,8 @@ export function evaluateSmartSupportReply(userMsg: string): AiResponseResult {
     text.includes('popular') ||
     text.includes('food') ||
     text.includes('restaurant') ||
+    text.includes('hotel') ||
+    text.includes('tumkur') ||
     text.includes('biryani') ||
     text.includes('pizza') ||
     text.includes('burger') ||
@@ -173,10 +223,15 @@ export function evaluateSmartSupportReply(userMsg: string): AiResponseResult {
       reply: "Looking for great food recommendations? Check out top customer favorites on Foodie like 'Royal Biryani House' (4.8★), 'Green Leaf Delights' (4.7★), and 'Domino's Pizza' (4.6★)! Use category filters on the Home screen for fast 20-30 min delivery.",
       canResolve: true,
       suggestAgent: false,
+      actionButtons: [
+        { label: '🍲 Top Biryani Places', actionText: 'Show top biryani restaurants' },
+        { label: '🥗 Pure Veg Options', actionText: 'Show veg options' },
+        { label: '⚡ Fast 20-min Delivery', actionText: 'Fast delivery' },
+      ],
     };
   }
 
-  // 8. Auto-Resolvable: Greetings & Assistance
+  // 9. Auto-Resolvable: Greetings & Assistance
   if (
     text.match(/^(hi|hello|hey|greetings|good morning|good evening|good afternoon|who are you|how are you)\b/) ||
     text === 'hi' ||
@@ -187,10 +242,15 @@ export function evaluateSmartSupportReply(userMsg: string): AiResponseResult {
       reply: "Hello! I'm your Foodie Customer Support Assistant. How can I help you today? You can ask me about order tracking, cancellations, refunds, payments, or active coupons!",
       canResolve: true,
       suggestAgent: false,
+      actionButtons: [
+        { label: '📍 Track Active Order', actionText: 'Where is my order?' },
+        { label: '💳 Check Refund Status', actionText: 'Refund status for my order' },
+        { label: '🏷️ Active Offers & Coupons', actionText: 'Are there active coupons or offers?' },
+      ],
     };
   }
 
-  // 9. Auto-Resolvable: Courtesy
+  // 10. Auto-Resolvable: Courtesy
   if (
     text === 'ok' ||
     text === 'okay' ||
@@ -206,14 +266,21 @@ export function evaluateSmartSupportReply(userMsg: string): AiResponseResult {
       reply: "You're very welcome! Let me know if you need any other help with your order. Have a wonderful meal!",
       canResolve: true,
       suggestAgent: false,
+      actionButtons: [
+        { label: '📍 Track Active Order', actionText: 'Where is my order?' },
+        { label: '🏷️ Browse Coupons', actionText: 'Are there active coupons or offers?' },
+      ],
     };
   }
 
-  // 10. Unresolvable / Unknown Queries -> Suggest Agent
+  // 11. Unresolvable / Unknown Queries -> Suggest Agent
   return {
     reply: `I couldn't automatically find an answer for "${userMsg.trim()}". Would you like to connect with a Live Support Agent?`,
     canResolve: false,
     suggestAgent: true,
+    actionButtons: [
+      { label: '🎧 Connect to Live Support Agent', actionText: 'I want to connect to a live support agent.' },
+    ],
   };
 }
 
@@ -349,6 +416,9 @@ function postToBackendSync(payload: any) {
     '/api/support-tickets',
     'http://localhost:3000/api/support-tickets',
     'http://localhost:3001/api/support-tickets',
+    'http://10.205.58.92:3000/api/support-tickets',
+    'http://10.59.183.92:3000/api/support-tickets',
+    'http://10.205.58.92:3001/api/support-tickets',
   ];
 
   for (const url of targetEndpoints) {
@@ -419,7 +489,7 @@ export async function connectToAgentAndCreateEnquiry(
     enquiryId: enquiryId,
     sender: 'admin',
     senderName: 'Foodie Live Agent Desk',
-    message: `🎧 Message sent to Admin Support → Ticket #${enquiryId}.`,
+    message: `🎧 Connected to Live Support Agent! An Admin Agent is reviewing your query (Ticket #${enquiryId}).`,
     timestamp: nowTime,
   };
 
@@ -427,13 +497,15 @@ export async function connectToAgentAndCreateEnquiry(
 
   if (existingIndex !== -1) {
     const rec = enquiriesList[existingIndex];
-    const prevMsgs = rec.messages || [];
+    const prevMsgs = (rec.messages || []).filter(
+      (m) => !m.message.includes('Message sent to Admin Support') && !m.message.includes('Message delivered to Admin Support')
+    );
     resultingRecord = {
       ...rec,
       message: userText.trim(),
       timestamp: 'Just now',
       status: rec.status === 'RESOLVED' ? 'IN_PROGRESS' : rec.status,
-      messages: [...prevMsgs, userMsg, systemConfirmationMsg],
+      messages: [...prevMsgs, userMsg],
     };
     enquiriesList[existingIndex] = resultingRecord;
   } else {
@@ -449,7 +521,7 @@ export async function connectToAgentAndCreateEnquiry(
       status: 'OPEN',
       priority: 'HIGH',
       orderId: orderId,
-      messages: [userMsg, systemConfirmationMsg],
+      messages: [userMsg],
     };
     enquiriesList.unshift(resultingRecord);
   }

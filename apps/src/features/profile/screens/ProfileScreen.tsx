@@ -458,25 +458,6 @@ export function ProfileScreen({ navigation }: Props) {
                   <Text style={{ fontSize: 17, color: '#111827', fontWeight: '600', flex: 1 }}>App Settings</Text>
                   <Text style={{ fontSize: 20, color: '#FCD34D', fontWeight: 'bold' }}>›</Text>
                 </Pressable>
-                <View style={{ height: 1, backgroundColor: '#F3F4F6', marginLeft: 48 }} />
-
-                <Pressable
-                  onPress={() => setIsSupportModalVisible(true)}
-                  style={({ pressed }) => ({
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingHorizontal: 16,
-                    paddingVertical: 18,
-                    backgroundColor: pressed ? '#DCFCE7' : '#FFFFFF',
-                  })}
-                >
-                  <Feather name="message-circle" size={20} color="#14532D" style={{ marginRight: 12 }} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 17, color: '#111827', fontWeight: '700' }}>Help & Customer Support</Text>
-                    <Text style={{ fontSize: 12, color: '#047857', fontWeight: '600' }}>2-Way Live Chat Desk</Text>
-                  </View>
-                  <Text style={{ fontSize: 20, color: '#14532D', fontWeight: 'bold' }}>›</Text>
-                </Pressable>
               </View>
 
               {/* Grouped Legal & Policies Links */}
@@ -579,14 +560,6 @@ export function ProfileScreen({ navigation }: Props) {
         variant={toast?.variant ?? 'info'}
         accessibilityLabel={toast?.message ?? 'Toast'}
         onDismiss={() => setToast(null)}
-      />
-
-      <CustomerSupportModal
-        visible={isSupportModalVisible}
-        onClose={() => setIsSupportModalVisible(false)}
-        customerName={fullNameVal}
-        customerEmail={emailVal || 'ananya.s@gmail.com'}
-        customerPhone={phoneVal}
       />
     </ScrollView>
   );

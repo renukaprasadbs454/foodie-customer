@@ -150,9 +150,13 @@ export function CustomerSupportModal({
           if (updatedActive) {
             setActiveEnquiry(updatedActive);
           }
+        } else if (parsed.length > 0) {
+          const activeRec = parsed.find((e: EnquiryRecord) => e.id === 'ENQ-901') || parsed[0];
+          setActiveEnquiry(activeRec);
         }
       } else {
         setEnquiries(INITIAL_ENQUIRIES);
+        setActiveEnquiry(INITIAL_ENQUIRIES[0]);
         await saveEnquiries(INITIAL_ENQUIRIES);
       }
     } catch (e) {
