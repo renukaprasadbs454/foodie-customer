@@ -387,7 +387,8 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                   </Pressable>
                   <Pressable
                     onPress={() => {
-                      const phone = restaurant?.phoneNumber || '9972301895';
+                      const phoneMatch = restaurant?.description?.match(/\[PHONE:(.*?)\]/);
+                      const phone = phoneMatch ? phoneMatch[1] : (restaurant?.phoneNumber || '9972301895');
                       Linking.openURL(`tel:${phone}`).catch(() => {
                         setToast({ message: `Cannot place call.`, variant: 'error' });
                       });
