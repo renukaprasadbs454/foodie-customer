@@ -48,6 +48,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
   const validId = isOrderId(orderId);
 
   const [cancelVisible, setCancelVisible] = useState(false);
+  const [chatVisible, setChatVisible] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [toast, setToast] = useState<{
     message: string;
@@ -345,59 +346,60 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
               </View>
             )}
 
-            {/* LIVE MESSAGE / CHAT OPTION */}
-            {order.status && !isTerminalOrderStatus(order.status) ? (
-              <View style={{ paddingHorizontal: tokens.spacing.md, marginTop: tokens.spacing.md }}>
-                <OrderChat orderId={order.orderId} senderRole="CUSTOMER" />
-              </View>
-            ) : null}
-
-            {/* Restaurant Call Block */}
+            {/* Restaurant iOS-Styled Action Block */}
             {['PLACED', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP'].includes(order.status) && (
               <View style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 backgroundColor: '#FFFFFF',
                 padding: tokens.spacing.md,
-                borderRadius: tokens.radius.lg,
+                borderRadius: 16,
                 marginTop: tokens.spacing.md,
                 marginHorizontal: tokens.spacing.md,
-                elevation: 4,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 6,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
               }}>
                 <View style={{
                   width: 50,
                   height: 50,
-                  borderRadius: 25,
-                  backgroundColor: '#E5E7EB',
+                  borderRadius: 12,
+                  backgroundColor: '#F3F4F6',
                   justifyContent: 'center',
                   alignItems: 'center',
-                  overflow: 'hidden'
                 }}>
                   <Text style={{ fontSize: 24 }}>🏬</Text>
                 </View>
                 <View style={{ flex: 1, marginLeft: tokens.spacing.md }}>
-                  <Text variant="heading3" style={{ fontWeight: '800', color: '#14532D' }}>{restaurant?.name || 'Restaurant'}</Text>
-                  <Text variant="caption" style={{ color: tokens.color.textSecondary, fontWeight: '600' }}>
+                  <Text style={{ fontWeight: '600', fontSize: 16, color: '#1F2937' }}>{(order as any)?.restaurantName || restaurant?.name || 'Restaurant'}</Text>
+                  <Text style={{ color: '#6B7280', fontSize: 13, marginTop: 2 }}>
                     Preparing your food
                   </Text>
                 </View>
-                <Button
-                  label="Call"
-                  accessibilityLabel="Call Restaurant"
-                  variant="primary"
-                  onPress={() => {
-                    const phoneMatch = restaurant?.description?.match(/\[PHONE:(.*?)\]/);
-                    const phone = phoneMatch ? phoneMatch[1] : (restaurant?.phoneNumber || '9972301895');
-                    Linking.openURL(`tel:${phone}`).catch(() => {
-                      setToast({ message: `Cannot place call.`, variant: 'error' });
-                    });
-                  }}
-                  style={{ borderRadius: tokens.radius.full, paddingHorizontal: 20, backgroundColor: '#14532D' }}
-                />
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <Pressable
+                    onPress={() => setChatVisible(true)}
+                    style={{
+                      width: 40, height: 40, borderRadius: 20, backgroundColor: '#EFF6FF',
+                      justifyContent: 'center', alignItems: 'center'
+                    }}
+                  >
+                    <Text style={{ fontSize: 18 }}>💬</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      const phone = restaurant?.phoneNumber || '9972301895';
+                      Linking.openURL(`tel:${phone}`).catch(() => {
+                        setToast({ message: `Cannot place call.`, variant: 'error' });
+                      });
+                    }}
+                    style={{
+                      width: 40, height: 40, borderRadius: 20, backgroundColor: '#DCFCE7',
+                      justifyContent: 'center', alignItems: 'center'
+                    }}
+                  >
+                    <Text style={{ fontSize: 18 }}>📞</Text>
+                  </Pressable>
+                </View>
               </View>
             )}
 
@@ -408,62 +410,59 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                 alignItems: 'center',
                 backgroundColor: '#FFFFFF',
                 padding: tokens.spacing.md,
-                borderRadius: tokens.radius.lg,
+                borderRadius: 16,
                 marginTop: tokens.spacing.md,
                 marginHorizontal: tokens.spacing.md,
-                elevation: 4,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 6,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
               }}>
                 <View style={{
                   width: 50,
                   height: 50,
                   borderRadius: 25,
-                  backgroundColor: '#E5E7EB',
+                  backgroundColor: '#F3F4F6',
                   justifyContent: 'center',
                   alignItems: 'center',
-                  overflow: 'hidden'
                 }}>
-                  <Text style={{ fontSize: 28 }}>👨🏽‍✈️</Text>
+                  <Text style={{ fontSize: 24 }}>👨🏽‍✈️</Text>
                 </View>
                 <View style={{ flex: 1, marginLeft: tokens.spacing.md }}>
-                  <Text variant="heading3" style={{ fontWeight: '800', color: '#14532D' }}>{deliveryPartner.fullName}</Text>
-                  <Text variant="caption" style={{ color: tokens.color.textSecondary, fontWeight: '600' }}>
-                    ★ {deliveryPartner.signatureRating || '4.9'} • {deliveryPartner.vehicleNumber || 'Bike'} • {deliveryPartner.completedOrders || 0} deliveries
+                  <Text style={{ fontWeight: '600', fontSize: 16, color: '#1F2937' }}>{deliveryPartner.fullName}</Text>
+                  <Text style={{ color: '#6B7280', fontSize: 13, marginTop: 2 }}>
+                    ★ {deliveryPartner.signatureRating || '4.9'} • {deliveryPartner.vehicleNumber || 'Bike'}
                   </Text>
                 </View>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Button
-                    label="Chat"
-                    accessibilityLabel="Chat Delivery Partner"
-                    variant="secondary"
-                    onPress={() => setToast({ message: 'Opening chat...', variant: 'info' })}
-                    style={{ borderRadius: tokens.radius.full, paddingHorizontal: 16 }}
-                  />
-                  <Button
-                    label="Call"
-                    accessibilityLabel="Call Delivery Partner"
-                    variant="primary"
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <Pressable
+                    onPress={() => setChatVisible(true)}
+                    style={{
+                      width: 40, height: 40, borderRadius: 20, backgroundColor: '#EFF6FF',
+                      justifyContent: 'center', alignItems: 'center'
+                    }}
+                  >
+                    <Text style={{ fontSize: 18 }}>💬</Text>
+                  </Pressable>
+                  <Pressable
                     onPress={() => {
                       const phone = deliveryPartner.mobileNumber || '9972301895';
                       Linking.openURL(`tel:${phone}`).catch(() => {
                         setToast({ message: `Cannot place call.`, variant: 'error' });
                       });
                     }}
-                    style={{ borderRadius: tokens.radius.full, paddingHorizontal: 16, backgroundColor: '#14532D' }}
-                  />
+                    style={{
+                      width: 40, height: 40, borderRadius: 20, backgroundColor: '#DCFCE7',
+                      justifyContent: 'center', alignItems: 'center'
+                    }}
+                  >
+                    <Text style={{ fontSize: 18 }}>📞</Text>
+                  </Pressable>
                 </View>
               </View>
             )}
 
             <View style={{ paddingHorizontal: tokens.spacing.md }}>
               {canCustomerCancelOrder(order.status) ? (
-                <Button
-                  label="Cancel order"
-                  accessibilityLabel="Cancel order"
-                  variant="secondary"
+                <Pressable
                   disabled={!isConnected || transitionState.isLoading}
                   onPress={() => {
                     trackAnalyticsEvent('cancel_tapped', {
@@ -472,8 +471,18 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                     });
                     setCancelVisible(true);
                   }}
-                  style={{ marginTop: tokens.spacing.md }}
-                />
+                  style={{
+                    marginTop: tokens.spacing.lg,
+                    alignItems: 'center',
+                    paddingVertical: 14,
+                    borderTopWidth: 0.5,
+                    borderBottomWidth: 0.5,
+                    borderColor: '#E5E7EB',
+                    backgroundColor: '#FFFFFF',
+                  }}
+                >
+                  <Text style={{ color: '#EF4444', fontSize: 16, fontWeight: '500' }}>Cancel Order</Text>
+                </Pressable>
               ) : null}
 
               {order.status === 'DELIVERED' ? (
@@ -534,6 +543,17 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
             variant="secondary"
             onPress={() => setCancelVisible(false)}
           />
+        </View>
+      </Modal>
+
+      <Modal
+        visible={chatVisible}
+        onRequestClose={() => setChatVisible(false)}
+        title="Live Chat"
+        accessibilityLabel="Chat with support or restaurant dialog"
+      >
+        <View style={{ height: 400 }}>
+          <OrderChat orderId={orderId} senderRole="CUSTOMER" />
         </View>
       </Modal>
 

@@ -108,6 +108,8 @@ export function TrackingMap({ location, orderStatus, restaurantLocation, custome
         <MapView
           ref={mapRef}
           style={styles.map}
+          userInterfaceStyle="light"
+          customMapStyle={[]}
           initialRegion={{
             latitude: startPt.latitude,
             longitude: startPt.longitude,
