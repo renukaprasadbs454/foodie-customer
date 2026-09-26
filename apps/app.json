@@ -72,8 +72,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "e84e44c1-3f95-4707-9027-2e0b4fb10820"
+        "projectId": "7e259af3-f72f-4482-95f9-5f64651eaaa3"
       }
-    }
+    },
+    "owner": "kavana_yp"
   }
 }

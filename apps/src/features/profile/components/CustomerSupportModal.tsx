@@ -12,7 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text, Toast, useTheme } from 'foodie-shared-rn';
 import { Feather } from '@expo/vector-icons';
-import { generateSupportReply } from '../supportAiEngine';
+import { generateSupportReply, getApiEndpoints } from '../supportAiEngine';
 
 export interface ChatMessage {
   id: string;
@@ -46,22 +46,21 @@ const INITIAL_ENQUIRIES: EnquiryRecord[] = [
   {
     id: 'ENQ-901',
     category: 'CUSTOMER',
-    senderName: 'Ananya Sharma',
-    senderEmail: 'ananya.s@gmail.com',
+    senderName: 'Customer User',
+    senderEmail: 'customer@foodie.com',
     senderPhone: '+91 98765 12345',
-    subject: 'Delayed Refund for Order #ORD-9821',
-    message: "I was debited ₹450 for a cancelled order yesterday but haven't received refund in my bank account.",
+    subject: 'Delayed Bank Refund Enquiry',
+    message: "I was debited for a cancelled order yesterday but haven't received refund in my bank account.",
     timestamp: '15 mins ago',
     status: 'OPEN',
     priority: 'HIGH',
-    orderId: 'ORD-9821',
     messages: [
       {
         id: 'msg-101',
         enquiryId: 'ENQ-901',
         sender: 'customer',
-        senderName: 'Ananya Sharma',
-        message: "I was debited ₹450 for a cancelled order yesterday but haven't received refund in my bank account.",
+        senderName: 'Customer User',
+        message: "I was debited for a cancelled order yesterday but haven't received refund in my bank account.",
         timestamp: '15 mins ago',
       },
     ],
@@ -132,26 +131,47 @@ export function CustomerSupportModal({
 
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Load enquiries from storage
+  // Load enquiries from storage and backend API
   const loadEnquiries = async () => {
     try {
-      let rawData: string | null = null;
-      rawData = await AsyncStorage.getItem(STORAGE_KEY);
-      if (!rawData && Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-        rawData = window.localStorage.getItem(STORAGE_KEY);
+      let fetched: EnquiryRecord[] = [];
+
+      const endpoints = getApiEndpoints();
+      for (const ep of endpoints) {
+        try {
+          const res = await fetch(ep, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+          if (res.ok) {
+            const json = await res.json();
+            const dataList = json.data || json;
+            if (Array.isArray(dataList) && dataList.length > 0) {
+              fetched = dataList;
+              break;
+            }
+          }
+        } catch (e) {}
       }
 
-      if (rawData) {
-        const parsed = JSON.parse(rawData);
-        setEnquiries(parsed);
-        // Keep active enquiry updated with latest messages
+      // 2. Fallback to AsyncStorage / localStorage
+      if (fetched.length === 0) {
+        let rawData: string | null = null;
+        rawData = await AsyncStorage.getItem(STORAGE_KEY);
+        if (!rawData && Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+          rawData = window.localStorage.getItem(STORAGE_KEY);
+        }
+        if (rawData) {
+          fetched = JSON.parse(rawData);
+        }
+      }
+
+      if (fetched.length > 0) {
+        setEnquiries(fetched);
         if (activeEnquiry) {
-          const updatedActive = parsed.find((e: EnquiryRecord) => e.id === activeEnquiry.id);
+          const updatedActive = fetched.find((e: EnquiryRecord) => e.id === activeEnquiry.id);
           if (updatedActive) {
             setActiveEnquiry(updatedActive);
           }
-        } else if (parsed.length > 0) {
-          const activeRec = parsed.find((e: EnquiryRecord) => e.id === 'ENQ-901') || parsed[0];
+        } else {
+          const activeRec = fetched.find((e: EnquiryRecord) => e.id === 'ENQ-901') || fetched[0];
           setActiveEnquiry(activeRec);
         }
       } else {
@@ -680,7 +700,7 @@ export function CustomerSupportModal({
                 color: '#0F172A',
                 marginBottom: 16,
               }}
-              placeholder="e.g. ORD-9821"
+              placeholder="e.g. Enter order number if applicable"
               placeholderTextColor="#94A3B8"
               value={newOrderId}
               onChangeText={setNewOrderId}

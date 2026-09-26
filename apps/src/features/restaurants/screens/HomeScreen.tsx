@@ -37,10 +37,12 @@ import type { RestaurantSort } from '../types';
 import { RESTAURANT_SORT_WHITELIST } from '../types';
 import { useGetCartQuery } from '../../../api/endpoints/cartApi';
 import { useGetNotificationsQuery } from '../../../api/endpoints/notificationsApi';
+import { useGetMyOrdersQuery } from '../../../api/endpoints/ordersApi';
+import { useGetMyProfileQuery } from '../../../api/endpoints/usersApi';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CATEGORY_ITEMS } from '../mockData';
 import { GlobalCartBanner } from '../../cart/components/GlobalCartBanner';
-import { syncSupportChatMessages, connectToAgentAndCreateEnquiry, STORAGE_KEY, EnquiryRecord, generateSupportReply, evaluateSmartSupportReply, AiActionButton } from '../../profile/supportAiEngine';
+import { syncSupportChatMessages, connectToAgentAndCreateEnquiry, STORAGE_KEY, EnquiryRecord, generateSupportReply, evaluateSmartSupportReply, AiActionButton, getApiEndpoints, postToBackendSync } from '../../profile/supportAiEngine';
 import { PromotionalBannerCarousel } from '../components/PromotionalBannerCarousel';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Home'>;
@@ -63,6 +65,22 @@ export function HomeScreen({ navigation }: Props) {
   const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [currentAddress, setCurrentAddress] = useState('Locating...');
 
+  // Fetch profile for dynamic customer name & contact details
+  const profileQuery = useGetMyProfileQuery();
+  const currentUserName = profileQuery.data?.fullName || 'Customer User';
+  const currentUserEmail = profileQuery.data?.email || 'customer@foodie.com';
+  const currentUserPhone = profileQuery.data?.phoneNumber || '+91 98765 43210';
+
+  // Fetch active orders dynamically (no hardcoded ORD-9821)
+  const { data: myOrders } = useGetMyOrdersQuery(
+    { page: 0, size: 5 },
+    { pollingInterval: 10000, refetchOnFocus: true }
+  );
+  const activeOrder = myOrders?.find(
+    (o) => o.status !== 'CANCELLED' && o.status !== 'DELIVERED' && o.status !== 'COMPLETED'
+  );
+  const activeOrderId = activeOrder?.orderId;
+
   // Support / Complaint Chat State
   const [helpModalVisible, setHelpModalVisible] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
@@ -83,9 +101,9 @@ export function HomeScreen({ navigation }: Props) {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       buttons: [
         { label: '📍 Track Active Order', actionText: 'Where is my order?' },
-        { label: '💳 Check Refund Status', actionText: 'Refund status for my order' },
-        { label: '❌ Cancel Order #ORD-9821', actionText: 'I want to cancel my order' },
+        { label: '💳 Refund & Payment Help', actionText: 'Refund status for my order' },
         { label: '🏷️ Active Offers & Coupons', actionText: 'Are there active coupons or offers?' },
+        { label: '🎧 Connect to Live Agent', actionText: 'I want to connect to a live support agent.' },
       ],
     },
   ]);
@@ -103,6 +121,38 @@ export function HomeScreen({ navigation }: Props) {
     ]);
 
     const textLower = userText.toLowerCase();
+    const isResolvedAction =
+      textLower.includes('my query is resolved') ||
+      textLower.includes('query resolved') ||
+      textLower.includes('resolved. thank') ||
+      textLower.includes('issue resolved');
+
+    if (isResolvedAction) {
+      setIsAgentConnected(false);
+      setShowAgentOption(false);
+
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          id: `bot-res-${Date.now()}`,
+          text: '🎉 Thank you! Your support ticket (#ENQ-901) has been marked as RESOLVED. Let us know if you need any further assistance in the future!',
+          from: 'admin',
+          time: nowTime,
+          buttons: [
+            { label: '🏷️ Active Offers & Deals', actionText: 'Are there active coupons or offers?' },
+            { label: '🎧 Connect to Live Agent', actionText: 'I want to connect to a live support agent.' },
+          ],
+        },
+      ]);
+
+      void postToBackendSync({
+        action: 'status',
+        id: 'ENQ-901',
+        status: 'RESOLVED',
+      });
+      return;
+    }
+
     const isExplicitAgentRequest =
       textLower.includes('connect') ||
       textLower.includes('agent') ||
@@ -115,10 +165,10 @@ export function HomeScreen({ navigation }: Props) {
       const isFirstConnect = !isAgentConnected;
       const { enquiryRecord, systemConfirmationMsg } = await connectToAgentAndCreateEnquiry(
         userText,
-        'Ananya Sharma',
-        'ananya.s@gmail.com',
-        '+91 98765 12345',
-        'ORD-9821',
+        currentUserName,
+        currentUserEmail,
+        currentUserPhone,
+        activeOrderId,
         'ENQ-901'
       );
 
@@ -141,7 +191,12 @@ export function HomeScreen({ navigation }: Props) {
         ]);
       }
     } else {
-      const { aiMsg, aiResult } = await syncSupportChatMessages(userText, 'ENQ-901', 'Ananya Sharma');
+      const { aiMsg, aiResult } = await syncSupportChatMessages(
+        userText,
+        'ENQ-901',
+        currentUserName,
+        activeOrderId
+      );
 
       setShowAgentOption(aiResult.suggestAgent);
 
@@ -163,23 +218,16 @@ export function HomeScreen({ navigation }: Props) {
     let enquiries: EnquiryRecord[] = [];
 
     // 1. Try fetching from server endpoints
-    const endpoints = [
-      'http://10.205.58.92:3000/api/support-tickets',
-      'http://10.205.58.92:3001/api/support-tickets',
-      'http://10.59.183.92:3000/api/support-tickets',
-      'http://10.59.183.92:3001/api/support-tickets',
-      'http://localhost:3000/api/support-tickets',
-      'http://localhost:3001/api/support-tickets',
-      '/api/support-tickets',
-    ];
+    const endpoints = getApiEndpoints();
 
     for (const ep of endpoints) {
       try {
         const res = await fetch(ep, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
         if (res.ok) {
           const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            enquiries = json.data;
+          const dataList = json.data || json;
+          if (Array.isArray(dataList) && dataList.length > 0) {
+            enquiries = dataList;
             break;
           }
         }
@@ -201,60 +249,69 @@ export function HomeScreen({ navigation }: Props) {
       } catch (e) { }
     }
 
-    // Purge test tickets > 905
-    enquiries = enquiries.filter((e) => {
-      const num = parseInt((e.id || '').replace('ENQ-', ''), 10);
-      return isNaN(num) || num <= 905;
-    });
-
     if (enquiries.length > 0) {
-      const activeRec = enquiries.find((e) => e.id === 'ENQ-901') || enquiries[0];
+      const activeTicket = enquiries.find((e) => e.id === activeEnquiryId || e.id === 'ENQ-901') || enquiries[0];
 
-      if (activeRec) {
-        const rawMsgs = activeRec.messages || [];
-        const cleanMsgs = rawMsgs.filter(
-          (m) => !m.message.includes('Message sent to Admin Support') && !m.message.includes('Message delivered to Admin Support')
-        );
+      if (activeTicket) {
+        const newAdminMsgs: Array<{ id: string; text: string; from: 'admin'; time: string; buttons?: any[] }> = [];
+        const seenTexts = new Set<string>();
 
-        if (activeRec.replyMessage) {
-          const alreadyHasReply = cleanMsgs.some(
-            (m) => m.sender === 'admin' && m.message.trim() === activeRec.replyMessage?.trim()
-          );
-          if (!alreadyHasReply) {
-            cleanMsgs.push({
-              id: `msg-reply-rec`,
-              enquiryId: activeRec.id,
-              sender: 'admin',
-              senderName: 'Admin Support',
-              message: activeRec.replyMessage,
-              timestamp: 'Recently',
+        // Process message thread from active ticket
+        if (activeTicket.messages && activeTicket.messages.length > 0) {
+          activeTicket.messages.forEach((m: any) => {
+            const txt = (m.message || m.text || '').trim();
+            if (m.sender === 'admin' && txt) {
+              if (
+                !txt.includes('Message delivered to Admin Support') &&
+                !txt.includes('Message sent to Admin Support') &&
+                !seenTexts.has(txt)
+              ) {
+                seenTexts.add(txt);
+                newAdminMsgs.push({
+                  id: m.id || `msg-admin-${activeTicket.id}-${txt.substring(0, 15)}`,
+                  text: txt,
+                  from: 'admin',
+                  time: m.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  buttons: [
+                    { label: '✅ Query Resolved', actionText: 'My query is resolved. Thank you!' },
+                    { label: '🎧 Still Need Help', actionText: 'I still need help with my issue.' },
+                  ],
+                });
+              }
+            }
+          });
+        }
+
+        // Check replyMessage field fallback
+        if (activeTicket.replyMessage && activeTicket.replyMessage.trim()) {
+          const replyTxt = activeTicket.replyMessage.trim();
+          if (
+            !replyTxt.includes('Message delivered to Admin Support') &&
+            !replyTxt.includes('Message sent to Admin Support') &&
+            !seenTexts.has(replyTxt)
+          ) {
+            seenTexts.add(replyTxt);
+            newAdminMsgs.push({
+              id: `msg-reply-${activeTicket.id}`,
+              text: replyTxt,
+              from: 'admin',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              buttons: [
+                { label: '✅ Query Resolved', actionText: 'My query is resolved. Thank you!' },
+                { label: '🎧 Still Need Help', actionText: 'I still need help with my issue.' },
+              ],
             });
           }
         }
 
-        if (cleanMsgs.length > 0) {
-          const formatted = cleanMsgs.map((m) => ({
-            id: m.id,
-            text: m.message,
-            from: (m.sender === 'admin' ? 'admin' : 'user') as 'admin' | 'user' | 'bot',
-            time: m.timestamp,
-          }));
-
+        if (newAdminMsgs.length > 0) {
           setChatHistory((prev) => {
-            const existingIds = new Set(prev.map((p) => p.id));
-            const existingTexts = new Set(prev.map((p) => p.text.trim()));
+            const existingTexts = new Set(prev.map((p) => (p.text || '').trim()));
+            const toAdd = newAdminMsgs.filter((a) => a.text && !existingTexts.has(a.text.trim()));
 
-            const newFromSet = formatted.filter(
-              (f) => !existingIds.has(f.id) && (f.from === 'admin' ? !existingTexts.has(f.text.trim()) : true)
-            );
-
-            if (newFromSet.length === 0) return prev;
-            return [...prev, ...newFromSet];
+            if (toAdd.length === 0) return prev;
+            return [...prev, ...toAdd];
           });
-
-          if (!activeEnquiryId) {
-            setActiveEnquiryId(activeRec.id);
-          }
         }
       }
     }
@@ -849,81 +906,35 @@ export function HomeScreen({ navigation }: Props) {
                 contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
                 style={{ flex: 1 }}
               >
-                {/* Welcome Card & Common Quick Action Chips */}
-                <View style={{
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: 16,
-                  padding: 16,
-                  marginBottom: 16,
-                  borderWidth: 1,
-                  borderColor: '#E2E8F0',
-                  shadowColor: '#14532D',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.05,
-                  shadowRadius: 6,
-                  elevation: 2,
-                }}>
-                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A', marginBottom: 4 }}>
-                    Hi! Welcome to Foodie Support 👋
-                  </Text>
-                  <Text style={{ fontSize: 13, color: '#475569', marginBottom: 12 }}>
-                    Recent Order: <Text style={{ fontWeight: '700', color: '#14532D' }}>#ORD-9821</Text> • Preparing for Delivery 🚴
-                  </Text>
-
-                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#1E293B', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Quick Help Options
-                  </Text>
-
-                  {/* Vertical Quick FAQ Action Cards */}
-                  <View style={{ gap: 8 }}>
-                    {[
-                      { icon: '📍', label: 'Where is my order?', action: 'Where is my order?' },
-                      { icon: '💳', label: 'Payment or refund issue', action: 'Refund status for my order' },
-                      { icon: '❌', label: 'I want to cancel my order', action: 'I want to cancel my order' },
-                      { icon: '🏷️', label: 'Offers & Promo Codes', action: 'Are there active coupons or offers?' },
-                    ].map((item, idx) => (
-                      <Pressable
-                        key={idx}
-                        onPress={() => void handleUserSubmitMessage(item.action)}
-                        style={({ pressed }) => ({
-                          backgroundColor: pressed ? '#DCFCE7' : '#F8FAFC',
-                          borderRadius: 12,
-                          paddingHorizontal: 14,
-                          paddingVertical: 12,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          borderWidth: 1,
-                          borderColor: '#E2E8F0',
-                        })}
-                      >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          <Text style={{ fontSize: 16 }}>{item.icon}</Text>
-                          <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E293B' }}>{item.label}</Text>
-                        </View>
-                        <Text style={{ fontSize: 16, color: '#14532D', fontWeight: 'bold' }}>›</Text>
-                      </Pressable>
-                    ))}
+                {/* Optional Active Order Status Banner */}
+                {activeOrderId ? (
+                  <View style={{
+                    backgroundColor: '#ECFDF5',
+                    borderRadius: 12,
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    marginBottom: 14,
+                    borderWidth: 1,
+                    borderColor: '#A7F3D0',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}>
+                    <Text style={{ fontSize: 13, color: '#065F46', fontWeight: '600' }}>
+                      🚴 Active Order: <Text style={{ fontWeight: '800', color: '#14532D' }}>#{activeOrderId}</Text>
+                    </Text>
+                    <Pressable onPress={() => void handleUserSubmitMessage('Where is my order?')}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#047857', textDecorationLine: 'underline' }}>Track Live ›</Text>
+                    </Pressable>
                   </View>
-                </View>
+                ) : null}
 
                 {/* Chat Messages */}
                 {chatHistory.map((msg) => {
+                  if (!msg.text || !msg.text.trim()) return null;
                   const isAdminOrBot = msg.from === 'admin' || msg.from === 'bot';
-                  const isHumanAdmin = msg.from === 'admin' && (
-                    msg.text.includes('Ticket #') ||
-                    msg.text.includes('Admin Support') ||
-                    msg.text.includes('reviewing your message') ||
-                    msg.text.includes('validating') ||
-                    msg.text.includes('investigating') ||
-                    msg.text.includes('Response sent') ||
-                    msg.text.includes('Our team') ||
-                    msg.text.includes('processed') ||
-                    msg.text.includes('credited') ||
-                    msg.text.includes('dispatched')
-                  ) && !msg.text.includes('Foodie Customer Support Assistant') && !msg.text.includes('Orders are typically delivered');
-
-                  const isAutoBot = isAdminOrBot && !isHumanAdmin;
+                  const isHumanAdmin = msg.from === 'admin';
+                  const isAutoBot = msg.from === 'bot';
 
                   return (
                     <View key={msg.id} style={{
