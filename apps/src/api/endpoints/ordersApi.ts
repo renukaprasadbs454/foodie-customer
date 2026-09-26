@@ -265,7 +265,24 @@ export const ordersApi = baseApi.injectEndpoints({
     }),
 
     getOrderMessages: builder.query<any[], string>({
-      query: (orderId) => `/api/v1/orders/${orderId}/messages`,
+      async queryFn(orderId, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        if (!mockOrdersStore[orderId]) {
+          try {
+            const result = await fetchWithBaseQuery(`/api/v1/orders/${orderId}/messages`);
+            if (result.data) {
+              const apiRes = result.data as any;
+              return { data: apiRes.data || apiRes };
+            }
+          } catch { }
+        }
+
+        // Mock fallback wrapper
+        const stored = mockOrdersStore[orderId] as any;
+        if (stored) {
+          return { data: stored.messages || [] };
+        }
+        return { data: [] };
+      },
       providesTags: (_result, _error, orderId) => [
         { type: 'Order', id: orderId },
       ],
@@ -275,12 +292,40 @@ export const ordersApi = baseApi.injectEndpoints({
       any,
       { orderId: string; senderRole: string; messageText: string }
     >({
-      query: ({ orderId, senderRole, messageText }) => ({
-        url: `/api/v1/orders/${orderId}/messages`,
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: { senderRole, messageText },
-      }),
+      async queryFn({ orderId, senderRole, messageText }, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        if (!mockOrdersStore[orderId]) {
+          try {
+            const result = await fetchWithBaseQuery({
+              url: `/api/v1/orders/${orderId}/messages`,
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: { senderRole, messageText },
+            });
+            if (result.data) {
+              const apiRes = result.data as any;
+              return { data: apiRes.data || apiRes };
+            }
+          } catch { }
+        }
+
+        // Mock fallback wrapper
+        const stored = mockOrdersStore[orderId] as any;
+        if (stored) {
+          if (!stored.messages) stored.messages = [];
+          const newMsg = {
+            id: `msg-${Date.now()}`,
+            orderId,
+            senderRole,
+            senderId: 'mock-sender',
+            messageText,
+            createdAt: new Date().toISOString()
+          };
+          stored.messages.push(newMsg);
+          void saveMockOrders();
+          return { data: newMsg };
+        }
+        return { data: {} };
+      },
       invalidatesTags: (_result, _error, arg) => [
         { type: 'Order', id: arg.orderId },
       ],

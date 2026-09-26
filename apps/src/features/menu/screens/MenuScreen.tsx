@@ -284,7 +284,7 @@ export function MenuScreen({ navigation, route }: Props) {
           ListHeaderComponent={
             <View style={{ gap: tokens.spacing.md }}>
               <ImageBackground
-                source={{ uri: restaurantData?.imageUrl ? (restaurantData.imageUrl.startsWith('/api') ? `${ENV.apiBaseUrl}${restaurantData.imageUrl}` : restaurantData.imageUrl) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=1000' }}
+                source={{ uri: (restaurantData as any)?.coverImageUrl ? ((restaurantData as any).coverImageUrl.startsWith('/api') ? `${ENV.apiBaseUrl}${(restaurantData as any).coverImageUrl}` : (restaurantData as any).coverImageUrl) : (restaurantData as any)?.imageUrl ? ((restaurantData as any).imageUrl.startsWith('/api') ? `${ENV.apiBaseUrl}${(restaurantData as any).imageUrl}` : (restaurantData as any).imageUrl) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=1000' }}
                 style={{ marginHorizontal: -tokens.spacing.lg, marginTop: 0, minHeight: 265, justifyContent: 'flex-end', backgroundColor: '#14532D' }}
                 imageStyle={{ borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}
               >
