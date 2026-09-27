@@ -151,7 +151,6 @@ export function CustomerSupportModal({
       } catch (e) { }
 
       // 2. Fetch from Backend
-      let fetched: EnquiryRecord[] = [];
       const endpoints = getApiEndpoints();
       for (const ep of endpoints) {
         try {
@@ -372,7 +371,7 @@ export function CustomerSupportModal({
     let updatedMessages = [...existingMsgs, newMsg];
     let latestAiText = activeEnquiry.replyMessage;
 
-    if (activeEnquiry.isAiOnly) {
+    if (activeEnquiry.isAiOnly !== false) {
       // Generate smart AI response specific to customer's actual message
       const aiText = generateSupportReply(userText);
       latestAiText = aiText;
@@ -401,7 +400,7 @@ export function CustomerSupportModal({
     setActiveEnquiry(updatedRecord);
 
     // If connected to live agent, stream the update to the backend!
-    if (!activeEnquiry.isAiOnly) {
+    if (activeEnquiry.isAiOnly === false) {
       try {
         void fetch('https://api.foodie.kwiko.org/api/v1/admin/support-tickets', {
           method: 'POST',
@@ -696,7 +695,7 @@ export function CustomerSupportModal({
               })}
 
               {/* Dynamic Live Agent Connect Button */}
-              {activeEnquiry.isAiOnly && (
+              {activeEnquiry.isAiOnly !== false && (
                 <Pressable
                   onPress={handleConnectWithAgent}
                   style={{
