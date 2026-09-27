@@ -219,11 +219,21 @@ export function HomeScreen({ navigation }: Props) {
 
   // Sync Help chat modal history with persistent storage key `foodie_support_enquiries_v6` and API route
   const syncChatFromStorage = async () => {
-    let enquiries: EnquiryRecord[] = [];
+    // 1. Fetch strictly from LOCAL STORAGE FIRST
+    let localTickets: EnquiryRecord[] = [];
+    try {
+      let rawData: string | null = await AsyncStorage.getItem(STORAGE_KEY);
+      if (!rawData && Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+        rawData = window.localStorage.getItem(STORAGE_KEY);
+      }
+      if (rawData) {
+        localTickets = JSON.parse(rawData);
+      }
+    } catch (e) { }
 
-    // 1. Try fetching from server endpoints
+    // 2. Try fetching from server endpoints
+    let fetched: EnquiryRecord[] = [];
     const endpoints = getApiEndpoints();
-
     for (const ep of endpoints) {
       try {
         const res = await fetch(ep, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
@@ -231,27 +241,23 @@ export function HomeScreen({ navigation }: Props) {
           const json = await res.json();
           const dataList = json.data || json;
           if (Array.isArray(dataList) && dataList.length > 0) {
-            enquiries = dataList;
+            fetched = dataList;
             break;
           }
         }
       } catch (e) { }
     }
 
-    // 2. Fallback to AsyncStorage / localStorage
-    if (enquiries.length === 0) {
-      try {
-        let rawData: string | null = null;
-        rawData = await AsyncStorage.getItem(STORAGE_KEY);
-        if (!rawData && Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-          rawData = window.localStorage.getItem(STORAGE_KEY);
-        }
-
-        if (rawData) {
-          enquiries = JSON.parse(rawData);
-        }
-      } catch (e) { }
+    // 3. Merging logic: backend overrides local tickets of same ID
+    const mergedMap = new Map<string, EnquiryRecord>();
+    for (const t of localTickets) {
+      mergedMap.set(t.id, t);
     }
+    for (const t of fetched) {
+      mergedMap.set(t.id, t);
+    }
+
+    let enquiries = Array.from(mergedMap.values());
 
     if (enquiries.length > 0) {
       // Find current active unresolved ticket for this customer
