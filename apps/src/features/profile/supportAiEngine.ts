@@ -68,7 +68,7 @@ export interface EnquiryRecord {
   orderId?: string;
 }
 
-export const STORAGE_KEY = 'foodie_support_enquiries';
+export const STORAGE_KEY = 'foodie_support_enquiries_v6';
 
 export interface AiActionButton {
   label: string;
@@ -464,13 +464,13 @@ export function generateSupportReply(userMsg: string, activeOrderId?: string): s
 }
 
 /**
- * Persists customer message and AI reply into shared storage key `foodie_support_enquiries`.
+ * Persists customer message and AI reply into shared storage key `foodie_support_enquiries_v5`.
  * Automatically syncs Admin Support Dashboard and Customer App in real time.
  */
 export async function syncSupportChatMessages(
   userText: string,
   targetEnquiryId?: string,
-  senderName: string = 'Customer',
+  senderName: string = 'Customer User',
   activeOrderId?: string
 ): Promise<{ userMsg: ChatMessage; aiMsg: ChatMessage; aiResult: AiResponseResult }> {
   const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -498,12 +498,23 @@ export async function syncSupportChatMessages(
     }
   }
 
-  let targetId = targetEnquiryId || 'ENQ-901';
-  let enquiryIndex = enquiriesList.findIndex((e) => e.id === targetId);
+  // Check if existing active ticket for targetEnquiryId or open customer ticket
+  let targetId = targetEnquiryId;
+  let enquiryIndex = targetId ? enquiriesList.findIndex((e) => e.id === targetId) : -1;
 
   if (enquiryIndex === -1 && enquiriesList.length > 0) {
-    targetId = enquiriesList[0].id;
-    enquiryIndex = 0;
+    // Find latest OPEN or IN_PROGRESS ticket
+    enquiryIndex = enquiriesList.findIndex((e) => e.status !== 'RESOLVED');
+    if (enquiryIndex !== -1) {
+      targetId = enquiriesList[enquiryIndex].id;
+    }
+  }
+
+  // If latest ticket is RESOLVED or none exists, generate a NEW ticket ID so chat starts fresh!
+  const isResolved = enquiryIndex !== -1 && enquiriesList[enquiryIndex].status === 'RESOLVED';
+  if (enquiryIndex === -1 || isResolved || !targetId) {
+    targetId = `ENQ-${Math.floor(906 + Math.random() * 9000)}`;
+    enquiryIndex = -1;
   }
 
   const userMsg: ChatMessage = {
@@ -524,7 +535,7 @@ export async function syncSupportChatMessages(
     timestamp: nowTime,
   };
 
-  if (enquiryIndex !== -1) {
+  if (enquiryIndex !== -1 && !isResolved) {
     const record = enquiriesList[enquiryIndex];
     const existingMsgs = record.messages || [
       {
@@ -541,15 +552,15 @@ export async function syncSupportChatMessages(
       ...record,
       messages: [...existingMsgs, userMsg, aiMsg],
       replyMessage: aiResult.reply,
-      status: record.status === 'RESOLVED' ? 'IN_PROGRESS' : record.status,
+      status: 'IN_PROGRESS',
     };
   } else {
     const newRecord: EnquiryRecord = {
       id: targetId,
       category: 'CUSTOMER',
       senderName: senderName,
-      senderEmail: 'ananya.s@gmail.com',
-      senderPhone: '+91 98765 12345',
+      senderEmail: 'customer@foodie.com',
+      senderPhone: '+91 80731 12274',
       subject: `Customer Enquiry: ${userText.substring(0, 30)}...`,
       message: userText.trim(),
       timestamp: nowTime,
@@ -572,32 +583,18 @@ export async function syncSupportChatMessages(
   } catch (e) {
     console.error('Error saving chat storage', e);
   }
-
-  // Non-blocking background POST to dev server endpoints
-  postToBackendSync({
-    id: targetId,
-    category: 'CUSTOMER',
-    senderName: senderName,
-    senderEmail: 'ananya.s@gmail.com',
-    senderPhone: '+91 98765 12345',
-    subject: `Live Support Chat: ${userText.substring(0, 30)}...`,
-    message: userText.trim(),
-  });
-
   return { userMsg, aiMsg, aiResult };
 }
 
-
-
 /**
- * Creates a brand-new live customer enquiry ticket directly dispatched to Admin Support Desk.
- * Creates a NEW Enquiry record card (e.g. ENQ-906) under Admin -> Support -> Customer Enquiries.
+ * Creates or updates a live customer enquiry ticket directly dispatched to Admin Support Desk.
+ * Executed ONLY when the customer explicitly requests to connect with a Live Agent.
  */
 export async function connectToAgentAndCreateEnquiry(
   userText: string,
-  customerName: string = 'Ananya Sharma',
-  customerEmail: string = 'ananya.s@gmail.com',
-  customerPhone: string = '+91 98765 12345',
+  customerName: string = 'Customer',
+  customerEmail: string = 'customer@foodie.com',
+  customerPhone: string = '+91 80731 12274',
   orderId?: string,
   existingEnquiryId?: string
 ): Promise<{ enquiryRecord: EnquiryRecord; userMsg: ChatMessage; systemConfirmationMsg: ChatMessage }> {
@@ -623,14 +620,19 @@ export async function connectToAgentAndCreateEnquiry(
     }
   }
 
-  // Purge test spam IDs (906, 933, 946, 955, 963, 966, 989, etc.)
-  enquiriesList = enquiriesList.filter((e) => {
-    const num = parseInt((e.id || '').replace('ENQ-', ''), 10);
-    return isNaN(num) || num <= 905;
+  // Find active unresolved ticket for this customer
+  let existingIndex = enquiriesList.findIndex((e) => {
+    if (e.status === 'RESOLVED') return false;
+    const matchId = existingEnquiryId && e.id === existingEnquiryId;
+    const matchEmail = customerEmail && e.senderEmail && e.senderEmail.toLowerCase() === customerEmail.toLowerCase();
+    const matchPhone = customerPhone && e.senderPhone && e.senderPhone === customerPhone;
+    return matchId || matchEmail || matchPhone;
   });
 
-  const enquiryId = 'ENQ-901';
-  let existingIndex = enquiriesList.findIndex((e) => e.id === enquiryId);
+  const existingRec = existingIndex !== -1 ? enquiriesList[existingIndex] : null;
+
+  // If active unresolved ticket exists, REUSE IT! Otherwise create a NEW TICKET ID.
+  const enquiryId = existingRec ? existingRec.id : `ENQ-${Math.floor(906 + Math.random() * 9000)}`;
 
   const userMsg: ChatMessage = {
     id: `msg-cust-${Date.now()}`,
@@ -652,13 +654,13 @@ export async function connectToAgentAndCreateEnquiry(
 
   let resultingRecord: EnquiryRecord;
 
-  if (existingIndex !== -1) {
-    const rec = enquiriesList[existingIndex];
-    const prevMsgs = (rec.messages || []).filter(
+  if (existingRec) {
+    // Append to existing active ticket session
+    const prevMsgs = (existingRec.messages || []).filter(
       (m) => !m.message.includes('Message sent to Admin Support') && !m.message.includes('Message delivered to Admin Support')
     );
     resultingRecord = {
-      ...rec,
+      ...existingRec,
       subject: `Live Agent Request: ${userText.substring(0, 35)}...`,
       message: userText.trim(),
       timestamp: 'Just now',
@@ -669,6 +671,7 @@ export async function connectToAgentAndCreateEnquiry(
     };
     enquiriesList[existingIndex] = resultingRecord;
   } else {
+    // Create brand new ticket session - 0 old messages!
     resultingRecord = {
       id: enquiryId,
       category: 'CUSTOMER',

@@ -40,7 +40,7 @@ export interface EnquiryRecord {
   orderId?: string;
 }
 
-const STORAGE_KEY = 'foodie_support_enquiries';
+const STORAGE_KEY = 'foodie_support_enquiries_v6';
 
 const INITIAL_ENQUIRIES: EnquiryRecord[] = [
   {
@@ -171,7 +171,8 @@ export function CustomerSupportModal({
             setActiveEnquiry(updatedActive);
           }
         } else {
-          const activeRec = fetched.find((e: EnquiryRecord) => e.id === 'ENQ-901') || fetched[0];
+          // Select active open ticket or latest ticket
+          const activeRec = fetched.find((e: EnquiryRecord) => e.status !== 'RESOLVED') || fetched[0];
           setActiveEnquiry(activeRec);
         }
       } else {

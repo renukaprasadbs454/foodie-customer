@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, KeyboardAvoidingView, ScrollView, Platform, Image, Pressable } from 'react-native';
+import { View, KeyboardAvoidingView, ScrollView, Platform, Image, Pressable, Linking } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Button,
@@ -111,10 +111,18 @@ export function OtpVerificationScreen({ navigation, route }: Props) {
     try {
       await requestOtp({ phoneNumber }).unwrap();
       setCooldown(RESEND_COOLDOWN_SEC);
-      setToast({ message: 'A new code was sent.', variant: 'success' });
+      setToast({ message: 'A new OTP was sent to your WhatsApp number.', variant: 'success' });
     } catch (err) {
       handleApiError(toUnwrappedApiError(err));
     }
+  };
+
+  const onOpenWhatsApp = () => {
+    const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+    const waUrl = `https://wa.me/${cleanPhone}`;
+    Linking.openURL(waUrl).catch(() => {
+      showError('Unable to open WhatsApp application.');
+    });
   };
 
   const busy = verifyState.isLoading || resendState.isLoading;
@@ -190,11 +198,14 @@ export function OtpVerificationScreen({ navigation, route }: Props) {
                 Enter OTP Code
               </Text>
               <Text variant="body" color={tokens.color.textSecondary}>
-                We sent a 6-digit verification code to
+                We sent a 6-digit verification code via WhatsApp to
               </Text>
-              <Text variant="body" color={tokens.color.textPrimary} style={{ fontWeight: 'bold', marginTop: 2 }}>
-                {phoneNumber}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <Text style={{ fontSize: 16 }}>💬</Text>
+                <Text variant="body" color="#166534" style={{ fontWeight: 'bold', fontSize: 16 }}>
+                  {phoneNumber}
+                </Text>
+              </View>
             </View>
 
             <View style={{ gap: tokens.spacing.lg }}>
@@ -239,7 +250,28 @@ export function OtpVerificationScreen({ navigation, route }: Props) {
                 }}
               />
 
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: tokens.spacing.sm }}>
+              <Pressable
+                onPress={onOpenWhatsApp}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  backgroundColor: pressed ? '#DCFCE7' : '#F0FDF4',
+                  borderRadius: tokens.radius.md,
+                  borderWidth: 1,
+                  borderColor: '#86EFAC',
+                })}
+              >
+                <Text style={{ fontSize: 16 }}>💬</Text>
+                <Text style={{ color: '#166534', fontWeight: '700', fontSize: 13 }}>
+                  Check WhatsApp Messages
+                </Text>
+              </Pressable>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: tokens.spacing.xs }}>
                 <Pressable
                   onPress={() => {
                     if (cooldown === 0) void onResend();

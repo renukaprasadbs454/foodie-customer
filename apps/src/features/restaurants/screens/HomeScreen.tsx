@@ -84,7 +84,7 @@ export function HomeScreen({ navigation }: Props) {
   // Support / Complaint Chat State
   const [helpModalVisible, setHelpModalVisible] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
-  const [activeEnquiryId, setActiveEnquiryId] = useState<string | null>('ENQ-901');
+  const [activeEnquiryId, setActiveEnquiryId] = useState<string | null>(null);
   const [isAgentConnected, setIsAgentConnected] = useState(false);
   const [showAgentOption, setShowAgentOption] = useState(false);
   const [chatHistory, setChatHistory] = useState<Array<{
@@ -125,17 +125,20 @@ export function HomeScreen({ navigation }: Props) {
       textLower.includes('my query is resolved') ||
       textLower.includes('query resolved') ||
       textLower.includes('resolved. thank') ||
-      textLower.includes('issue resolved');
+      textLower.includes('issue resolved') ||
+      textLower === 'disconnect' ||
+      textLower.includes('end agent session');
 
     if (isResolvedAction) {
       setIsAgentConnected(false);
       setShowAgentOption(false);
+      const targetId = activeEnquiryId || 'ENQ-901';
 
       setChatHistory((prev) => [
         ...prev,
         {
           id: `bot-res-${Date.now()}`,
-          text: '🎉 Thank you! Your support ticket (#ENQ-901) has been marked as RESOLVED. Let us know if you need any further assistance in the future!',
+          text: `🎉 Thank you! Your support ticket (#${targetId}) has been marked as RESOLVED. Let us know if you need any further assistance!`,
           from: 'admin',
           time: nowTime,
           buttons: [
@@ -147,9 +150,10 @@ export function HomeScreen({ navigation }: Props) {
 
       void postToBackendSync({
         action: 'status',
-        id: 'ENQ-901',
+        id: targetId,
         status: 'RESOLVED',
       });
+      setActiveEnquiryId(null);
       return;
     }
 
@@ -169,7 +173,7 @@ export function HomeScreen({ navigation }: Props) {
         currentUserEmail,
         currentUserPhone,
         activeOrderId,
-        'ENQ-901'
+        activeEnquiryId || undefined
       );
 
       setActiveEnquiryId(enquiryRecord.id);
@@ -193,7 +197,7 @@ export function HomeScreen({ navigation }: Props) {
     } else {
       const { aiMsg, aiResult } = await syncSupportChatMessages(
         userText,
-        'ENQ-901',
+        activeEnquiryId || undefined,
         currentUserName,
         activeOrderId
       );
@@ -213,7 +217,7 @@ export function HomeScreen({ navigation }: Props) {
     }
   };
 
-  // Sync Help chat modal history with persistent storage key `foodie_support_enquiries` and API route
+  // Sync Help chat modal history with persistent storage key `foodie_support_enquiries_v6` and API route
   const syncChatFromStorage = async () => {
     let enquiries: EnquiryRecord[] = [];
 
@@ -250,9 +254,21 @@ export function HomeScreen({ navigation }: Props) {
     }
 
     if (enquiries.length > 0) {
-      const activeTicket = enquiries.find((e) => e.id === activeEnquiryId || e.id === 'ENQ-901') || enquiries[0];
+      // Find current active unresolved ticket for this customer
+      const activeTicket = enquiries.find((e) => {
+        if (e.status === 'RESOLVED') return false;
+        const matchEmail = currentUserEmail && e.senderEmail && e.senderEmail.toLowerCase() === currentUserEmail.toLowerCase();
+        const matchPhone = currentUserPhone && e.senderPhone && e.senderPhone === currentUserPhone;
+        const matchId = activeEnquiryId && e.id === activeEnquiryId;
+        return matchId || matchEmail || matchPhone;
+      });
 
       if (activeTicket) {
+        if (activeEnquiryId !== activeTicket.id) {
+          setActiveEnquiryId(activeTicket.id);
+        }
+        setIsAgentConnected(true);
+
         const newAdminMsgs: Array<{ id: string; text: string; from: 'admin'; time: string; buttons?: any[] }> = [];
         const seenTexts = new Set<string>();
 
