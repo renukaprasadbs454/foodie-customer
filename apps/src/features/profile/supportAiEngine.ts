@@ -17,7 +17,7 @@ export function getApiEndpoints(): string[] {
         endpoints.push(`http://${hostIp}:3001/api/support-tickets`);
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   endpoints.push('http://10.138.102.92:3000/api/support-tickets');
   endpoints.push('http://10.138.102.92:3001/api/support-tickets');
@@ -37,8 +37,8 @@ export function postToBackendSync(payload: any) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      }).catch(() => {});
-    } catch (e) {}
+      }).catch(() => { });
+    } catch (e) { }
   }
 }
 
@@ -66,6 +66,8 @@ export interface EnquiryRecord {
   messages?: ChatMessage[];
   resolvedAt?: string;
   orderId?: string;
+  isAiOnly?: boolean;
+  lastActivityAt?: number;
 }
 
 export const STORAGE_KEY = 'foodie_support_enquiries_v6';
@@ -568,6 +570,8 @@ export async function syncSupportChatMessages(
       priority: 'HIGH',
       replyMessage: aiResult.reply,
       messages: [userMsg, aiMsg],
+      isAiOnly: true,
+      lastActivityAt: Date.now(),
     };
     enquiriesList.unshift(newRecord);
   }
@@ -685,6 +689,8 @@ export async function connectToAgentAndCreateEnquiry(
       priority: 'HIGH',
       orderId: orderId,
       messages: [userMsg],
+      isAiOnly: false,
+      lastActivityAt: Date.now(),
     };
     enquiriesList.unshift(resultingRecord);
   }

@@ -38,6 +38,8 @@ export interface EnquiryRecord {
   messages?: ChatMessage[];
   resolvedAt?: string;
   orderId?: string;
+  isAiOnly?: boolean;
+  lastActivityAt?: number;
 }
 
 const STORAGE_KEY = 'foodie_support_enquiries_v6';
@@ -136,6 +138,20 @@ export function CustomerSupportModal({
     try {
       let fetched: EnquiryRecord[] = [];
 
+      // 1. Fetch strictly from LOCAL STORAGE FIRST
+      let localTickets: EnquiryRecord[] = [];
+      try {
+        let rawData: string | null = await AsyncStorage.getItem(STORAGE_KEY);
+        if (!rawData && Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+          rawData = window.localStorage.getItem(STORAGE_KEY);
+        }
+        if (rawData) {
+          localTickets = JSON.parse(rawData);
+        }
+      } catch (e) { }
+
+      // 2. Fetch from Backend
+      let fetched: EnquiryRecord[] = [];
       const endpoints = getApiEndpoints();
       for (const ep of endpoints) {
         try {
@@ -148,20 +164,30 @@ export function CustomerSupportModal({
               break;
             }
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
-      // 2. Fallback to AsyncStorage / localStorage
-      if (fetched.length === 0) {
-        let rawData: string | null = null;
-        rawData = await AsyncStorage.getItem(STORAGE_KEY);
-        if (!rawData && Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-          rawData = window.localStorage.getItem(STORAGE_KEY);
-        }
-        if (rawData) {
-          fetched = JSON.parse(rawData);
-        }
+      // 3. Merging logic: backend overrides local tickets of same ID
+      const mergedMap = new Map<string, EnquiryRecord>();
+      for (const t of localTickets) {
+        mergedMap.set(t.id, t);
       }
+      for (const t of fetched) {
+        mergedMap.set(t.id, t);
+      }
+
+      // Strict privacy sweep:
+      const mergedList = Array.from(mergedMap.values()).filter((item) => {
+        const strictMatchEmail = customerEmail && item.senderEmail && item.senderEmail.toLowerCase() === customerEmail.toLowerCase();
+        const strictMatchPhone = customerPhone && item.senderPhone && item.senderPhone === customerPhone;
+        // Also sweep inactive AI records > 5 mins
+        const idleTime = item.lastActivityAt ? (Date.now() - item.lastActivityAt) : 0;
+        if (idleTime > 5 * 60 * 1000) return false;
+
+        return strictMatchEmail || strictMatchPhone;
+      });
+
+      fetched = mergedList;
 
       if (fetched.length > 0) {
         setEnquiries(fetched);
@@ -268,27 +294,44 @@ export function CustomerSupportModal({
       priority: 'MEDIUM',
       orderId: newOrderId.trim() || undefined,
       messages: [newChatMsg],
+      isAiOnly: true,
+      lastActivityAt: Date.now(),
     };
 
     const updated = [newRecord, ...enquiries];
     await saveEnquiries(updated);
 
-    // POST to online backend API
-    try {
-      void fetch('https://api.foodie.kwiko.org/api/v1/admin/support-tickets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: newId,
-          category: newCategory,
-          senderName: customerName,
-          senderEmail: customerEmail,
-          senderPhone: customerPhone,
-          subject: newSubject.trim(),
-          message: newMessageText.trim(),
-        }),
-      }).catch(() => {});
-    } catch (e) {}
+    // Initial AI greeting!
+    setTimeout(async () => {
+      const aiReplyText = generateSupportReply(newMessageText.trim());
+      const firstAiMsg: ChatMessage = {
+        id: `msg-ai-${Date.now()}`,
+        enquiryId: newId,
+        sender: 'admin',
+        senderName: 'Foodie AI Support',
+        message: aiReplyText,
+        timestamp: 'Just now',
+      };
+
+      const newRecWithAi = {
+        ...newRecord,
+        messages: [newChatMsg, firstAiMsg],
+        replyMessage: aiReplyText,
+        lastActivityAt: Date.now(),
+      };
+
+      try {
+        let currentListStr = await AsyncStorage.getItem(STORAGE_KEY);
+        if (!currentListStr && Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+          currentListStr = window.localStorage.getItem(STORAGE_KEY);
+        }
+        const currentList = currentListStr ? JSON.parse(currentListStr) : enquiries;
+        const freshUpdated = [newRecWithAi, ...currentList.filter((x: EnquiryRecord) => x.id !== newRecord.id)];
+        await saveEnquiries(freshUpdated);
+      } catch (e) { }
+
+      setActiveEnquiry(newRecWithAi);
+    }, 800);
 
     // Reset form & open chat view
     setNewSubject('');
@@ -315,17 +358,6 @@ export function CustomerSupportModal({
       timestamp: nowStr,
     };
 
-    // Generate smart AI response specific to customer's actual message
-    const aiText = generateSupportReply(userText);
-    const aiMsg: ChatMessage = {
-      id: `msg-ai-${Date.now() + 1}`,
-      enquiryId: activeEnquiry.id,
-      sender: 'admin',
-      senderName: 'Foodie AI Support',
-      message: aiText,
-      timestamp: nowStr,
-    };
-
     const existingMsgs = activeEnquiry.messages || [
       {
         id: `msg-orig-${activeEnquiry.id}`,
@@ -337,20 +369,107 @@ export function CustomerSupportModal({
       },
     ];
 
-    const updatedMessages = [...existingMsgs, newMsg, aiMsg];
+    let updatedMessages = [...existingMsgs, newMsg];
+    let latestAiText = activeEnquiry.replyMessage;
+
+    if (activeEnquiry.isAiOnly) {
+      // Generate smart AI response specific to customer's actual message
+      const aiText = generateSupportReply(userText);
+      latestAiText = aiText;
+      const aiMsg: ChatMessage = {
+        id: `msg-ai-${Date.now() + 1}`,
+        enquiryId: activeEnquiry.id,
+        sender: 'admin',
+        senderName: 'Foodie AI Support',
+        message: aiText,
+        timestamp: nowStr,
+      };
+      updatedMessages.push(aiMsg);
+    }
+
     const updatedRecord: EnquiryRecord = {
       ...activeEnquiry,
       messages: updatedMessages,
-      replyMessage: aiText,
+      replyMessage: latestAiText,
       status: activeEnquiry.status === 'RESOLVED' ? 'IN_PROGRESS' : activeEnquiry.status,
+      lastActivityAt: Date.now(),
     };
 
     const updatedList = enquiries.map((item) => (item.id === activeEnquiry.id ? updatedRecord : item));
 
     await saveEnquiries(updatedList);
     setActiveEnquiry(updatedRecord);
+
+    // If connected to live agent, stream the update to the backend!
+    if (!activeEnquiry.isAiOnly) {
+      try {
+        void fetch('https://api.foodie.kwiko.org/api/v1/admin/support-tickets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'connect_agent',
+            id: updatedRecord.id,
+            category: updatedRecord.category,
+            senderName: updatedRecord.senderName,
+            senderEmail: updatedRecord.senderEmail,
+            senderPhone: updatedRecord.senderPhone,
+            subject: updatedRecord.subject,
+            message: updatedRecord.message,
+            messages: (updatedRecord.messages || []).filter(m => m.senderName !== 'Foodie AI Support'),
+          }),
+        }).catch(() => { });
+      } catch (e) { }
+    }
+
     setChatInput('');
     setIsSending(false);
+  };
+
+  const handleConnectWithAgent = async () => {
+    if (!activeEnquiry) return;
+
+    const systemMsg: ChatMessage = {
+      id: `msg-sys-${Date.now()}`,
+      enquiryId: activeEnquiry.id,
+      sender: 'admin',
+      senderName: 'Foodie Live Agent Desk',
+      message: '🎧 We are connecting you to an agent. Please describe your problem in detail so they can assist you quickly.',
+      timestamp: 'Just now',
+    };
+
+    const nextMessages = [...(activeEnquiry.messages || []), systemMsg];
+
+    const updatedRecord: EnquiryRecord = {
+      ...activeEnquiry,
+      isAiOnly: false,
+      messages: nextMessages,
+      lastActivityAt: Date.now(),
+    };
+
+    const updatedList = enquiries.map((item) => (item.id === activeEnquiry.id ? updatedRecord : item));
+    await saveEnquiries(updatedList);
+    setActiveEnquiry(updatedRecord);
+
+    try {
+      // Send ONLY customer's previous messages directly to the admin panel
+      const customerOnlyLogs = nextMessages.filter(m => m.senderName !== 'Foodie AI Support' && m.senderName !== 'Foodie Live Agent Desk');
+
+      void fetch('https://api.foodie.kwiko.org/api/v1/admin/support-tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'connect_agent',
+          id: updatedRecord.id,
+          category: updatedRecord.category,
+          senderName: updatedRecord.senderName,
+          senderEmail: updatedRecord.senderEmail,
+          senderPhone: updatedRecord.senderPhone,
+          subject: updatedRecord.subject,
+          message: updatedRecord.message,
+          messages: customerOnlyLogs,
+        }),
+      }).catch(() => { });
+    } catch (e) { }
   };
 
   return (
@@ -393,15 +512,15 @@ export function CustomerSupportModal({
                 {activeEnquiry
                   ? `Chat: ${activeEnquiry.id}`
                   : isCreatingNew
-                  ? 'New Support Enquiry'
-                  : 'Help & Customer Support'}
+                    ? 'New Support Enquiry'
+                    : 'Help & Customer Support'}
               </Text>
               <Text style={{ fontSize: 12, color: '#A7F3D0', fontWeight: '500' }}>
                 {activeEnquiry
                   ? activeEnquiry.subject
                   : isCreatingNew
-                  ? 'We reply within 5-10 minutes'
-                  : 'Real-time 2-Way Support Desk'}
+                    ? 'We reply within 5-10 minutes'
+                    : 'Real-time 2-Way Support Desk'}
               </Text>
             </View>
           </View>
@@ -454,8 +573,8 @@ export function CustomerSupportModal({
                     activeEnquiry.status === 'RESOLVED'
                       ? '#DEF7EC'
                       : activeEnquiry.status === 'IN_PROGRESS'
-                      ? '#FEF3C7'
-                      : '#E0E7FF',
+                        ? '#FEF3C7'
+                        : '#E0E7FF',
                 }}
               >
                 <Text
@@ -466,8 +585,8 @@ export function CustomerSupportModal({
                       activeEnquiry.status === 'RESOLVED'
                         ? '#03543F'
                         : activeEnquiry.status === 'IN_PROGRESS'
-                        ? '#92400E'
-                        : '#3730A3',
+                          ? '#92400E'
+                          : '#3730A3',
                   }}
                 >
                   {activeEnquiry.status.replace('_', ' ')}
@@ -485,27 +604,27 @@ export function CustomerSupportModal({
               {(activeEnquiry.messages && activeEnquiry.messages.length > 0
                 ? activeEnquiry.messages
                 : [
-                    {
-                      id: `orig-${activeEnquiry.id}`,
-                      enquiryId: activeEnquiry.id,
-                      sender: 'customer' as const,
-                      senderName: activeEnquiry.senderName,
-                      message: activeEnquiry.message,
-                      timestamp: activeEnquiry.timestamp,
-                    },
-                    ...(activeEnquiry.replyMessage
-                      ? [
-                          {
-                            id: `reply-${activeEnquiry.id}`,
-                            enquiryId: activeEnquiry.id,
-                            sender: 'admin' as const,
-                            senderName: 'Admin Support',
-                            message: activeEnquiry.replyMessage,
-                            timestamp: 'Recently',
-                          },
-                        ]
-                      : []),
-                  ]
+                  {
+                    id: `orig-${activeEnquiry.id}`,
+                    enquiryId: activeEnquiry.id,
+                    sender: 'customer' as const,
+                    senderName: activeEnquiry.senderName,
+                    message: activeEnquiry.message,
+                    timestamp: activeEnquiry.timestamp,
+                  },
+                  ...(activeEnquiry.replyMessage
+                    ? [
+                      {
+                        id: `reply-${activeEnquiry.id}`,
+                        enquiryId: activeEnquiry.id,
+                        sender: 'admin' as const,
+                        senderName: 'Admin Support',
+                        message: activeEnquiry.replyMessage,
+                        timestamp: 'Recently',
+                      },
+                    ]
+                    : []),
+                ]
               ).map((msg) => {
                 const isAdmin = msg.sender === 'admin';
                 return (
@@ -575,6 +694,33 @@ export function CustomerSupportModal({
                   </View>
                 );
               })}
+
+              {/* Dynamic Live Agent Connect Button */}
+              {activeEnquiry.isAiOnly && (
+                <Pressable
+                  onPress={handleConnectWithAgent}
+                  style={{
+                    alignSelf: 'stretch',
+                    backgroundColor: '#F3E8FF',
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: '#D8B4FE',
+                    marginTop: 8,
+                    marginBottom: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <Feather name="headphones" size={18} color="#9333EA" />
+                  <Text style={{ color: '#9333EA', fontWeight: '800', fontSize: 13 }}>
+                    Connect to Live Support Agent
+                  </Text>
+                </Pressable>
+              )}
             </ScrollView>
 
             {/* Reply Input Bar */}
@@ -902,8 +1048,8 @@ export function CustomerSupportModal({
                               item.status === 'RESOLVED'
                                 ? '#DEF7EC'
                                 : item.status === 'IN_PROGRESS'
-                                ? '#FEF3C7'
-                                : '#F3F4F6',
+                                  ? '#FEF3C7'
+                                  : '#F3F4F6',
                           }}
                         >
                           <Text
@@ -914,8 +1060,8 @@ export function CustomerSupportModal({
                                 item.status === 'RESOLVED'
                                   ? '#03543F'
                                   : item.status === 'IN_PROGRESS'
-                                  ? '#92400E'
-                                  : '#4B5563',
+                                    ? '#92400E'
+                                    : '#4B5563',
                             }}
                           >
                             {item.status.replace('_', ' ')}

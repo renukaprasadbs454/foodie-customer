@@ -1,0 +1,1 @@
+const fs = require('fs'); const { execSync } = require('child_process'); fs.writeFileSync('log.json', JSON.stringify(execSync('git log --pretty=format:"%h - %s" -n 10', { encoding: 'utf8' }).split('\n')));
