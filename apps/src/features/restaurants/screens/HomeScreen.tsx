@@ -273,7 +273,7 @@ export function HomeScreen({ navigation }: Props) {
         if (activeEnquiryId !== activeTicket.id) {
           setActiveEnquiryId(activeTicket.id);
         }
-        setIsAgentConnected(true);
+        setIsAgentConnected(!activeTicket.isAiOnly);
 
         const newAdminMsgs: Array<{ id: string; text: string; from: 'admin'; time: string; buttons?: any[] }> = [];
         const seenTexts = new Set<string>();
