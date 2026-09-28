@@ -76,7 +76,37 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
     status,
   );
 
-  const [eta, setEta] = useState<number | null>(null);
+  const [routeTravelTime, setRouteTravelTime] = useState<number | null>(null);
+  const [liveEta, setLiveEta] = useState<number | null>(null);
+
+  // Live minute-by-minute ETA reduction
+  useEffect(() => {
+    if (routeTravelTime === null || !orderQuery.data || terminal) return;
+
+    const calculateLiveEta = () => {
+      const order = orderQuery.data;
+      if (!order) return;
+
+      const prepTimeStr = (order as any).preparationTime;
+      const prepTimeAllocated = typeof prepTimeStr === 'string'
+        ? parseInt(prepTimeStr.replace(/\D/g, ''), 10) || 20
+        : typeof prepTimeStr === 'number' ? prepTimeStr : 20;
+
+      const placedAt = order.placedAt ? new Date(order.placedAt).getTime() : Date.now();
+      const elapsedMins = (Date.now() - placedAt) / 60000;
+
+      let remainingPrep = 0;
+      if (['PLACED', 'CONFIRMED', 'ACCEPTED', 'PREPARING'].includes(order.status)) {
+        remainingPrep = Math.max(0, prepTimeAllocated - elapsedMins);
+      }
+
+      setLiveEta(Math.ceil(remainingPrep + routeTravelTime));
+    };
+
+    calculateLiveEta();
+    const interval = setInterval(calculateLiveEta, 15000); // Check every 15 secs for smooth updates
+    return () => clearInterval(interval);
+  }, [routeTravelTime, orderQuery.data, terminal]);
 
   const { data: restaurant } = useGetRestaurantQuery(orderQuery.data?.restaurantId ?? '', { skip: !orderQuery.data?.restaurantId });
   const { data: addresses } = useGetAddressesQuery(undefined);
@@ -244,9 +274,9 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
           </Text>
         )}
 
-        {eta !== null && (
+        {liveEta !== null && (
           <View style={{ backgroundColor: 'rgba(252, 211, 77, 0.2)', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 25, marginTop: 14, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.3)' }}>
-            <Text style={{ color: '#FEF3C7', fontWeight: '800', fontSize: 15, letterSpacing: 0.5 }}>Estimated Delivery ETA: {eta} mins</Text>
+            <Text style={{ color: '#FEF3C7', fontWeight: '800', fontSize: 15, letterSpacing: 0.5 }}>Estimated Delivery ETA: {liveEta} mins</Text>
           </View>
         )}
       </LinearGradient>
@@ -341,7 +371,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                   orderStatus={order.status}
                   restaurantLocation={restaurantLocation}
                   customerLocation={customerLocation}
-                  onEtaUpdate={setEta}
+                  onEtaUpdate={setRouteTravelTime}
                 />
               </View>
             )}
