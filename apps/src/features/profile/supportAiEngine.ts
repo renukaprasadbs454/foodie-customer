@@ -19,10 +19,7 @@ export function getApiEndpoints(): string[] {
     }
   } catch (e) { }
 
-  endpoints.push('http://10.138.102.92:3000/api/support-tickets');
-  endpoints.push('http://10.138.102.92:3001/api/support-tickets');
-  endpoints.push('http://localhost:3000/api/support-tickets');
-  endpoints.push('http://localhost:3001/api/support-tickets');
+  endpoints.push('https://api.foodie.kwiko.org/api/v1/admin/support-tickets');
   endpoints.push('/api/support-tickets');
 
   return Array.from(new Set(endpoints));
