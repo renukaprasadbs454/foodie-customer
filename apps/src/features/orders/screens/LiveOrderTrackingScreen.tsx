@@ -104,9 +104,16 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
     };
 
     calculateLiveEta();
-    const interval = setInterval(calculateLiveEta, 15000); // Check every 15 secs for smooth updates
+    const interval = setInterval(calculateLiveEta, 10000); // Check every 10 secs per user request
     return () => clearInterval(interval);
   }, [routeTravelTime, orderQuery.data, terminal]);
+
+  const refreshEta = () => {
+    if (orderQuery.refetch) {
+      void orderQuery.refetch();
+    }
+    setToast({ message: 'ETA updated successfully', variant: 'success' });
+  };
 
   const { data: restaurant } = useGetRestaurantQuery(orderQuery.data?.restaurantId ?? '', { skip: !orderQuery.data?.restaurantId });
   const { data: addresses } = useGetAddressesQuery(undefined);
@@ -275,8 +282,11 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
         )}
 
         {liveEta !== null && (
-          <View style={{ backgroundColor: 'rgba(252, 211, 77, 0.2)', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 25, marginTop: 14, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.3)' }}>
+          <View style={{ backgroundColor: 'rgba(252, 211, 77, 0.2)', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 25, marginTop: 14, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.3)', gap: 8 }}>
             <Text style={{ color: '#FEF3C7', fontWeight: '800', fontSize: 15, letterSpacing: 0.5 }}>Estimated Delivery ETA: {liveEta} mins</Text>
+            <Pressable onPress={refreshEta} accessibilityRole="button" accessibilityLabel="Refresh ETA" style={{ padding: 4 }}>
+              <Text style={{ fontSize: 16 }}>🔄</Text>
+            </Pressable>
           </View>
         )}
       </LinearGradient>
