@@ -258,6 +258,11 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
         subtitle = 'Chef is crafting your delicious meal in the kitchen.';
         icon = '🍳';
         break;
+      case 'WAITING_FOR_DELIVERY_PARTNER':
+        title = 'Finding Nearby Delivery Partner';
+        subtitle = 'Food is being prepared! Assigning a nearby delivery partner soon.';
+        icon = '🔍';
+        break;
       case 'READY_FOR_PICKUP':
         title = 'Ready for Pickup';
         subtitle = 'Freshly packed food is waiting for the delivery rider.';
