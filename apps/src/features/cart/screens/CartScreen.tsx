@@ -19,7 +19,7 @@ import {
   useUpdateCartItemQuantityMutation,
 } from '../../../api/endpoints/cartApi';
 import { useGetEligibleCouponsQuery, useApplyCouponMutation } from '../../../api/endpoints/couponsApi';
-import { CouponsModal } from '../../checkout/components/CouponsModal';
+import { CouponsModal, calculateCouponDiscount, getCouponEligibility } from '../../checkout/components/CouponsModal';
 import { toUnwrappedApiError } from '../../auth/apiError';
 import type { BrowseStackParamList } from '../../../navigation/types';
 import { formatMoney, isMenuRestaurantId } from '../../menu/types';
@@ -91,7 +91,11 @@ export function CartScreen({ navigation, route }: Props) {
   const isDarkStoreMock = Array.isArray(mockItems) && mockItems.length > 0;
 
   let items = cartQuery.data?.items ?? [];
-  let subtotalAmt = Number(cartQuery.data?.subtotal) || 0;
+  const calculatedItemsSubtotal = items.reduce((acc, item) => {
+    const lineTot = Number(item.lineTotal) || (Number(item.unitPrice) * Number(item.quantity)) || 0;
+    return acc + lineTot;
+  }, 0);
+  let subtotalAmt = calculatedItemsSubtotal > 0 ? calculatedItemsSubtotal : (Number(cartQuery.data?.subtotal) || 0);
   let restaurantId = cartQuery.data?.restaurantId;
 
   if (isDarkStoreMock) {
@@ -145,6 +149,7 @@ export function CartScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     if (selectedCouponCode && restaurantId) {
+      const localCouponObj = (couponsQuery.data || []).find(c => c.code === selectedCouponCode);
       applyCouponMutation({ code: selectedCouponCode, restaurantId, cartTotal: subtotalAmt })
         .unwrap()
         .then((res) => {
@@ -153,16 +158,28 @@ export function CartScreen({ navigation, route }: Props) {
             discountAmount: Number(res.discountAmount),
             finalTotal: Number(res.finalTotal)
           });
+          setToast({ message: `Coupon '${res.code}' applied!`, variant: 'success' });
         })
         .catch((err) => {
-          setToast({ message: 'Coupon could not be applied.', variant: 'error' });
-          setSelectedCouponCode(null);
-          setAppliedCoupon(null);
+          if (localCouponObj && subtotalAmt > 0) {
+            const { discountAmount, finalTotal } = calculateCouponDiscount(localCouponObj, subtotalAmt);
+            setAppliedCoupon({
+              code: localCouponObj.code,
+              discountAmount,
+              finalTotal
+            });
+            setToast({ message: `Coupon '${localCouponObj.code}' applied!`, variant: 'success' });
+          } else {
+            const unwrapped = toUnwrappedApiError(err);
+            setToast({ message: unwrapped.message || 'Coupon could not be applied.', variant: 'error' });
+            setSelectedCouponCode(null);
+            setAppliedCoupon(null);
+          }
         });
     } else {
       setAppliedCoupon(null);
     }
-  }, [selectedCouponCode, subtotalAmt, restaurantId]);
+  }, [selectedCouponCode, subtotalAmt, restaurantId, couponsQuery.data]);
 
   const defaultAddress = addresses?.find(a => a.isDefault) || addresses?.[0];
 
@@ -414,11 +431,25 @@ export function CartScreen({ navigation, route }: Props) {
                         </>
                       ) : (couponsQuery.data && couponsQuery.data.length > 0) ? (
                         <>
-                          <Text style={{ fontWeight: '800', fontSize: 14, color: '#111827' }}>
-                            {couponsQuery.data[0].discountType === 'FLAT'
-                              ? `Save ₹${formatMoney(Number(couponsQuery.data[0].value))} with '${couponsQuery.data[0].code}'`
-                              : `Save ${couponsQuery.data[0].value}% with '${couponsQuery.data[0].code}'`}
-                          </Text>
+                          {(() => {
+                            const eligibleCoupon = couponsQuery.data.find(c => getCouponEligibility(c, subtotalAmt).isEligible);
+                            if (eligibleCoupon) {
+                              const { discountAmount } = calculateCouponDiscount(eligibleCoupon, subtotalAmt);
+                              const formattedDisc = Number.isInteger(discountAmount) ? discountAmount.toString() : discountAmount.toFixed(2);
+                              return (
+                                <Text style={{ fontWeight: '800', fontSize: 14, color: '#111827' }}>
+                                  Save ₹{formattedDisc} with '{eligibleCoupon.code}'
+                                </Text>
+                              );
+                            }
+                            const topCoupon = couponsQuery.data[0];
+                            const { amountNeeded } = getCouponEligibility(topCoupon, subtotalAmt);
+                            return (
+                              <Text style={{ fontWeight: '800', fontSize: 13, color: '#D97706' }}>
+                                Add items worth ₹{amountNeeded} more to unlock '{topCoupon.code}'
+                              </Text>
+                            );
+                          })()}
                           <Pressable onPress={() => setShowCouponsModal(true)} style={{ marginTop: 2 }}>
                             <Text style={{ color: '#059669', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>
                           </Pressable>
@@ -442,7 +473,12 @@ export function CartScreen({ navigation, route }: Props) {
                         setSelectedCouponCode(null);
                         setAppliedCoupon(null);
                       } else if (couponsQuery.data && couponsQuery.data.length > 0) {
-                        setSelectedCouponCode(couponsQuery.data[0].code);
+                        const firstEligible = couponsQuery.data.find(c => getCouponEligibility(c, subtotalAmt).isEligible);
+                        if (firstEligible) {
+                          setSelectedCouponCode(firstEligible.code);
+                        } else {
+                          setShowCouponsModal(true);
+                        }
                       } else {
                         setShowCouponsModal(true);
                       }
@@ -668,6 +704,7 @@ export function CartScreen({ navigation, route }: Props) {
           onClose={() => setShowCouponsModal(false)}
           coupons={couponsQuery.data || []}
           selectedCode={selectedCouponCode}
+          orderAmount={subtotalAmt}
           onApply={(code) => setSelectedCouponCode(code)}
         />
 

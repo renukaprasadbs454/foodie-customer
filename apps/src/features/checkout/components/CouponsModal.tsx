@@ -1,22 +1,32 @@
 import React, { useState } from 'react';
 import { View, Pressable, ScrollView, Modal as RNModal, SafeAreaView } from 'react-native';
-import { Text, useTheme } from 'foodie-shared-rn';
+import { Text, Toast, useTheme } from 'foodie-shared-rn';
 import type { EligibleCoupon } from '../types';
 import { formatMoney } from '../../menu/types';
+import { calculateCouponDiscount, getCouponEligibility, formatCouponAmount, sortCouponsByEligibility } from '../couponUtils';
+export { calculateCouponDiscount, getCouponEligibility, formatCouponAmount, sortCouponsByEligibility };
 
 type Props = {
     visible: boolean;
     onClose: () => void;
     coupons: EligibleCoupon[];
     selectedCode: string | null;
+    orderAmount?: number;
     onApply: (code: string | null) => void;
 };
 
-export function CouponsModal({ visible, onClose, coupons, selectedCode, onApply }: Props) {
+export function CouponsModal({ visible, onClose, coupons, selectedCode, orderAmount = 0, onApply }: Props) {
     const { tokens } = useTheme();
 
     // Track local selection before hitting the final Apply bottom bar button
     const [localSelection, setLocalSelection] = useState<string | null>(selectedCode);
+    const [toast, setToast] = useState<{ message: string; variant: 'info' | 'success' | 'error' | 'warning' } | null>(null);
+
+    // Sort coupons: eligible at top, locked below, preserving relative order
+    const sortedCoupons = React.useMemo(
+        () => sortCouponsByEligibility(coupons, orderAmount),
+        [coupons, orderAmount]
+    );
 
     // Sync when opened
     React.useEffect(() => {
@@ -25,32 +35,60 @@ export function CouponsModal({ visible, onClose, coupons, selectedCode, onApply 
         }
     }, [visible, selectedCode]);
 
+
     const renderSubtitle = (coupon: EligibleCoupon) => {
-        // If not eligible (mock condition based on minOrderAmount)
-        // Actually the EligibleCoupon comes from backend. We assume they are all selectable, 
-        // but we can render the required text based on discountType.
-        if (coupon.discountType === 'FLAT') {
-            return `Save ₹${formatMoney(Number(coupon.value))} with this code`;
+        const { isEligible, amountNeeded } = getCouponEligibility(coupon, orderAmount);
+
+        if (!isEligible) {
+            return {
+                text: `Add eligible items worth ₹${formatCouponAmount(amountNeeded)} more to unlock`,
+                color: '#D97706', // Warm orange color matching screenshot
+                isEligible: false
+            };
         }
-        if (coupon.discountType === 'PERCENTAGE') {
-            let desc = `Save ${coupon.value}% on this order`;
-            if (coupon.maxDiscountAmount) {
-                desc += ` up to ₹${coupon.maxDiscountAmount}`;
+
+        const type = (coupon.discountType || '').toUpperCase();
+        if (type === 'FLAT') {
+            return {
+                text: `Save ₹${formatCouponAmount(Number(coupon.value))} with this code`,
+                color: '#1D4ED8',
+                isEligible: true
+            };
+        }
+        if (type === 'PERCENTAGE' || type === 'PERCENT') {
+            if (orderAmount > 0) {
+                const { discountAmount } = calculateCouponDiscount(coupon, orderAmount);
+                return {
+                    text: `Save ₹${formatCouponAmount(discountAmount)} on this order`,
+                    color: '#1D4ED8',
+                    isEligible: true
+                };
             }
-            return desc;
+            return {
+                text: `Save ${coupon.value}% on this order`,
+                color: '#1D4ED8',
+                isEligible: true
+            };
         }
-        return `Special offer for you`;
+        return {
+            text: `Special offer for you`,
+            color: '#1D4ED8',
+            isEligible: true
+        };
     };
 
     const getTitle = (coupon: EligibleCoupon) => {
-        if (coupon.discountType === 'FLAT') {
-            return `Flat ₹${formatMoney(Number(coupon.value))} OFF`;
+        const type = (coupon.discountType || '').toUpperCase();
+        if (type === 'FLAT') {
+            return `Flat ₹${formatCouponAmount(Number(coupon.value))} OFF`;
         }
         return `${coupon.value}% OFF`;
     };
 
-    // The bottom bar appears if ANY coupon is selected locally.
+    // The bottom bar appears if ANY coupon is selected locally and eligible.
     const selectedCouponObj = coupons.find(c => c.code === localSelection);
+    const selectedEligibility = selectedCouponObj ? getCouponEligibility(selectedCouponObj, orderAmount) : null;
+    const isSelectedEligible = selectedCouponObj && selectedEligibility?.isEligible;
 
     return (
         <RNModal
@@ -86,7 +124,7 @@ export function CouponsModal({ visible, onClose, coupons, selectedCode, onApply 
                         )}
                     </View>
 
-                    {coupons.length === 0 ? (
+                    {sortedCoupons.length === 0 ? (
                         <View style={{ alignItems: 'center', marginTop: 40 }}>
                             <Text style={{ fontSize: 40 }}>🎫</Text>
                             <Text style={{ fontSize: 16, fontWeight: '700', color: '#374151', marginTop: 12 }}>
@@ -95,16 +133,28 @@ export function CouponsModal({ visible, onClose, coupons, selectedCode, onApply 
                         </View>
                     ) : (
                         <View style={{ gap: 20 }}>
-                            {coupons.map((coupon) => {
-                                const isSelected = localSelection === coupon.code;
+                            {sortedCoupons.map((coupon) => {
+                                const { isEligible, amountNeeded } = getCouponEligibility(coupon, orderAmount);
+                                const subInfo = renderSubtitle(coupon);
+                                const isSelected = localSelection === coupon.code && isEligible;
                                 return (
                                     <Pressable
                                         key={coupon.code}
-                                        onPress={() => setLocalSelection(coupon.code)}
+                                        onPress={() => {
+                                            if (isEligible) {
+                                                setLocalSelection(coupon.code);
+                                            } else {
+                                                setToast({
+                                                    message: `Add eligible items worth ₹${formatCouponAmount(amountNeeded)} more to unlock`,
+                                                    variant: 'warning',
+                                                });
+                                            }
+                                        }}
                                         style={{
                                             flexDirection: 'row',
                                             alignItems: 'flex-start',
                                             backgroundColor: 'transparent',
+                                            opacity: isEligible ? 1 : 0.85,
                                         }}
                                     >
                                         {/* Left Icon */}
@@ -112,38 +162,38 @@ export function CouponsModal({ visible, onClose, coupons, selectedCode, onApply 
                                             width: 24,
                                             height: 24,
                                             borderRadius: 12,
-                                            backgroundColor: '#DBEAFE',
+                                            backgroundColor: isEligible ? '#DBEAFE' : '#F3F4F6',
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             marginTop: 2,
                                             marginRight: 12
                                         }}>
-                                            <Text style={{ color: '#1D4ED8', fontSize: 12, fontWeight: 'bold' }}>%</Text>
+                                            <Text style={{ color: isEligible ? '#1D4ED8' : '#9CA3AF', fontSize: 12, fontWeight: 'bold' }}>%</Text>
                                         </View>
 
                                         {/* Center Details */}
                                         <View style={{ flex: 1, marginRight: 12 }}>
                                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>
+                                                <Text style={{ fontSize: 16, fontWeight: '800', color: isEligible ? '#111827' : '#374151' }}>
                                                     {getTitle(coupon)}
                                                 </Text>
                                                 <Text style={{ marginLeft: 6, fontSize: 13, color: '#6B7280' }}>ⓘ</Text>
                                             </View>
 
-                                            <Text style={{ fontSize: 13, color: '#1D4ED8', fontWeight: '600', marginTop: 4, marginBottom: 8 }}>
-                                                {renderSubtitle(coupon)}
+                                            <Text style={{ fontSize: 13, color: subInfo.color, fontWeight: '700', marginTop: 4, marginBottom: 8 }}>
+                                                {subInfo.text}
                                             </Text>
 
                                             <View style={{
                                                 alignSelf: 'flex-start',
                                                 backgroundColor: '#FFFFFF',
                                                 borderWidth: 1,
-                                                borderColor: '#E5E7EB',
+                                                borderColor: isEligible ? '#E5E7EB' : '#F3F4F6',
                                                 borderRadius: 6,
                                                 paddingHorizontal: 8,
                                                 paddingVertical: 4,
                                             }}>
-                                                <Text style={{ fontSize: 12, fontWeight: '700', color: '#374151', letterSpacing: 0.5 }}>
+                                                <Text style={{ fontSize: 12, fontWeight: '700', color: isEligible ? '#374151' : '#9CA3AF', letterSpacing: 0.5 }}>
                                                     {coupon.code}
                                                 </Text>
                                             </View>
@@ -152,7 +202,7 @@ export function CouponsModal({ visible, onClose, coupons, selectedCode, onApply 
                                         {/* Right Radio Button */}
                                         <View style={{
                                             width: 20, height: 20, borderRadius: 10, borderWidth: 2,
-                                            borderColor: isSelected ? '#14532D' : '#D1D5DB',
+                                            borderColor: isSelected ? '#14532D' : (isEligible ? '#D1D5DB' : '#E5E7EB'),
                                             justifyContent: 'center', alignItems: 'center',
                                             marginTop: 4
                                         }}>
@@ -180,9 +230,9 @@ export function CouponsModal({ visible, onClose, coupons, selectedCode, onApply 
                     shadowRadius: 6,
                     elevation: 10,
                 }}>
-                    {selectedCouponObj && (
+                    {isSelectedEligible && selectedCouponObj && (
                         <View style={{
-                            backgroundColor: '#1E3A8A', // Foodie secondary deep blue/green or dark theme
+                            backgroundColor: '#1E3A8A', // Deep blue background matching design
                             borderRadius: 12,
                             padding: 12,
                             marginBottom: 12,
@@ -200,30 +250,47 @@ export function CouponsModal({ visible, onClose, coupons, selectedCode, onApply 
                             }}>
                                 <Text style={{ color: '#1D4ED8', fontSize: 12, fontWeight: 'bold' }}>%</Text>
                             </View>
-                            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
-                                Save ₹{formatMoney(Number(selectedCouponObj.value))} with '{selectedCouponObj.code}'
-                            </Text>
+                            <View style={{ flex: 1 }}>
+                                {(() => {
+                                    const { discountAmount } = calculateCouponDiscount(selectedCouponObj, orderAmount);
+                                    return (
+                                        <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                                            Save ₹{formatCouponAmount(discountAmount)} with '{selectedCouponObj.code}'
+                                        </Text>
+                                    );
+                                })()}
+                            </View>
                         </View>
                     )}
 
                     <Pressable
                         onPress={() => {
-                            onApply(localSelection);
-                            onClose();
+                            if (isSelectedEligible) {
+                                onApply(localSelection);
+                                onClose();
+                            }
                         }}
-                        disabled={!localSelection && localSelection === selectedCode}
+                        disabled={!isSelectedEligible}
                         style={({ pressed }) => ({
-                            backgroundColor: pressed ? '#114022' : '#14532D',
+                            backgroundColor: !isSelectedEligible ? '#D1D5DB' : (pressed ? '#114022' : '#14532D'),
                             borderRadius: 12,
                             paddingVertical: 14,
                             alignItems: 'center',
                         })}
                     >
-                        <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: '#FCD34D', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 }}>
+                        <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: !isSelectedEligible ? '#6B7280' : '#FCD34D', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 }}>
                             Apply Coupon
                         </Text>
                     </Pressable>
                 </View>
+
+                <Toast
+                    visible={Boolean(toast)}
+                    message={toast?.message ?? ''}
+                    variant={toast?.variant ?? 'info'}
+                    accessibilityLabel={toast?.message ?? 'Toast'}
+                    onDismiss={() => setToast(null)}
+                />
             </SafeAreaView>
         </RNModal>
     );

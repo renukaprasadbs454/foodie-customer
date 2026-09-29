@@ -134,6 +134,8 @@ export function ProfileCompletionGateScreen() {
               accessibilityLabel="Full name"
               autoCapitalize="words"
               placeholder="e.g. Rahul Sharma"
+              placeholderTextColor="#9CA3AF"
+              inputStyle={styles.inputText}
               containerStyle={styles.customInput}
             />
           </View>
@@ -148,6 +150,8 @@ export function ProfileCompletionGateScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               placeholder="e.g. rahul@example.com"
+              placeholderTextColor="#9CA3AF"
+              inputStyle={styles.inputText}
               containerStyle={styles.customInput}
             />
           </View>
@@ -330,6 +334,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderColor: '#E5E7EB',
     borderWidth: 1.5,
+  },
+  inputText: {
+    color: '#6B7280',
   },
   goldButton: {
     backgroundColor: '#F59E0B', // Primary Gold

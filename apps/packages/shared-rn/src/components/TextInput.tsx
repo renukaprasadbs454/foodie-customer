@@ -4,6 +4,7 @@ import {
   View,
   type StyleProp,
   type TextInputProps as RNTextInputProps,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
@@ -14,6 +15,7 @@ export type TextInputProps = Omit<RNTextInputProps, 'style'> & {
   errorText?: string;
   accessibilityLabel: string;
   containerStyle?: StyleProp<ViewStyle>;
+  inputStyle?: StyleProp<TextStyle>;
 };
 
 export function TextInput({
@@ -21,7 +23,9 @@ export function TextInput({
   errorText,
   accessibilityLabel,
   containerStyle,
+  inputStyle,
   editable = true,
+  placeholderTextColor,
   ...rest
 }: TextInputProps) {
   const { tokens } = useTheme();
@@ -34,21 +38,24 @@ export function TextInput({
         </Text>
       ) : null}
       <RNTextInput
+        placeholderTextColor={placeholderTextColor ?? tokens.color.textSecondary}
         {...rest}
         editable={editable}
         accessibilityLabel={accessibilityLabel}
-        placeholderTextColor={tokens.color.textSecondary}
-        style={{
-          minHeight: 48,
-          borderWidth: 1,
-          borderColor: errorText ? tokens.color.error : tokens.color.border,
-          borderRadius: tokens.radius.md,
-          paddingHorizontal: tokens.spacing.md,
-          color: tokens.color.textPrimary,
-          backgroundColor: tokens.color.surface,
-          opacity: editable ? 1 : 0.6,
-          fontSize: tokens.typography.body.fontSize,
-        }}
+        style={[
+          {
+            minHeight: 48,
+            borderWidth: 1,
+            borderColor: errorText ? tokens.color.error : tokens.color.border,
+            borderRadius: tokens.radius.md,
+            paddingHorizontal: tokens.spacing.md,
+            color: tokens.color.textPrimary,
+            backgroundColor: tokens.color.surface,
+            opacity: editable ? 1 : 0.6,
+            fontSize: tokens.typography.body.fontSize,
+          },
+          inputStyle,
+        ]}
       />
       {errorText ? (
         <Text variant="caption" color={tokens.color.error}>
@@ -58,3 +65,4 @@ export function TextInput({
     </View>
   );
 }
+

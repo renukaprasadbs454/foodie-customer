@@ -134,6 +134,35 @@ export function createBaseApi<TagTypes extends string = string>(
 
     if (result.error) {
       const fetchError = result.error as FetchBaseQueryError;
+      const envelope = parseEnvelopeFromUnknown(fetchError.data);
+      if (envelope && envelope.error) {
+        const unwrapped: UnwrappedApiError = {
+          code: envelope.error.code || 'UNPROCESSABLE_ENTITY',
+          message: envelope.error.message || 'Validation failed',
+          fields: envelope.error.fields || null,
+          status: typeof fetchError.status === 'number' ? fetchError.status : 422,
+        };
+        logger.error('API application error from HTTP status', {
+          url: extractUrl(requestArgs),
+          status: String(fetchError.status),
+          code: unwrapped.code,
+        });
+        return { error: { status: fetchError.status, data: unwrapped }, meta: result.meta };
+      }
+
+      const serverErrObj = fetchError.data as any;
+      if (serverErrObj && (serverErrObj.error?.message || serverErrObj.message)) {
+        const msg = serverErrObj.error?.message || serverErrObj.message;
+        const code = serverErrObj.error?.code || serverErrObj.code || 'API_ERROR';
+        const unwrapped: UnwrappedApiError = {
+          code,
+          message: msg,
+          fields: null,
+          status: typeof fetchError.status === 'number' ? fetchError.status : 400,
+        };
+        return { error: { status: fetchError.status, data: unwrapped }, meta: result.meta };
+      }
+
       const errorMsg = ('error' in fetchError && typeof fetchError.error === 'string') ? fetchError.error : 'check your connection';
       const networkError: EnvelopeAwareError = {
         status: fetchError.status,
