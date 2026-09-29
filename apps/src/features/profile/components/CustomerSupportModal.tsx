@@ -8,11 +8,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text, Toast, useTheme } from 'foodie-shared-rn';
 import { Feather } from '@expo/vector-icons';
-import { generateSupportReply, getApiEndpoints } from '../supportAiEngine';
+import { generateSupportReply, getApiEndpoints, postToBackendSync } from '../supportAiEngine';
 
 export interface ChatMessage {
   id: string;
@@ -175,13 +176,12 @@ export function CustomerSupportModal({
         mergedMap.set(t.id, t);
       }
 
-      // Strict privacy sweep:
       const mergedList = Array.from(mergedMap.values()).filter((item) => {
-        const strictMatchEmail = customerEmail && item.senderEmail && item.senderEmail.toLowerCase() === customerEmail.toLowerCase();
-        const strictMatchPhone = customerPhone && item.senderPhone && item.senderPhone === customerPhone;
-        // Also sweep inactive AI records > 5 mins
-        const idleTime = item.lastActivityAt ? (Date.now() - item.lastActivityAt) : 0;
-        if (idleTime > 5 * 60 * 1000) return false;
+        // Delete convo on both ends if resolved
+        if (item.status === 'RESOLVED') return false;
+
+        const strictMatchEmail = Boolean(customerEmail && item.senderEmail && item.senderEmail.toLowerCase() === customerEmail.toLowerCase());
+        const strictMatchPhone = Boolean(customerPhone && item.senderPhone && item.senderPhone === customerPhone);
 
         return strictMatchEmail || strictMatchPhone;
       });
@@ -189,21 +189,10 @@ export function CustomerSupportModal({
       fetched = mergedList;
 
       if (fetched.length > 0) {
-        setEnquiries(fetched);
-        if (activeEnquiry) {
-          const updatedActive = fetched.find((e: EnquiryRecord) => e.id === activeEnquiry.id);
-          if (updatedActive) {
-            setActiveEnquiry(updatedActive);
-          }
-        } else {
-          // Select active open ticket or latest ticket
-          const activeRec = fetched.find((e: EnquiryRecord) => e.status !== 'RESOLVED') || fetched[0];
-          setActiveEnquiry(activeRec);
-        }
+        setEnquiries(fetched); // state update triggers useEffect below
       } else {
-        setEnquiries(INITIAL_ENQUIRIES);
-        setActiveEnquiry(INITIAL_ENQUIRIES[0]);
-        await saveEnquiries(INITIAL_ENQUIRIES);
+        setEnquiries([]);
+        setActiveEnquiry(null);
       }
     } catch (e) {
       console.error('Failed to load enquiries', e);
@@ -231,7 +220,7 @@ export function CustomerSupportModal({
       // Set up periodic sync for live two-way chat updates
       const intervalId = setInterval(() => {
         loadEnquiries();
-      }, 2500);
+      }, 1500);
 
       const handleStorageChange = () => {
         loadEnquiries();
@@ -250,16 +239,38 @@ export function CustomerSupportModal({
         }
       };
     }
-  }, [visible, activeEnquiry?.id]);
+  }, [visible]); // Removed stale activeEnquiry.id dependency
+
+  // Auto-sync active enquiry when enquiries list updates via polling
+  useEffect(() => {
+    if (activeEnquiry) {
+      const updated = enquiries.find(e => e.id === activeEnquiry.id);
+      if (updated && JSON.stringify(updated.messages) !== JSON.stringify(activeEnquiry.messages)) {
+        setActiveEnquiry(updated);
+      }
+    } else if (enquiries.length > 0 && !isCreatingNew) {
+      const activeRec = enquiries.find((e: EnquiryRecord) => e.status !== 'RESOLVED') || enquiries[0];
+      setActiveEnquiry(activeRec);
+    }
+  }, [enquiries]);
 
   useEffect(() => {
-    // Scroll chat to bottom when messages update
+    // Basic fallback scroll when active ticket mounts
     if (activeEnquiry && scrollViewRef.current) {
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 150);
+      }, 300);
     }
-  }, [activeEnquiry?.messages?.length]);
+  }, [activeEnquiry?.id]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      const showSub = Keyboard.addListener('keyboardDidShow', () => {
+        setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+      });
+      return () => showSub.remove();
+    }
+  }, []);
 
   const handleCreateEnquiry = async () => {
     if (!newSubject.trim() || !newMessageText.trim()) {
@@ -371,7 +382,12 @@ export function CustomerSupportModal({
     let updatedMessages = [...existingMsgs, newMsg];
     let latestAiText = activeEnquiry.replyMessage;
 
-    if (activeEnquiry.isAiOnly !== false) {
+    // Automatically determine if we are in live agent mode by checking chat history
+    const isLiveAgentMode = existingMsgs.some(
+      (m) => m.senderName === 'Foodie Live Agent Desk' || m.senderName === 'Admin Support'
+    );
+
+    if (!isLiveAgentMode) {
       // Generate smart AI response specific to customer's actual message
       const aiText = generateSupportReply(userText);
       latestAiText = aiText;
@@ -400,23 +416,20 @@ export function CustomerSupportModal({
     setActiveEnquiry(updatedRecord);
 
     // If connected to live agent, stream the update to the backend!
-    if (activeEnquiry.isAiOnly === false) {
+    if (isLiveAgentMode) {
       try {
-        void fetch('https://api.foodie.kwiko.org/api/v1/admin/support-tickets', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'connect_agent',
-            id: updatedRecord.id,
-            category: updatedRecord.category,
-            senderName: updatedRecord.senderName,
-            senderEmail: updatedRecord.senderEmail,
-            senderPhone: updatedRecord.senderPhone,
-            subject: updatedRecord.subject,
-            message: updatedRecord.message,
-            messages: (updatedRecord.messages || []).filter(m => m.senderName !== 'Foodie AI Support'),
-          }),
-        }).catch(() => { });
+        postToBackendSync({
+          action: 'connect_agent',
+          id: updatedRecord.id,
+          category: updatedRecord.category,
+          senderName: updatedRecord.senderName,
+          senderEmail: updatedRecord.senderEmail,
+          senderPhone: updatedRecord.senderPhone,
+          subject: updatedRecord.subject,
+          orderId: updatedRecord.orderId,
+          message: updatedRecord.message,
+          messages: (updatedRecord.messages || []).filter(m => m.senderName !== 'Foodie AI Support'),
+        });
       } catch (e) { }
     }
 
@@ -432,7 +445,7 @@ export function CustomerSupportModal({
       enquiryId: activeEnquiry.id,
       sender: 'admin',
       senderName: 'Foodie Live Agent Desk',
-      message: '🎧 We are connecting you to an agent. Please describe your problem in detail so they can assist you quickly.',
+      message: '🎧 You are connected to an agent. Please write your query, the admin will look into it.',
       timestamp: 'Just now',
     };
 
@@ -450,24 +463,21 @@ export function CustomerSupportModal({
     setActiveEnquiry(updatedRecord);
 
     try {
-      // Send ONLY customer's previous messages directly to the admin panel
-      const customerOnlyLogs = nextMessages.filter(m => m.senderName !== 'Foodie AI Support' && m.senderName !== 'Foodie Live Agent Desk');
+      // Upload history excluding AI messages so the Admin sees the live connection request
+      const logsToSync = nextMessages.filter(m => m.senderName !== 'Foodie AI Support');
 
-      void fetch('https://api.foodie.kwiko.org/api/v1/admin/support-tickets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'connect_agent',
-          id: updatedRecord.id,
-          category: updatedRecord.category,
-          senderName: updatedRecord.senderName,
-          senderEmail: updatedRecord.senderEmail,
-          senderPhone: updatedRecord.senderPhone,
-          subject: updatedRecord.subject,
-          message: updatedRecord.message,
-          messages: customerOnlyLogs,
-        }),
-      }).catch(() => { });
+      postToBackendSync({
+        action: 'connect_agent',
+        id: updatedRecord.id,
+        category: updatedRecord.category,
+        senderName: updatedRecord.senderName,
+        senderEmail: updatedRecord.senderEmail,
+        senderPhone: updatedRecord.senderPhone,
+        subject: updatedRecord.subject,
+        orderId: updatedRecord.orderId,
+        message: updatedRecord.message,
+        messages: logsToSync,
+      });
     } catch (e) { }
   };
 
@@ -475,7 +485,8 @@ export function CustomerSupportModal({
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: '#F8FAFC' }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         {/* Header */}
         <View
@@ -593,9 +604,11 @@ export function CustomerSupportModal({
               </View>
             </View>
 
-            {/* Chat Thread Messages */}
             <ScrollView
               ref={scrollViewRef}
+              onContentSizeChange={() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+              }}
               contentContainerStyle={{ padding: 16, gap: 12 }}
               style={{ flex: 1 }}
             >
