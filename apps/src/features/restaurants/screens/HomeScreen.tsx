@@ -273,7 +273,12 @@ export function HomeScreen({ navigation }: Props) {
         if (activeEnquiryId !== activeTicket.id) {
           setActiveEnquiryId(activeTicket.id);
         }
-        setIsAgentConnected(activeTicket.isAiOnly === false);
+
+        // Dynamically determine if an agent is connected since backend doesn't store isAiOnly
+        const hasLiveAgent = (activeTicket.messages || []).some(
+          (m: any) => m.senderName === 'Foodie Live Agent Desk' || m.senderName === 'Admin Support'
+        );
+        setIsAgentConnected(hasLiveAgent || activeTicket.isAiOnly === false);
 
         const newAdminMsgs: Array<{ id: string; text: string; from: 'admin'; time: string; buttons?: any[] }> = [];
         const seenTexts = new Set<string>();

@@ -660,15 +660,17 @@ export async function connectToAgentAndCreateEnquiry(
     const prevMsgs = (existingRec.messages || []).filter(
       (m) => !m.message.includes('Message sent to Admin Support') && !m.message.includes('Message delivered to Admin Support')
     );
+    const isFirstConnect = !prevMsgs.some(m => m.senderName === 'Foodie Live Agent Desk');
     resultingRecord = {
       ...existingRec,
-      subject: `Live Agent Request: ${userText.substring(0, 35)}...`,
+      subject: existingRec.subject, // Maintain the original subject
       message: userText.trim(),
       timestamp: 'Just now',
       status: 'OPEN',
       priority: 'HIGH',
       resolvedAt: undefined,
-      messages: [...prevMsgs, userMsg],
+      orderId: existingRec.orderId || orderId,
+      messages: isFirstConnect ? [...prevMsgs, userMsg, systemConfirmationMsg] : [...prevMsgs, userMsg],
     };
     enquiriesList[existingIndex] = resultingRecord;
   } else {
@@ -685,7 +687,7 @@ export async function connectToAgentAndCreateEnquiry(
       status: 'OPEN',
       priority: 'HIGH',
       orderId: orderId,
-      messages: [userMsg],
+      messages: [userMsg, systemConfirmationMsg],
       isAiOnly: false,
       lastActivityAt: Date.now(),
     };
@@ -713,8 +715,9 @@ export async function connectToAgentAndCreateEnquiry(
     senderEmail: customerEmail,
     senderPhone: customerPhone,
     subject: resultingRecord.subject,
+    orderId: resultingRecord.orderId,
     message: userText.trim(),
-    messages: resultingRecord.messages,
+    messages: (resultingRecord.messages || []).filter((m: ChatMessage) => m.senderName !== 'Foodie AI Support'),
   });
 
   return { enquiryRecord: resultingRecord, userMsg, systemConfirmationMsg };
