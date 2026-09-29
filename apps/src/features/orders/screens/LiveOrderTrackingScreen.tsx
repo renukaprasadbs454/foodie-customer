@@ -20,6 +20,7 @@ import {
   useGetDeliveryPartnerQuery,
 } from '../../../api/endpoints/ordersApi';
 import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
+import { useGetMenuQuery } from '../../../api/endpoints/menuApi';
 import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import { toUnwrappedApiError } from '../../auth/apiError';
 import type { OrdersStackParamList } from '../../../navigation/types';
@@ -71,6 +72,11 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
 
   const status = orderQuery.data?.status;
   const terminal = isTerminalOrderStatus(status);
+
+  const { data: menuData } = useGetMenuQuery(orderQuery.data?.restaurantId ?? '', {
+    skip: !orderQuery.data?.restaurantId,
+  });
+
   const { location, wsActive } = useOrderTrackingSubscription(
     validId ? orderId : '',
     status,
@@ -88,9 +94,35 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
       if (!order) return;
 
       const prepTimeStr = (order as any).preparationTime;
-      const prepTimeAllocated = typeof prepTimeStr === 'string'
-        ? parseInt(prepTimeStr.replace(/\D/g, ''), 10) || 20
-        : typeof prepTimeStr === 'number' ? prepTimeStr : 20;
+      let prepTimeAllocated = 20;
+
+      if (typeof prepTimeStr === 'string' && prepTimeStr.trim() !== '') {
+        prepTimeAllocated = parseInt(prepTimeStr.replace(/\D/g, ''), 10) || 20;
+      } else if (typeof prepTimeStr === 'number') {
+        prepTimeAllocated = prepTimeStr;
+      } else if (menuData?.categories && order.items) {
+        let totalPrep = 0;
+        let count = 0;
+        for (const orderItem of order.items) {
+          for (const cat of menuData.categories) {
+            const menuItem = cat.items.find(i => i.menuItemId === orderItem.menuItemId);
+            if (menuItem) {
+              const ptStr = (menuItem as any).preparationTime;
+              let val = 20;
+              if (typeof ptStr === 'string') {
+                val = parseInt(ptStr.replace(/\D/g, ''), 10) || 20;
+              } else if (typeof ptStr === 'number') {
+                val = ptStr;
+              }
+              totalPrep += (val * orderItem.quantity);
+              count += orderItem.quantity;
+            }
+          }
+        }
+        if (count > 0) {
+          prepTimeAllocated = Math.max(5, Math.round(totalPrep / count));
+        }
+      }
 
       const placedAt = order.placedAt ? new Date(order.placedAt).getTime() : Date.now();
       const elapsedMins = (Date.now() - placedAt) / 60000;
@@ -112,7 +144,6 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
     if (orderQuery.refetch) {
       void orderQuery.refetch();
     }
-    setToast({ message: 'ETA updated successfully', variant: 'success' });
   };
 
   const { data: restaurant } = useGetRestaurantQuery(orderQuery.data?.restaurantId ?? '', { skip: !orderQuery.data?.restaurantId });
@@ -282,10 +313,28 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
         )}
 
         {liveEta !== null && (
-          <View style={{ backgroundColor: 'rgba(252, 211, 77, 0.2)', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 25, marginTop: 14, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.3)', gap: 8 }}>
+          <View style={{ backgroundColor: 'rgba(252, 211, 77, 0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, marginTop: 14, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.3)', gap: 12 }}>
             <Text style={{ color: '#FEF3C7', fontWeight: '800', fontSize: 15, letterSpacing: 0.5 }}>Estimated Delivery ETA: {liveEta} mins</Text>
-            <Pressable onPress={refreshEta} accessibilityRole="button" accessibilityLabel="Refresh ETA" style={{ padding: 4 }}>
-              <Text style={{ fontSize: 16 }}>🔄</Text>
+            <Pressable
+              onPress={refreshEta}
+              accessibilityRole="button"
+              accessibilityLabel="Refresh ETA"
+              style={({ pressed }) => [{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: 'rgba(252, 211, 77, 0.15)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(252, 211, 77, 0.4)',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 2,
+              }, pressed && { opacity: 0.6, transform: [{ scale: 0.95 }] }]}
+            >
+              <Text style={{ fontSize: 14 }}>🔄</Text>
             </Pressable>
           </View>
         )}
