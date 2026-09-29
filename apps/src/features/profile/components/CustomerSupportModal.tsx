@@ -15,91 +15,15 @@ import { Text, Toast, useTheme } from 'foodie-shared-rn';
 import { Feather } from '@expo/vector-icons';
 import { generateSupportReply, getApiEndpoints, postToBackendSync } from '../supportAiEngine';
 
-export interface ChatMessage {
-  id: string;
-  enquiryId: string;
-  sender: 'customer' | 'admin';
-  senderName: string;
-  message: string;
-  timestamp: string;
-}
+import {
+  useGetMyConversationsQuery,
+  useCreateOrGetConversationMutation,
+  useEscalateConversationMutation,
+  useSendMessageMutation,
+  useGetMessagesQuery,
+} from '../../../api/endpoints/supportApi';
 
-export interface EnquiryRecord {
-  id: string;
-  category: 'CUSTOMER' | 'RESTAURANT' | 'DELIVERY' | 'GENERAL';
-  senderName: string;
-  senderEmail: string;
-  senderPhone: string;
-  subject: string;
-  message: string;
-  timestamp: string;
-  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
-  priority: 'HIGH' | 'MEDIUM' | 'LOW';
-  replyMessage?: string;
-  messages?: ChatMessage[];
-  resolvedAt?: string;
-  orderId?: string;
-  isAiOnly?: boolean;
-  lastActivityAt?: number;
-}
 
-const STORAGE_KEY = 'foodie_support_enquiries_v6';
-
-const INITIAL_ENQUIRIES: EnquiryRecord[] = [
-  {
-    id: 'ENQ-901',
-    category: 'CUSTOMER',
-    senderName: 'Customer User',
-    senderEmail: 'customer@foodie.com',
-    senderPhone: '+91 98765 12345',
-    subject: 'Delayed Bank Refund Enquiry',
-    message: "I was debited for a cancelled order yesterday but haven't received refund in my bank account.",
-    timestamp: '15 mins ago',
-    status: 'OPEN',
-    priority: 'HIGH',
-    messages: [
-      {
-        id: 'msg-101',
-        enquiryId: 'ENQ-901',
-        sender: 'customer',
-        senderName: 'Customer User',
-        message: "I was debited for a cancelled order yesterday but haven't received refund in my bank account.",
-        timestamp: '15 mins ago',
-      },
-    ],
-  },
-  {
-    id: 'ENQ-902',
-    category: 'CUSTOMER',
-    senderName: 'Vikram Mehta',
-    senderEmail: 'vikram.m@yahoo.com',
-    senderPhone: '+91 98123 45678',
-    subject: 'Unable to apply promo code WELCOME100',
-    message: 'The promo code states invalid even though I am placing my first order.',
-    timestamp: '40 mins ago',
-    status: 'IN_PROGRESS',
-    priority: 'MEDIUM',
-    replyMessage: 'Our tech team is validating your first order eligibility status.',
-    messages: [
-      {
-        id: 'msg-201',
-        enquiryId: 'ENQ-902',
-        sender: 'customer',
-        senderName: 'Vikram Mehta',
-        message: 'The promo code states invalid even though I am placing my first order.',
-        timestamp: '40 mins ago',
-      },
-      {
-        id: 'msg-202',
-        enquiryId: 'ENQ-902',
-        sender: 'admin',
-        senderName: 'Admin Support',
-        message: 'Our tech team is validating your first order eligibility status.',
-        timestamp: '25 mins ago',
-      },
-    ],
-  },
-];
 
 interface CustomerSupportModalProps {
   visible: boolean;
@@ -117,142 +41,37 @@ export function CustomerSupportModal({
   customerPhone = '+91 98765 43210',
 }: CustomerSupportModalProps) {
   const { tokens } = useTheme();
-  const [enquiries, setEnquiries] = useState<EnquiryRecord[]>([]);
-  const [activeEnquiry, setActiveEnquiry] = useState<EnquiryRecord | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
-
-  // New enquiry form state
   const [newSubject, setNewSubject] = useState('');
   const [newCategory, setNewCategory] = useState<'CUSTOMER' | 'RESTAURANT' | 'DELIVERY' | 'GENERAL'>('CUSTOMER');
   const [newMessageText, setNewMessageText] = useState('');
   const [newOrderId, setNewOrderId] = useState('');
-
-  // Active chat reply state
   const [chatInput, setChatInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: 'success' | 'error' | 'info' } | null>(null);
-
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Load enquiries from storage and backend API
-  const loadEnquiries = async () => {
-    try {
-      let fetched: EnquiryRecord[] = [];
+  // Network State
+  const { data: activeConversations } = useGetMyConversationsQuery(undefined, { pollingInterval: 3000 });
+  const [createConversation] = useCreateOrGetConversationMutation();
+  const [escalateConv] = useEscalateConversationMutation();
+  const [sendMessage] = useSendMessageMutation();
 
-      // 1. Fetch strictly from LOCAL STORAGE FIRST
-      let localTickets: EnquiryRecord[] = [];
-      try {
-        let rawData: string | null = await AsyncStorage.getItem(STORAGE_KEY);
-        if (!rawData && Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-          rawData = window.localStorage.getItem(STORAGE_KEY);
-        }
-        if (rawData) {
-          localTickets = JSON.parse(rawData);
-        }
-      } catch (e) { }
+  const [activeEnquiryId, setActiveEnquiryId] = useState<string | null>(null);
 
-      // 2. Fetch from Backend
-      const endpoints = getApiEndpoints();
-      for (const ep of endpoints) {
-        try {
-          const res = await fetch(ep, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
-          if (res.ok) {
-            const json = await res.json();
-            const dataList = json.data || json;
-            if (Array.isArray(dataList) && dataList.length > 0) {
-              fetched = dataList;
-              break;
-            }
-          }
-        } catch (e) { }
-      }
+  // Resolve active locally if needed
+  const activeEnquiry = activeConversations?.find(c => c.id === activeEnquiryId)
+    || (activeConversations && activeConversations.length > 0 ? activeConversations[0] : null);
 
-      // 3. Merging logic: backend overrides local tickets of same ID
-      const mergedMap = new Map<string, EnquiryRecord>();
-      for (const t of localTickets) {
-        mergedMap.set(t.id, t);
-      }
-      for (const t of fetched) {
-        mergedMap.set(t.id, t);
-      }
-
-      const mergedList = Array.from(mergedMap.values()).filter((item) => {
-        // Delete convo on both ends if resolved
-        if (item.status === 'RESOLVED') return false;
-
-        const strictMatchEmail = Boolean(customerEmail && item.senderEmail && item.senderEmail.toLowerCase() === customerEmail.toLowerCase());
-        const strictMatchPhone = Boolean(customerPhone && item.senderPhone && item.senderPhone === customerPhone);
-
-        return strictMatchEmail || strictMatchPhone;
-      });
-
-      fetched = mergedList;
-
-      if (fetched.length > 0) {
-        setEnquiries(fetched); // state update triggers useEffect below
-      } else {
-        setEnquiries([]);
-        setActiveEnquiry(null);
-      }
-    } catch (e) {
-      console.error('Failed to load enquiries', e);
-    }
-  };
-
-  const saveEnquiries = async (updatedList: EnquiryRecord[]) => {
-    try {
-      const dataStr = JSON.stringify(updatedList);
-      await AsyncStorage.setItem(STORAGE_KEY, dataStr);
-      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(STORAGE_KEY, dataStr);
-        window.dispatchEvent(new Event('foodie_enquiry_updated'));
-      }
-      setEnquiries(updatedList);
-    } catch (e) {
-      console.error('Failed to save enquiries', e);
-    }
-  };
-
+  const { data: messages } = useGetMessagesQuery(activeEnquiry?.id as string, {
+    skip: !activeEnquiry?.id,
+    pollingInterval: 2000
+  });
   useEffect(() => {
-    if (visible) {
-      loadEnquiries();
-
-      // Set up periodic sync for live two-way chat updates
-      const intervalId = setInterval(() => {
-        loadEnquiries();
-      }, 1500);
-
-      const handleStorageChange = () => {
-        loadEnquiries();
-      };
-
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.addEventListener('storage', handleStorageChange);
-        window.addEventListener('foodie_enquiry_updated', handleStorageChange);
-      }
-
-      return () => {
-        clearInterval(intervalId);
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.removeEventListener('storage', handleStorageChange);
-          window.removeEventListener('foodie_enquiry_updated', handleStorageChange);
-        }
-      };
+    if (activeEnquiry && activeEnquiryId !== activeEnquiry.id) {
+      setActiveEnquiryId(activeEnquiry.id);
     }
-  }, [visible]); // Removed stale activeEnquiry.id dependency
-
-  // Auto-sync active enquiry when enquiries list updates via polling
-  useEffect(() => {
-    if (activeEnquiry) {
-      const updated = enquiries.find(e => e.id === activeEnquiry.id);
-      if (updated && JSON.stringify(updated.messages) !== JSON.stringify(activeEnquiry.messages)) {
-        setActiveEnquiry(updated);
-      }
-    } else if (enquiries.length > 0 && !isCreatingNew) {
-      const activeRec = enquiries.find((e: EnquiryRecord) => e.status !== 'RESOLVED') || enquiries[0];
-      setActiveEnquiry(activeRec);
-    }
-  }, [enquiries]);
+  }, [activeEnquiry]);
 
   useEffect(() => {
     // Basic fallback scroll when active ticket mounts
@@ -278,78 +97,40 @@ export function CustomerSupportModal({
       return;
     }
 
-    const randomNum = Math.floor(100 + Math.random() * 900);
-    const newId = `ENQ-${randomNum}`;
-    const timestampStr = 'Just now';
+    let aiText = '';
+    try {
+      const conv = await createConversation({
+        category: newCategory,
+        subject: newSubject.trim(),
+        orderId: newOrderId.trim() || undefined,
+      }).unwrap();
 
-    const newChatMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      enquiryId: newId,
-      sender: 'customer',
-      senderName: customerName,
-      message: newMessageText.trim(),
-      timestamp: timestampStr,
-    };
+      await sendMessage({
+        conversationId: conv.id,
+        message: newMessageText.trim(),
+        senderType: 'CUSTOMER',
+        senderName: customerName,
+      }).unwrap();
 
-    const newRecord: EnquiryRecord = {
-      id: newId,
-      category: newCategory,
-      senderName: customerName,
-      senderEmail: customerEmail,
-      senderPhone: customerPhone,
-      subject: newSubject.trim(),
-      message: newMessageText.trim(),
-      timestamp: timestampStr,
-      status: 'OPEN',
-      priority: 'MEDIUM',
-      orderId: newOrderId.trim() || undefined,
-      messages: [newChatMsg],
-      isAiOnly: true,
-      lastActivityAt: Date.now(),
-    };
+      aiText = generateSupportReply(newMessageText.trim());
 
-    const updated = [newRecord, ...enquiries];
-    await saveEnquiries(updated);
-
-    // Initial AI greeting!
-    setTimeout(async () => {
-      const aiReplyText = generateSupportReply(newMessageText.trim());
-      const firstAiMsg: ChatMessage = {
-        id: `msg-ai-${Date.now()}`,
-        enquiryId: newId,
-        sender: 'admin',
+      await sendMessage({
+        conversationId: conv.id,
+        message: aiText,
+        senderType: 'AI',
         senderName: 'Foodie AI Support',
-        message: aiReplyText,
-        timestamp: 'Just now',
-      };
+      }).unwrap();
 
-      const newRecWithAi = {
-        ...newRecord,
-        messages: [newChatMsg, firstAiMsg],
-        replyMessage: aiReplyText,
-        lastActivityAt: Date.now(),
-      };
+      setActiveEnquiryId(conv.id);
 
-      try {
-        let currentListStr = await AsyncStorage.getItem(STORAGE_KEY);
-        if (!currentListStr && Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-          currentListStr = window.localStorage.getItem(STORAGE_KEY);
-        }
-        const currentList = currentListStr ? JSON.parse(currentListStr) : enquiries;
-        const freshUpdated = [newRecWithAi, ...currentList.filter((x: EnquiryRecord) => x.id !== newRecord.id)];
-        await saveEnquiries(freshUpdated);
-      } catch (e) { }
-
-      setActiveEnquiry(newRecWithAi);
-    }, 800);
-
-    // Reset form & open chat view
-    setNewSubject('');
-    setNewMessageText('');
-    setNewOrderId('');
-    setIsCreatingNew(false);
-    setActiveEnquiry(newRecord);
-    setToast({ message: `Enquiry #${newId} created! Support will reply shortly.`, variant: 'success' });
+      setNewSubject('');
+      setNewMessageText('');
+      setNewOrderId('');
+      setIsCreatingNew(false);
+      setToast({ message: `Enquiry created! Support will reply shortly.`, variant: 'success' });
+    } catch (e) {
+      setToast({ message: 'Failed to create enquiry', variant: 'error' });
+    }
   };
 
   const handleSendReply = async () => {
@@ -357,80 +138,27 @@ export function CustomerSupportModal({
     setIsSending(true);
 
     const userText = chatInput.trim();
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    try {
+      await sendMessage({
+        conversationId: activeEnquiry.id,
+        message: userText,
+        senderType: 'CUSTOMER',
+        senderName: customerName,
+      }).unwrap();
 
-    const newMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      enquiryId: activeEnquiry.id,
-      sender: 'customer',
-      senderName: customerName,
-      message: userText,
-      timestamp: nowStr,
-    };
+      const isLiveAgentMode = activeEnquiry.status === 'ASSIGNED' || activeEnquiry.status === 'AGENT_ACTIVE' || activeEnquiry.status === 'WAITING_FOR_AGENT';
 
-    const existingMsgs = activeEnquiry.messages || [
-      {
-        id: `msg-orig-${activeEnquiry.id}`,
-        enquiryId: activeEnquiry.id,
-        sender: 'customer' as const,
-        senderName: activeEnquiry.senderName,
-        message: activeEnquiry.message,
-        timestamp: activeEnquiry.timestamp,
-      },
-    ];
-
-    let updatedMessages = [...existingMsgs, newMsg];
-    let latestAiText = activeEnquiry.replyMessage;
-
-    // Automatically determine if we are in live agent mode by checking chat history
-    const isLiveAgentMode = existingMsgs.some(
-      (m) => m.senderName === 'Foodie Live Agent Desk' || m.senderName === 'Admin Support'
-    );
-
-    if (!isLiveAgentMode) {
-      // Generate smart AI response specific to customer's actual message
-      const aiText = generateSupportReply(userText);
-      latestAiText = aiText;
-      const aiMsg: ChatMessage = {
-        id: `msg-ai-${Date.now() + 1}`,
-        enquiryId: activeEnquiry.id,
-        sender: 'admin',
-        senderName: 'Foodie AI Support',
-        message: aiText,
-        timestamp: nowStr,
-      };
-      updatedMessages.push(aiMsg);
-    }
-
-    const updatedRecord: EnquiryRecord = {
-      ...activeEnquiry,
-      messages: updatedMessages,
-      replyMessage: latestAiText,
-      status: activeEnquiry.status === 'RESOLVED' ? 'IN_PROGRESS' : activeEnquiry.status,
-      lastActivityAt: Date.now(),
-    };
-
-    const updatedList = enquiries.map((item) => (item.id === activeEnquiry.id ? updatedRecord : item));
-
-    await saveEnquiries(updatedList);
-    setActiveEnquiry(updatedRecord);
-
-    // If connected to live agent, stream the update to the backend!
-    if (isLiveAgentMode) {
-      try {
-        postToBackendSync({
-          action: 'connect_agent',
-          id: updatedRecord.id,
-          category: updatedRecord.category,
-          senderName: updatedRecord.senderName,
-          senderEmail: updatedRecord.senderEmail,
-          senderPhone: updatedRecord.senderPhone,
-          subject: updatedRecord.subject,
-          orderId: updatedRecord.orderId,
-          message: updatedRecord.message,
-          messages: (updatedRecord.messages || []).filter(m => m.senderName !== 'Foodie AI Support'),
-        });
-      } catch (e) { }
+      if (!isLiveAgentMode) {
+        const aiText = generateSupportReply(userText);
+        await sendMessage({
+          conversationId: activeEnquiry.id,
+          message: aiText,
+          senderType: 'AI',
+          senderName: 'Foodie AI Support',
+        }).unwrap();
+      }
+    } catch (e) {
+      setToast({ message: 'Failed to send message', variant: 'error' });
     }
 
     setChatInput('');
@@ -440,44 +168,8 @@ export function CustomerSupportModal({
   const handleConnectWithAgent = async () => {
     if (!activeEnquiry) return;
 
-    const systemMsg: ChatMessage = {
-      id: `msg-sys-${Date.now()}`,
-      enquiryId: activeEnquiry.id,
-      sender: 'admin',
-      senderName: 'Foodie Live Agent Desk',
-      message: '🎧 You are connected to an agent. Please write your query, the admin will look into it.',
-      timestamp: 'Just now',
-    };
-
-    const nextMessages = [...(activeEnquiry.messages || []), systemMsg];
-
-    const updatedRecord: EnquiryRecord = {
-      ...activeEnquiry,
-      isAiOnly: false,
-      messages: nextMessages,
-      lastActivityAt: Date.now(),
-    };
-
-    const updatedList = enquiries.map((item) => (item.id === activeEnquiry.id ? updatedRecord : item));
-    await saveEnquiries(updatedList);
-    setActiveEnquiry(updatedRecord);
-
     try {
-      // Upload history excluding AI messages so the Admin sees the live connection request
-      const logsToSync = nextMessages.filter(m => m.senderName !== 'Foodie AI Support');
-
-      postToBackendSync({
-        action: 'connect_agent',
-        id: updatedRecord.id,
-        category: updatedRecord.category,
-        senderName: updatedRecord.senderName,
-        senderEmail: updatedRecord.senderEmail,
-        senderPhone: updatedRecord.senderPhone,
-        subject: updatedRecord.subject,
-        orderId: updatedRecord.orderId,
-        message: updatedRecord.message,
-        messages: logsToSync,
-      });
+      await escalateConv(activeEnquiry.id).unwrap();
     } catch (e) { }
   };
 
@@ -509,7 +201,7 @@ export function CustomerSupportModal({
             {activeEnquiry || isCreatingNew ? (
               <Pressable
                 onPress={() => {
-                  setActiveEnquiry(null);
+                  setActiveEnquiryId(null);
                   setIsCreatingNew(false);
                 }}
                 style={{ padding: 4, marginRight: 12 }}
@@ -582,7 +274,7 @@ export function CustomerSupportModal({
                   backgroundColor:
                     activeEnquiry.status === 'RESOLVED'
                       ? '#DEF7EC'
-                      : activeEnquiry.status === 'IN_PROGRESS'
+                      : (activeEnquiry.status === 'WAITING_FOR_AGENT' || activeEnquiry.status === 'ASSIGNED')
                         ? '#FEF3C7'
                         : '#E0E7FF',
                 }}
@@ -594,12 +286,12 @@ export function CustomerSupportModal({
                     color:
                       activeEnquiry.status === 'RESOLVED'
                         ? '#03543F'
-                        : activeEnquiry.status === 'IN_PROGRESS'
+                        : (activeEnquiry.status === 'WAITING_FOR_AGENT' || activeEnquiry.status === 'ASSIGNED')
                           ? '#92400E'
                           : '#3730A3',
                   }}
                 >
-                  {activeEnquiry.status.replace('_', ' ')}
+                  {activeEnquiry.status.replace(/_/g, ' ')}
                 </Text>
               </View>
             </View>
@@ -613,32 +305,8 @@ export function CustomerSupportModal({
               style={{ flex: 1 }}
             >
               {/* Render messages */}
-              {(activeEnquiry.messages && activeEnquiry.messages.length > 0
-                ? activeEnquiry.messages
-                : [
-                  {
-                    id: `orig-${activeEnquiry.id}`,
-                    enquiryId: activeEnquiry.id,
-                    sender: 'customer' as const,
-                    senderName: activeEnquiry.senderName,
-                    message: activeEnquiry.message,
-                    timestamp: activeEnquiry.timestamp,
-                  },
-                  ...(activeEnquiry.replyMessage
-                    ? [
-                      {
-                        id: `reply-${activeEnquiry.id}`,
-                        enquiryId: activeEnquiry.id,
-                        sender: 'admin' as const,
-                        senderName: 'Admin Support',
-                        message: activeEnquiry.replyMessage,
-                        timestamp: 'Recently',
-                      },
-                    ]
-                    : []),
-                ]
-              ).map((msg) => {
-                const isAdmin = msg.sender === 'admin';
+              {(messages || []).map((msg: any) => {
+                const isAdmin = msg.senderType === 'AGENT' || msg.senderType === 'AI' || msg.senderType === 'SYSTEM';
                 return (
                   <View
                     key={msg.id}
@@ -671,9 +339,9 @@ export function CustomerSupportModal({
                         </View>
                       ) : null}
                       <Text style={{ fontSize: 11, fontWeight: '700', color: isAdmin ? '#14532D' : '#64748B' }}>
-                        {msg.senderName}
+                        {msg.senderName || 'Agent'}
                       </Text>
-                      <Text style={{ fontSize: 10, color: '#94A3B8' }}>{msg.timestamp}</Text>
+                      <Text style={{ fontSize: 10, color: '#94A3B8' }}>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
                     </View>
 
                     <View
@@ -700,7 +368,7 @@ export function CustomerSupportModal({
                           lineHeight: 20,
                         }}
                       >
-                        {msg.message}
+                        {msg.content}
                       </Text>
                     </View>
                   </View>
@@ -708,7 +376,7 @@ export function CustomerSupportModal({
               })}
 
               {/* Dynamic Live Agent Connect Button */}
-              {activeEnquiry.isAiOnly !== false && (
+              {activeEnquiry.status === 'AI_ACTIVE' && (
                 <Pressable
                   onPress={handleConnectWithAgent}
                   style={{
@@ -958,10 +626,10 @@ export function CustomerSupportModal({
                 marginBottom: 12,
               }}
             >
-              Your Active Enquiries & Live Chats ({enquiries.length})
+              Your Active Enquiries & Live Chats ({(activeConversations || []).length})
             </Text>
 
-            {enquiries.length === 0 ? (
+            {!(activeConversations && activeConversations.length > 0) ? (
               <View
                 style={{
                   backgroundColor: '#FFFFFF',
@@ -980,16 +648,17 @@ export function CustomerSupportModal({
               </View>
             ) : (
               <View style={{ gap: 12 }}>
-                {enquiries.map((item) => {
-                  const hasAdminReply = item.messages?.some((m) => m.sender === 'admin') || Boolean(item.replyMessage);
-                  const lastMessage = item.messages && item.messages.length > 0
-                    ? item.messages[item.messages.length - 1].message
-                    : item.replyMessage || item.message;
+                {(activeConversations || []).map((item) => {
+                  const hasAdminReply = item.messages?.some((m) => m.senderType === 'AGENT') || Boolean(item.lastMessageAt);
+                  const lastMessageItem = item.messages && item.messages.length > 0
+                    ? item.messages[item.messages.length - 1]
+                    : null;
+                  const lastMessage = lastMessageItem ? lastMessageItem.content : item.subject;
 
                   return (
                     <Pressable
                       key={item.id}
-                      onPress={() => setActiveEnquiry(item)}
+                      onPress={() => setActiveEnquiryId(item.id)}
                       style={({ pressed }) => ({
                         backgroundColor: pressed ? '#F8FAFC' : '#FFFFFF',
                         borderRadius: 16,
@@ -1023,7 +692,7 @@ export function CustomerSupportModal({
                             </View>
                           ) : null}
                         </View>
-                        <Text style={{ fontSize: 11, color: '#94A3B8' }}>{item.timestamp}</Text>
+                        <Text style={{ fontSize: 11, color: '#94A3B8' }}>{new Date(item.updatedAt).toLocaleDateString()}</Text>
                       </View>
 
                       <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A', marginTop: 8 }}>
@@ -1059,7 +728,7 @@ export function CustomerSupportModal({
                             backgroundColor:
                               item.status === 'RESOLVED'
                                 ? '#DEF7EC'
-                                : item.status === 'IN_PROGRESS'
+                                : (item.status === 'WAITING_FOR_AGENT' || item.status === 'ASSIGNED')
                                   ? '#FEF3C7'
                                   : '#F3F4F6',
                           }}
@@ -1071,12 +740,12 @@ export function CustomerSupportModal({
                               color:
                                 item.status === 'RESOLVED'
                                   ? '#03543F'
-                                  : item.status === 'IN_PROGRESS'
+                                  : (item.status === 'WAITING_FOR_AGENT' || item.status === 'ASSIGNED')
                                     ? '#92400E'
                                     : '#4B5563',
                             }}
                           >
-                            {item.status.replace('_', ' ')}
+                            {item.status.replace(/_/g, ' ')}
                           </Text>
                         </View>
                       </View>

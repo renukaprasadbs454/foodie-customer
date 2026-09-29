@@ -42,7 +42,15 @@ import { useGetMyProfileQuery } from '../../../api/endpoints/usersApi';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CATEGORY_ITEMS } from '../mockData';
 import { GlobalCartBanner } from '../../cart/components/GlobalCartBanner';
-import { syncSupportChatMessages, connectToAgentAndCreateEnquiry, STORAGE_KEY, EnquiryRecord, generateSupportReply, evaluateSmartSupportReply, AiActionButton, getApiEndpoints, postToBackendSync } from '../../profile/supportAiEngine';
+import { evaluateSmartSupportReply, AiActionButton } from '../../profile/supportAiEngine';
+import {
+  useGetMyConversationsQuery,
+  useCreateOrGetConversationMutation,
+  useEscalateConversationMutation,
+  useSendMessageMutation,
+  useGetMessagesQuery,
+  useResolveConversationMutation,
+} from '../../../api/endpoints/supportApi';
 import { PromotionalBannerCarousel } from '../components/PromotionalBannerCarousel';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Home'>;
@@ -93,20 +101,28 @@ export function HomeScreen({ navigation }: Props) {
     from: 'admin' | 'user' | 'bot';
     time: string;
     buttons?: AiActionButton[];
-  }>>([
-    {
-      id: '1',
-      text: 'Hi! How can we help you today with your order or application?',
-      from: 'admin',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      buttons: [
-        { label: '📍 Track Active Order', actionText: 'Where is my order?' },
-        { label: '💳 Refund & Payment Help', actionText: 'Refund status for my order' },
-        { label: '🏷️ Active Offers & Coupons', actionText: 'Are there active coupons or offers?' },
-        { label: '🎧 Connect to Live Agent', actionText: 'I want to connect to a live support agent.' },
-      ],
-    },
-  ]);
+  }>>([]);
+
+  // Network State
+  const { data: activeConversations } = useGetMyConversationsQuery(undefined, { pollingInterval: 3000 });
+  const [createConversation] = useCreateOrGetConversationMutation();
+  const [escalateConv] = useEscalateConversationMutation();
+  const [sendMessage] = useSendMessageMutation();
+  const [resolveConv] = useResolveConversationMutation();
+
+  const activeEnquiry = activeConversations?.find(c => c.id === activeEnquiryId)
+    || (activeConversations && activeConversations.length > 0 ? activeConversations[0] : null);
+
+  const { data: messages } = useGetMessagesQuery(activeEnquiry?.id as string, {
+    skip: !activeEnquiry?.id,
+    pollingInterval: 2000
+  });
+
+  useEffect(() => {
+    if (activeEnquiry && activeEnquiryId !== activeEnquiry.id) {
+      setActiveEnquiryId(activeEnquiry.id);
+    }
+  }, [activeEnquiry]);
 
   const handleUserSubmitMessage = async (rawText: string) => {
     const userText = rawText.trim();
@@ -148,11 +164,9 @@ export function HomeScreen({ navigation }: Props) {
         },
       ]);
 
-      void postToBackendSync({
-        action: 'status',
-        id: targetId,
-        status: 'RESOLVED',
-      });
+      if (targetId) {
+        void resolveConv(targetId).unwrap().catch(() => { });
+      }
       setActiveEnquiryId(null);
       return;
     }
@@ -165,210 +179,103 @@ export function HomeScreen({ navigation }: Props) {
       textLower.includes('talk to someone') ||
       textLower.includes('speak to agent');
 
-    if (isExplicitAgentRequest || isAgentConnected) {
-      const isFirstConnect = !isAgentConnected;
-      const { enquiryRecord, systemConfirmationMsg } = await connectToAgentAndCreateEnquiry(
-        userText,
-        currentUserName,
-        currentUserEmail,
-        currentUserPhone,
-        activeOrderId,
-        activeEnquiryId || undefined
-      );
-
-      setActiveEnquiryId(enquiryRecord.id);
-      setIsAgentConnected(true);
-      setShowAgentOption(false);
-
-      if (isFirstConnect) {
-        setChatHistory((prev) => [
-          ...prev,
-          {
-            id: systemConfirmationMsg.id,
-            text: systemConfirmationMsg.message,
-            from: 'admin',
-            time: systemConfirmationMsg.timestamp,
-            buttons: [
-              { label: '❌ End Agent Session', actionText: 'Disconnect' },
-            ],
-          },
-        ]);
-      }
-    } else {
-      const { aiMsg, aiResult } = await syncSupportChatMessages(
-        userText,
-        activeEnquiryId || undefined,
-        currentUserName,
-        activeOrderId
-      );
-
-      setShowAgentOption(aiResult.suggestAgent);
-
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          id: aiMsg.id,
-          text: aiMsg.message,
-          from: 'admin',
-          time: aiMsg.timestamp,
-          buttons: aiResult.actionButtons,
-        },
-      ]);
-    }
-  };
-
-  // Sync Help chat modal history with persistent storage key `foodie_support_enquiries_v6` and API route
-  const syncChatFromStorage = async () => {
-    // 1. Fetch strictly from LOCAL STORAGE FIRST
-    let localTickets: EnquiryRecord[] = [];
     try {
-      let rawData: string | null = await AsyncStorage.getItem(STORAGE_KEY);
-      if (!rawData && Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-        rawData = window.localStorage.getItem(STORAGE_KEY);
+      let currentConvId = activeEnquiryId || (activeEnquiry ? activeEnquiry.id : null);
+      if (!currentConvId) {
+        const conv = await createConversation({
+          category: 'GENERAL',
+          subject: userText.substring(0, 30) + (userText.length > 30 ? '...' : ''),
+          orderId: activeOrderId || undefined,
+        }).unwrap();
+        currentConvId = conv.id;
+        setActiveEnquiryId(conv.id);
       }
-      if (rawData) {
-        localTickets = JSON.parse(rawData);
+
+      await sendMessage({
+        conversationId: currentConvId,
+        message: userText,
+        senderType: 'CUSTOMER',
+        senderName: currentUserName,
+      }).unwrap();
+
+      const aiResult = evaluateSmartSupportReply(userText, activeOrderId);
+
+      const isAgentEscalation = isExplicitAgentRequest || aiResult.suggestAgent;
+
+      if (!isAgentEscalation && !isAgentConnected) {
+        await sendMessage({
+          conversationId: currentConvId,
+          message: aiResult.reply,
+          senderType: 'AI',
+          senderName: 'Foodie AI Support',
+        }).unwrap();
+      } else if (isExplicitAgentRequest && !isAgentConnected) {
+        await escalateConv(currentConvId).unwrap();
+        setIsAgentConnected(true);
       }
-    } catch (e) { }
 
-    // 2. Try fetching from server endpoints
-    let fetched: EnquiryRecord[] = [];
-    const endpoints = getApiEndpoints();
-    for (const ep of endpoints) {
-      try {
-        const res = await fetch(ep, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          const dataList = json.data || json;
-          if (Array.isArray(dataList) && dataList.length > 0) {
-            fetched = dataList;
-            break;
-          }
-        }
-      } catch (e) { }
-    }
-
-    // 3. Merging logic: backend overrides local tickets of same ID
-    const mergedMap = new Map<string, EnquiryRecord>();
-    for (const t of localTickets) {
-      mergedMap.set(t.id, t);
-    }
-    for (const t of fetched) {
-      mergedMap.set(t.id, t);
-    }
-
-    let enquiries = Array.from(mergedMap.values());
-
-    if (enquiries.length > 0) {
-      // Find current active unresolved ticket for this customer
-      const activeTicket = enquiries.find((e) => {
-        if (e.status === 'RESOLVED') return false;
-        const matchEmail = currentUserEmail && e.senderEmail && e.senderEmail.toLowerCase() === currentUserEmail.toLowerCase();
-        const matchPhone = currentUserPhone && e.senderPhone && e.senderPhone === currentUserPhone;
-        const matchId = activeEnquiryId && e.id === activeEnquiryId;
-        return matchId || matchEmail || matchPhone;
-      });
-
-      if (activeTicket) {
-        if (activeEnquiryId !== activeTicket.id) {
-          setActiveEnquiryId(activeTicket.id);
-        }
-
-        // Dynamically determine if an agent is connected since backend doesn't store isAiOnly
-        const hasLiveAgent = (activeTicket.messages || []).some(
-          (m: any) => m.senderName === 'Foodie Live Agent Desk' || m.senderName === 'Admin Support'
-        );
-        setIsAgentConnected(hasLiveAgent || activeTicket.isAiOnly === false);
-
-        const newAdminMsgs: Array<{ id: string; text: string; from: 'admin'; time: string; buttons?: any[] }> = [];
-        const seenTexts = new Set<string>();
-
-        // Process message thread from active ticket
-        if (activeTicket.messages && activeTicket.messages.length > 0) {
-          activeTicket.messages.forEach((m: any) => {
-            const txt = (m.message || m.text || '').trim();
-            if (m.sender === 'admin' && txt) {
-              if (
-                !txt.includes('Message delivered to Admin Support') &&
-                !txt.includes('Message sent to Admin Support') &&
-                !seenTexts.has(txt)
-              ) {
-                seenTexts.add(txt);
-                newAdminMsgs.push({
-                  id: m.id || `msg-admin-${activeTicket.id}-${txt.substring(0, 15)}`,
-                  text: txt,
-                  from: 'admin',
-                  time: m.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  buttons: [
-                    { label: '✅ Query Resolved', actionText: 'My query is resolved. Thank you!' },
-                    { label: '🎧 Still Need Help', actionText: 'I still need help with my issue.' },
-                  ],
-                });
-              }
-            }
-          });
-        }
-
-        // Check replyMessage field fallback
-        if (activeTicket.replyMessage && activeTicket.replyMessage.trim()) {
-          const replyTxt = activeTicket.replyMessage.trim();
-          if (
-            !replyTxt.includes('Message delivered to Admin Support') &&
-            !replyTxt.includes('Message sent to Admin Support') &&
-            !seenTexts.has(replyTxt)
-          ) {
-            seenTexts.add(replyTxt);
-            newAdminMsgs.push({
-              id: `msg-reply-${activeTicket.id}`,
-              text: replyTxt,
-              from: 'admin',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              buttons: [
-                { label: '✅ Query Resolved', actionText: 'My query is resolved. Thank you!' },
-                { label: '🎧 Still Need Help', actionText: 'I still need help with my issue.' },
-              ],
-            });
-          }
-        }
-
-        if (newAdminMsgs.length > 0) {
-          setChatHistory((prev) => {
-            const existingTexts = new Set(prev.map((p) => (p.text || '').trim()));
-            const toAdd = newAdminMsgs.filter((a) => a.text && !existingTexts.has(a.text.trim()));
-
-            if (toAdd.length === 0) return prev;
-            return [...prev, ...toAdd];
-          });
-        }
-      }
+    } catch (e) {
+      setToast({ message: 'Failed to send message', variant: 'error' });
     }
   };
 
   useEffect(() => {
-    if (helpModalVisible) {
-      void syncChatFromStorage();
-      const interval = setInterval(() => {
-        void syncChatFromStorage();
-      }, 2000);
+    if (!messages) return;
 
-      const handleStorageChange = () => {
-        void syncChatFromStorage();
-      };
+    // Map backend messages to chat history format
+    const mapped = messages.map(msg => {
+      const isUser = msg.senderType === 'CUSTOMER';
+      let buttons: AiActionButton[] | undefined = undefined;
 
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.addEventListener('storage', handleStorageChange);
-        window.addEventListener('foodie_enquiry_updated', handleStorageChange);
+      if (!isUser && msg.senderType === 'AI') {
+        const evalResult = evaluateSmartSupportReply(msg.content, activeOrderId);
+        buttons = evalResult.actionButtons;
+      } else if (msg.senderType === 'AGENT') {
+        buttons = [
+          { label: '✅ Query Resolved', actionText: 'My query is resolved. Thank you!' },
+          { label: '🎧 Still Need Help', actionText: 'I still need help with my issue.' },
+        ];
       }
 
-      return () => {
-        clearInterval(interval);
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.removeEventListener('storage', handleStorageChange);
-          window.removeEventListener('foodie_enquiry_updated', handleStorageChange);
-        }
+      return {
+        id: msg.id,
+        text: msg.content,
+        from: isUser ? 'user' : 'admin',
+        time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        buttons,
+      } as {
+        id: string;
+        text: string;
+        from: 'admin' | 'user';
+        time: string;
+        buttons?: AiActionButton[];
       };
+    });
+
+    if (mapped.length === 0) {
+      mapped.push({
+        id: '1',
+        text: 'Hi! How can we help you today with your order or application?',
+        from: 'admin',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        buttons: [
+          { label: '📍 Track Active Order', actionText: 'Where is my order?' },
+          { label: '💳 Refund & Payment Help', actionText: 'Refund status for my order' },
+          { label: '🏷️ Active Offers & Coupons', actionText: 'Are there active coupons or offers?' },
+          { label: '🎧 Connect to Live Agent', actionText: 'I want to connect to a live support agent.' },
+        ],
+      });
     }
-  }, [helpModalVisible]);
+
+    setChatHistory(mapped);
+
+    if (activeEnquiry) {
+      const hasLiveAgent = activeEnquiry.status === 'ASSIGNED' || activeEnquiry.status === 'AGENT_ACTIVE' || activeEnquiry.status === 'WAITING_FOR_AGENT';
+      setIsAgentConnected(hasLiveAgent);
+    }
+  }, [messages, activeEnquiry]);
+
+  // Removed redundant syncChatFromStorage manually
 
   const feed = useRestaurantFeed({
     cuisineType,
