@@ -72,7 +72,7 @@ export function GlobalCartBanner() {
                     borderRadius: 24,
                 }}
             >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, paddingRight: 8 }}>
                     <View style={{
                         backgroundColor: '#FCD34D',
                         borderRadius: 12,
@@ -98,7 +98,7 @@ export function GlobalCartBanner() {
                     </View>
                 </View>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                     <Pressable
                         onPress={(e) => {
                             e.stopPropagation();

@@ -181,14 +181,14 @@ export function ProfileScreen({ navigation }: Props) {
           top: 0,
           left: 0,
           right: 0,
-          height: 310,
+          height: 266 + (insets.top || 24),
           borderBottomLeftRadius: 40,
           borderBottomRightRadius: 40,
         }}
       />
 
       {/* Inline floating edit button */}
-      <View style={{ position: 'absolute', top: insets.top + 16, right: 16, zIndex: 10, flexDirection: 'row', alignItems: 'center' }}>
+      <View style={{ position: 'absolute', top: (insets.top || 24) + 8, right: 16, zIndex: 10, flexDirection: 'row', alignItems: 'center' }}>
         {isEditing && (
           <Pressable
             onPress={() => {
@@ -231,14 +231,14 @@ export function ProfileScreen({ navigation }: Props) {
         </Pressable>
       </View>
 
-      <View style={{ paddingTop: insets.top + 16 }}>
+      <View style={{ paddingTop: (insets.top || 24) + 8, zIndex: 5, elevation: 5 }}>
         <Animated.View style={{ opacity: fadeValue, transform: [{ scale: scaleValue }], paddingHorizontal: tokens.spacing.lg }}>
-          <View style={{ paddingTop: 16, paddingBottom: 20 }}>
-            <Text style={{ fontSize: 34, fontWeight: '900', color: '#FCD34D', letterSpacing: 0.5 }}>Profile</Text>
+          <View style={{ paddingTop: 8, paddingBottom: 4 }}>
+            <Text style={{ fontSize: 34, lineHeight: 54, paddingTop: 10, fontWeight: '900', color: '#FCD34D', letterSpacing: 0.5 }}>Profile</Text>
           </View>
 
           {/* iOS Profile Avatar header inside the dark green arch */}
-          <View style={{ alignItems: 'center', marginBottom: 28 }}>
+          <View style={{ alignItems: 'center', marginBottom: 16 }}>
             <Pressable
               disabled={uploadState.isLoading}
               onPress={handleAvatarTap}

@@ -332,7 +332,7 @@ export function HomeScreen({ navigation }: Props) {
       }}>
         {/* Top Row: Brand & Cart */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Text style={{ color: '#FCD34D', fontWeight: '900', letterSpacing: -0.5, fontSize: 34 }}>
+          <Text style={{ color: '#FCD34D', fontWeight: '900', letterSpacing: -0.5, fontSize: 34, lineHeight: 54, paddingTop: 10 }}>
             Foodie
           </Text>
 
