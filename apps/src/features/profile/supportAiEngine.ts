@@ -39,6 +39,39 @@ export function postToBackendSync(payload: any) {
   }
 }
 
+export async function pollLiveAdminMessages(enquiryId: string): Promise<{ messages: ChatMessage[], status: string }> {
+  const targetEndpoints = getApiEndpoints();
+  for (const url of targetEndpoints) {
+    try {
+      const res = await fetch(url.replace('/messages', ''), { method: 'GET', headers: { 'Accept': 'application/json' } });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          const rec = json.data.find((e: EnquiryRecord) => e.id === enquiryId);
+          if (rec && rec.messages) {
+
+            // Sync strictly to AsyncStorage
+            try {
+              const raw = await AsyncStorage.getItem(STORAGE_KEY);
+              let locArr: EnquiryRecord[] = raw ? JSON.parse(raw) : [];
+              const idx = locArr.findIndex((l) => l.id === enquiryId);
+              if (idx !== -1) {
+                locArr[idx] = { ...locArr[idx], status: rec.status, messages: rec.messages };
+              } else {
+                locArr.unshift(rec);
+              }
+              await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(locArr));
+            } catch (e) { }
+
+            return { messages: rec.messages, status: rec.status };
+          }
+        }
+      }
+    } catch (e) { }
+  }
+  return { messages: [], status: 'OPEN' };
+}
+
 export interface ChatMessage {
   id: string;
   enquiryId: string;
@@ -721,4 +754,41 @@ export async function connectToAgentAndCreateEnquiry(
   });
 
   return { enquiryRecord: resultingRecord, userMsg, systemConfirmationMsg };
+}
+
+export async function sendLiveCustomerMessageToAdmin(enquiryId: string, text: string, senderName: string, orderId?: string, senderEmail: string = 'customer@foodie.com', senderPhone: string = '+91 80731 12274'): Promise<ChatMessage> {
+  let rawData = await AsyncStorage.getItem(STORAGE_KEY).catch(() => null);
+  let list: EnquiryRecord[] = rawData ? JSON.parse(rawData) : [];
+
+  const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const msg: ChatMessage = {
+    id: `msg-cust-${Date.now()}`,
+    enquiryId,
+    sender: 'customer',
+    senderName,
+    message: text.trim(),
+    timestamp: nowTime,
+  };
+
+  const idx = list.findIndex(e => e.id === enquiryId);
+  if (idx !== -1) {
+    list[idx].messages = [...(list[idx].messages || []), msg];
+    list[idx].status = list[idx].status === 'RESOLVED' ? 'IN_PROGRESS' : list[idx].status;
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list)).catch(() => { });
+  }
+
+  postToBackendSync({
+    action: 'reply',
+    id: enquiryId,
+    category: 'CUSTOMER',
+    sender: 'customer',
+    senderName,
+    senderEmail,
+    senderPhone,
+    orderId,
+    messageId: msg.id,
+    message: text.trim(),
+  });
+
+  return msg;
 }

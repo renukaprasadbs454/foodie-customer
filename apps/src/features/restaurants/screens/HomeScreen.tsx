@@ -45,13 +45,11 @@ import { GlobalCartBanner } from '../../cart/components/GlobalCartBanner';
 import { evaluateSmartSupportReply, AiActionButton } from '../../profile/supportAiEngine';
 import {
   useGetMyConversationsQuery,
-  useCreateOrGetConversationMutation,
-  useEscalateConversationMutation,
   useSendMessageMutation,
-  useGetMessagesQuery,
   useResolveConversationMutation,
 } from '../../../api/endpoints/supportApi';
 import { PromotionalBannerCarousel } from '../components/PromotionalBannerCarousel';
+import { syncSupportChatMessages, connectToAgentAndCreateEnquiry, pollLiveAdminMessages, sendLiveCustomerMessageToAdmin } from '../../profile/supportAiEngine';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Home'>;
 
@@ -103,177 +101,125 @@ export function HomeScreen({ navigation }: Props) {
     buttons?: AiActionButton[];
   }>>([]);
 
-  // Network State
-  const { data: activeConversations } = useGetMyConversationsQuery(undefined, { pollingInterval: 3000 });
-  const [createConversation] = useCreateOrGetConversationMutation();
-  const [escalateConv] = useEscalateConversationMutation();
-  const [sendMessage] = useSendMessageMutation();
+  // Network State (Reduced for Chat UI only)
   const [resolveConv] = useResolveConversationMutation();
 
-  const activeEnquiry = activeConversations?.find(c => c.id === activeEnquiryId)
-    || (activeConversations && activeConversations.length > 0 ? activeConversations[0] : null);
-
-  const { data: messages } = useGetMessagesQuery(activeEnquiry?.id as string, {
-    skip: !activeEnquiry?.id,
-    pollingInterval: 2000
-  });
-
   useEffect(() => {
-    if (activeEnquiry && activeEnquiryId !== activeEnquiry.id) {
-      setActiveEnquiryId(activeEnquiry.id);
-    }
-  }, [activeEnquiry]);
+    if (!isAgentConnected || !activeEnquiryId) return;
+
+    const token = setInterval(async () => {
+      try {
+        const { messages: msgs, status } = await pollLiveAdminMessages(activeEnquiryId);
+
+        if (msgs && msgs.length > 0) {
+          setChatHistory(prev => {
+            let changed = false;
+            const newHist = [...prev];
+            msgs.forEach(m => {
+              if (!newHist.find(x => x.id === m.id)) {
+                newHist.push({
+                  id: m.id,
+                  text: m.message,
+                  from: m.sender === 'admin' ? 'admin' : (m.senderName === 'Foodie AI Support' ? 'bot' : 'user'),
+                  time: m.timestamp,
+                });
+                changed = true;
+              }
+            });
+            return changed ? newHist : prev;
+          });
+        }
+
+        if (status === 'RESOLVED') {
+          setIsAgentConnected(false);
+          setActiveEnquiryId(null);
+          setChatHistory(prev => [
+            ...prev,
+            { id: `sys-resolved-${Date.now()}`, text: '✅ Your support query was marked as RESOLVED by the Admin Agent. Thank you for connecting with Foodie!', from: 'bot', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+          ]);
+        }
+      } catch (e) { }
+    }, 2500);
+
+    return () => clearInterval(token);
+  }, [isAgentConnected, activeEnquiryId]);
 
   const handleUserSubmitMessage = async (rawText: string) => {
     const userText = rawText.trim();
     if (!userText) return;
-
     setChatMessage('');
-    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    setChatHistory((prev) => [
-      ...prev,
-      { id: `user-${Date.now()}`, text: userText, from: 'user', time: nowTime },
-    ]);
 
     const textLower = userText.toLowerCase();
-    const isResolvedAction =
-      textLower.includes('my query is resolved') ||
-      textLower.includes('query resolved') ||
-      textLower.includes('resolved. thank') ||
-      textLower.includes('issue resolved') ||
-      textLower === 'disconnect' ||
-      textLower.includes('end agent session');
 
-    if (isResolvedAction) {
-      setIsAgentConnected(false);
-      setShowAgentOption(false);
-      const targetId = activeEnquiryId || 'ENQ-901';
-
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          id: `bot-res-${Date.now()}`,
-          text: `🎉 Thank you! Your support ticket (#${targetId}) has been marked as RESOLVED. Let us know if you need any further assistance!`,
-          from: 'admin',
-          time: nowTime,
-          buttons: [
-            { label: '🏷️ Active Offers & Deals', actionText: 'Are there active coupons or offers?' },
-            { label: '🎧 Connect to Live Agent', actionText: 'I want to connect to a live support agent.' },
-          ],
-        },
-      ]);
-
-      if (targetId) {
-        void resolveConv(targetId).unwrap().catch(() => { });
+    // 1) Agent Connection Flow
+    if (textLower === 'i want to connect to a live support agent.' || (showAgentOption && textLower.includes('agent'))) {
+      try {
+        const { userMsg, systemConfirmationMsg, enquiryRecord } = await connectToAgentAndCreateEnquiry(
+          userText, currentUserName, currentUserEmail, currentUserPhone, activeOrderId || undefined, activeEnquiryId || undefined
+        );
+        setActiveEnquiryId(enquiryRecord.id);
+        setIsAgentConnected(true);
+        setShowAgentOption(false);
+        setChatHistory((prev) => [
+          ...prev,
+          { id: userMsg.id, text: userMsg.message, from: 'user', time: userMsg.timestamp },
+          { id: systemConfirmationMsg.id, text: systemConfirmationMsg.message, from: 'admin', time: systemConfirmationMsg.timestamp },
+        ]);
+      } catch (e) {
+        setToast({ message: 'Failed to connect to agent.', variant: 'error' });
       }
-      setActiveEnquiryId(null);
       return;
     }
 
-    const isExplicitAgentRequest =
-      textLower.includes('connect') ||
-      textLower.includes('agent') ||
-      textLower.includes('human') ||
-      textLower.includes('representative') ||
-      textLower.includes('talk to someone') ||
-      textLower.includes('speak to agent');
+    // 1b) Live Agent is Already Connected! Send directly to Admin
+    if (isAgentConnected && activeEnquiryId) {
+      try {
+        const liveMsg = await sendLiveCustomerMessageToAdmin(
+          activeEnquiryId,
+          userText,
+          currentUserName,
+          activeOrderId || undefined,
+          currentUserEmail,
+          currentUserPhone
+        );
+        setChatHistory(prev => [
+          ...prev,
+          { id: liveMsg.id, text: liveMsg.message, from: 'user', time: liveMsg.timestamp }
+        ]);
+      } catch (e) {
+        setToast({ message: 'Failed to send message to agent.', variant: 'error' });
+      }
+      return;
+    }
 
+    // 2) Normal AI Chat Processing Flow
     try {
-      let currentConvId = activeEnquiryId || (activeEnquiry ? activeEnquiry.id : null);
-      if (!currentConvId) {
-        const conv = await createConversation({
-          category: 'GENERAL',
-          subject: userText.substring(0, 30) + (userText.length > 30 ? '...' : ''),
-          orderId: activeOrderId || undefined,
-        }).unwrap();
-        currentConvId = conv.id;
-        setActiveEnquiryId(conv.id);
+      const { userMsg, aiMsg, aiResult } = await syncSupportChatMessages(
+        userText, activeEnquiryId || undefined, currentUserName, activeOrderId || undefined
+      );
+
+      setChatHistory((prev) => [
+        ...prev,
+        { id: userMsg.id, text: userMsg.message, from: 'user', time: userMsg.timestamp },
+        { id: aiMsg.id, text: aiMsg.message, from: 'bot', time: aiMsg.timestamp, buttons: aiResult.actionButtons },
+      ]);
+
+      if (aiResult.suggestAgent) {
+        setShowAgentOption(true);
       }
 
-      await sendMessage({
-        conversationId: currentConvId,
-        message: userText,
-        senderType: 'CUSTOMER',
-        senderName: currentUserName,
-      }).unwrap();
-
-      const aiResult = evaluateSmartSupportReply(userText, activeOrderId);
-
-      const isAgentEscalation = isExplicitAgentRequest || aiResult.suggestAgent;
-
-      if (!isAgentEscalation && !isAgentConnected) {
-        await sendMessage({
-          conversationId: currentConvId,
-          message: aiResult.reply,
-          senderType: 'AI',
-          senderName: 'Foodie AI Support',
-        }).unwrap();
-      } else if (isExplicitAgentRequest && !isAgentConnected) {
-        await escalateConv(currentConvId).unwrap();
-        setIsAgentConnected(true);
+      if (aiResult.canResolve) {
+        if (activeEnquiryId) {
+          void resolveConv(activeEnquiryId).unwrap().catch(() => { });
+          setActiveEnquiryId(null);
+        }
+        setIsAgentConnected(false);
       }
 
     } catch (e) {
-      setToast({ message: 'Failed to send message', variant: 'error' });
+      setToast({ message: 'Failed to process AI chat.', variant: 'error' });
     }
   };
-
-  useEffect(() => {
-    if (!messages) return;
-
-    // Map backend messages to chat history format
-    const mapped = messages.map(msg => {
-      const isUser = msg.senderType === 'CUSTOMER';
-      let buttons: AiActionButton[] | undefined = undefined;
-
-      if (!isUser && msg.senderType === 'AI') {
-        const evalResult = evaluateSmartSupportReply(msg.content, activeOrderId);
-        buttons = evalResult.actionButtons;
-      } else if (msg.senderType === 'AGENT') {
-        buttons = [
-          { label: '✅ Query Resolved', actionText: 'My query is resolved. Thank you!' },
-          { label: '🎧 Still Need Help', actionText: 'I still need help with my issue.' },
-        ];
-      }
-
-      return {
-        id: msg.id,
-        text: msg.content,
-        from: isUser ? 'user' : 'admin',
-        time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        buttons,
-      } as {
-        id: string;
-        text: string;
-        from: 'admin' | 'user';
-        time: string;
-        buttons?: AiActionButton[];
-      };
-    });
-
-    if (mapped.length === 0) {
-      mapped.push({
-        id: '1',
-        text: 'Hi! How can we help you today with your order or application?',
-        from: 'admin',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        buttons: [
-          { label: '📍 Track Active Order', actionText: 'Where is my order?' },
-          { label: '💳 Refund & Payment Help', actionText: 'Refund status for my order' },
-          { label: '🏷️ Active Offers & Coupons', actionText: 'Are there active coupons or offers?' },
-          { label: '🎧 Connect to Live Agent', actionText: 'I want to connect to a live support agent.' },
-        ],
-      });
-    }
-
-    setChatHistory(mapped);
-
-    if (activeEnquiry) {
-      const hasLiveAgent = activeEnquiry.status === 'ASSIGNED' || activeEnquiry.status === 'AGENT_ACTIVE' || activeEnquiry.status === 'WAITING_FOR_AGENT';
-      setIsAgentConnected(hasLiveAgent);
-    }
-  }, [messages, activeEnquiry]);
 
   // Removed redundant syncChatFromStorage manually
 
@@ -840,28 +786,30 @@ export function HomeScreen({ navigation }: Props) {
                 contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
                 style={{ flex: 1 }}
               >
-                {/* Optional Active Order Status Banner */}
-                {activeOrderId ? (
-                  <View style={{
-                    backgroundColor: '#ECFDF5',
-                    borderRadius: 12,
-                    paddingHorizontal: 14,
-                    paddingVertical: 10,
-                    marginBottom: 14,
-                    borderWidth: 1,
-                    borderColor: '#A7F3D0',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}>
-                    <Text style={{ fontSize: 13, color: '#065F46', fontWeight: '600' }}>
-                      🚴 Active Order: <Text style={{ fontWeight: '800', color: '#14532D' }}>#{activeOrderId}</Text>
-                    </Text>
-                    <Pressable onPress={() => void handleUserSubmitMessage('Where is my order?')}>
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#047857', textDecorationLine: 'underline' }}>Track Live ›</Text>
+                {/* Quick Help Card at the top */}
+                <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2, borderWidth: 1, borderColor: '#F1F5F9' }}>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: '#1E293B', marginBottom: 8 }}>Hi! Welcome to Foodie Support 👋</Text>
+                  <Text style={{ fontSize: 13, color: '#475569', marginBottom: 20 }}>
+                    Recent Order: {activeOrderId ? <><Text style={{ color: '#16A34A', fontWeight: '800' }}>#{activeOrderId}</Text> • Preparing for Delivery 🚴</> : <Text style={{ color: '#64748B' }}>No active orders</Text>}
+                  </Text>
+
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#334155', letterSpacing: 0.5, marginBottom: 12 }}>QUICK HELP OPTIONS</Text>
+
+                  {[
+                    { icon: '📍', text: 'Where is my order?' },
+                    { icon: '💳', text: 'Payment or refund issue' },
+                    { icon: '❌', text: 'I want to cancel my order' },
+                    { icon: '🏷️', text: 'Offers & Promo Codes' }
+                  ].map((opt, i) => (
+                    <Pressable key={i} onPress={() => void handleUserSubmitMessage(opt.text)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, backgroundColor: pressed ? '#F8FAFC' : '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12 })}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Text style={{ fontSize: 18 }}>{opt.icon}</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E293B' }}>{opt.text}</Text>
+                      </View>
+                      <Text style={{ color: '#047857', fontSize: 16, fontWeight: '900' }}>›</Text>
                     </Pressable>
-                  </View>
-                ) : null}
+                  ))}
+                </View>
 
                 {/* Chat Messages */}
                 {chatHistory.map((msg) => {
@@ -918,7 +866,7 @@ export function HomeScreen({ navigation }: Props) {
 
                       {/* Dynamic 2-4 Contextual Action Buttons */}
                       {msg.buttons && msg.buttons.length > 0 && (
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8, alignSelf: 'flex-start' }}>
+                        <View style={{ flexDirection: 'column', gap: 8, marginTop: 8, alignSelf: 'flex-start' }}>
                           {msg.buttons.map((btn, bIdx) => (
                             <Pressable
                               key={bIdx}
@@ -928,8 +876,9 @@ export function HomeScreen({ navigation }: Props) {
                                 borderColor: '#14532D',
                                 borderWidth: 1.5,
                                 borderRadius: 20,
-                                paddingHorizontal: 12,
-                                paddingVertical: 7,
+                                paddingHorizontal: 14,
+                                paddingVertical: 8,
+                                alignSelf: 'flex-start',
                                 shadowColor: '#14532D',
                                 shadowOffset: { width: 0, height: 1 },
                                 shadowOpacity: 0.1,
@@ -937,7 +886,7 @@ export function HomeScreen({ navigation }: Props) {
                                 elevation: 1,
                               })}
                             >
-                              <Text style={{ color: '#14532D', fontSize: 12, fontWeight: '700' }}>
+                              <Text style={{ color: '#14532D', fontSize: 13, fontWeight: '800' }}>
                                 {btn.label}
                               </Text>
                             </Pressable>
