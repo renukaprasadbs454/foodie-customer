@@ -2,23 +2,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
+import { ENV } from '../../constants/env';
+
 export function getApiEndpoints(): string[] {
   const endpoints: string[] = [];
 
-  try {
-    const hostUri =
-      Constants.expoConfig?.hostUri ||
-      (Constants as any)?.manifest?.debuggerHost ||
-      (Constants as any)?.manifest2?.extra?.expoGo?.debuggerHost;
-    if (hostUri) {
-      const hostIp = hostUri.split(':')[0];
-      if (hostIp) {
-        endpoints.push(`http://${hostIp}:3000/api/support-tickets`);
-        endpoints.push(`http://${hostIp}:3001/api/support-tickets`);
-      }
-    }
-  } catch (e) { }
+  if (ENV?.apiBaseUrl) {
+    endpoints.push(`${ENV.apiBaseUrl.replace(/\/$/, '')}/api/v1/admin/support-tickets`);
+  }
 
+  // Fallbacks for web/proxy setups
   endpoints.push('https://api.foodie.kwiko.org/api/v1/admin/support-tickets');
   endpoints.push('/api/support-tickets');
 

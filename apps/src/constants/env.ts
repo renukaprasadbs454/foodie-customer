@@ -18,8 +18,8 @@ if (Constants.expoConfig?.hostUri) {
   hostIp = Constants.expoConfig.hostUri.split(':')[0];
 }
 
-let apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? process.env.EXPO_PUBLIC_API_BASE_URL ?? extra.apiBaseUrl ?? 'https://api.foodie.kwiko.org';
-let wsUrl = process.env.EXPO_PUBLIC_WS_URL ?? extra.wsUrl ?? 'wss://api.foodie.kwiko.org/ws';
+let apiBaseUrl = 'https://api.foodie.kwiko.org';
+let wsUrl = 'wss://api.foodie.kwiko.org/ws';
 
 export const ENV = {
   apiBaseUrl,
