@@ -116,11 +116,17 @@ export function HomeScreen({ navigation }: Props) {
             let changed = false;
             const newHist = [...prev];
             msgs.forEach(m => {
-              if (!newHist.find(x => x.id === m.id)) {
+              const mappedFrom = m.sender === 'admin' ? 'admin' : (m.senderName === 'Foodie AI Support' ? 'bot' : 'user');
+              const exists = newHist.find(x =>
+                x.id === m.id ||
+                (x.text === m.message && x.from === mappedFrom)
+              );
+
+              if (!exists) {
                 newHist.push({
                   id: m.id,
                   text: m.message,
-                  from: m.sender === 'admin' ? 'admin' : (m.senderName === 'Foodie AI Support' ? 'bot' : 'user'),
+                  from: mappedFrom as 'admin' | 'bot' | 'user',
                   time: m.timestamp,
                 });
                 changed = true;
@@ -133,9 +139,8 @@ export function HomeScreen({ navigation }: Props) {
         if (status === 'RESOLVED') {
           setIsAgentConnected(false);
           setActiveEnquiryId(null);
-          setChatHistory(prev => [
-            ...prev,
-            { id: `sys-resolved-${Date.now()}`, text: '✅ Your support query was marked as RESOLVED by the Admin Agent. Thank you for connecting with Foodie!', from: 'bot', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+          setChatHistory([
+            { id: `sys-resolved-${Date.now()}`, text: '✅ Your past query was marked as RESOLVED. Is there anything else I can help you with?', from: 'bot', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
           ]);
         }
       } catch (e) { }
