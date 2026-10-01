@@ -13,7 +13,7 @@ type Extra = {
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
 
-let hostIp = 'localhost';
+let hostIp = '10.109.177.186';
 if (Constants.expoConfig?.hostUri) {
   hostIp = Constants.expoConfig.hostUri.split(':')[0];
 } else if (Platform.OS === 'android') {
