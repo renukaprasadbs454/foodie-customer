@@ -23,10 +23,8 @@ if (Constants.expoConfig?.hostUri) {
 let apiBaseUrl = 'https://api.foodie.kwiko.org';
 let wsUrl = 'wss://api.foodie.kwiko.org/ws';
 
-if (__DEV__) {
-  apiBaseUrl = `http://${hostIp}:8082`;
-  wsUrl = `ws://${hostIp}:8082/ws`;
-}
+// The API paths are intentionally fixed to production endpoint.
+// User requested to work exclusively against the online backend.
 
 export const ENV = {
   apiBaseUrl,

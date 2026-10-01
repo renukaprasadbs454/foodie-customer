@@ -36,28 +36,46 @@ export async function pollLiveAdminMessages(enquiryId: string): Promise<{ messag
   const targetEndpoints = getApiEndpoints();
   for (const url of targetEndpoints) {
     try {
-      const res = await fetch(url.replace('/messages', ''), { method: 'GET', headers: { 'Accept': 'application/json' } });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          const rec = json.data.find((e: EnquiryRecord) => e.id === enquiryId);
-          if (rec && rec.messages) {
+      const baseUrl = url.replace('/messages', '');
 
-            // Sync strictly to AsyncStorage
-            try {
-              const raw = await AsyncStorage.getItem(STORAGE_KEY);
-              let locArr: EnquiryRecord[] = raw ? JSON.parse(raw) : [];
-              const idx = locArr.findIndex((l) => l.id === enquiryId);
-              if (idx !== -1) {
-                locArr[idx] = { ...locArr[idx], status: rec.status, messages: rec.messages };
-              } else {
-                locArr.unshift(rec);
-              }
-              await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(locArr));
-            } catch (e) { }
+      const [convRes, msgRes] = await Promise.all([
+        fetch(`${baseUrl}/${enquiryId}`, { method: 'GET', headers: { 'Accept': 'application/json' } }).catch(() => null),
+        fetch(`${baseUrl}/${enquiryId}/messages`, { method: 'GET', headers: { 'Accept': 'application/json' } }).catch(() => null),
+      ]);
 
-            return { messages: rec.messages, status: rec.status };
-          }
+      if (convRes?.ok && msgRes?.ok) {
+        const convJson = await convRes.json();
+        const msgJson = await msgRes.json();
+
+        if (convJson.success && msgJson.success && Array.isArray(msgJson.data)) {
+          const status = convJson.data?.status || 'OPEN';
+
+          const mappedMsgs: ChatMessage[] = msgJson.data.map((m: any) => ({
+            id: m.id,
+            enquiryId: m.conversationId || enquiryId,
+            sender: (m.senderType === 'AGENT' || m.senderType === 'SYSTEM' || m.senderType === 'AI') ? 'admin' : 'customer',
+            senderName: m.senderName || (m.senderType === 'AGENT' ? 'Admin Support' : 'Customer Worker'),
+            message: m.content || '',
+            timestamp: m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+          }));
+
+          // Sync strictly to AsyncStorage
+          try {
+            const raw = await AsyncStorage.getItem(STORAGE_KEY);
+            let locArr: EnquiryRecord[] = raw ? JSON.parse(raw) : [];
+            const idx = locArr.findIndex((l) => l.id === enquiryId);
+            if (idx !== -1) {
+              locArr[idx] = { ...locArr[idx], status, messages: mappedMsgs };
+            } else {
+              // Create stub if missing
+              locArr.unshift({
+                id: enquiryId, category: 'CUSTOMER', senderName: 'Customer', senderEmail: '', senderPhone: '', subject: 'Live Agent Chat', message: '', timestamp: 'Just now', status, priority: 'HIGH', messages: mappedMsgs
+              });
+            }
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(locArr));
+          } catch (e) { }
+
+          return { messages: mappedMsgs, status };
         }
       }
     } catch (e) { }
