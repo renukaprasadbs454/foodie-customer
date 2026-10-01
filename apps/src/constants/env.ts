@@ -21,6 +21,11 @@ if (Constants.expoConfig?.hostUri) {
 let apiBaseUrl = 'https://api.foodie.kwiko.org';
 let wsUrl = 'wss://api.foodie.kwiko.org/ws';
 
+if (__DEV__) {
+  apiBaseUrl = `http://${hostIp}:8080`;
+  wsUrl = `ws://${hostIp}:8080/ws`;
+}
+
 export const ENV = {
   apiBaseUrl,
   wsUrl,
