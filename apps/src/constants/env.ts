@@ -13,9 +13,11 @@ type Extra = {
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
 
-let hostIp = '10.33.98.173';
+let hostIp = 'localhost';
 if (Constants.expoConfig?.hostUri) {
   hostIp = Constants.expoConfig.hostUri.split(':')[0];
+} else if (Platform.OS === 'android') {
+  hostIp = '10.0.2.2'; // default android emulator loopback IP
 }
 
 let apiBaseUrl = 'https://api.foodie.kwiko.org';
