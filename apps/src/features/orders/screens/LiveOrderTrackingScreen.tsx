@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View, ActivityIndicator, Pressable, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Button,
@@ -368,6 +369,52 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
         ) : order ? (
           <>
             {renderHeaderUi(order.status)}
+
+            {order.status === 'CANCELLED' && order.paymentMethod !== 'COD' && (
+              <Pressable
+                onPress={() => navigation.navigate('RefundStatus', {
+                  orderId: order.orderId,
+                  orderNumber: order.orderNumber,
+                  totalAmount: order.totalAmount,
+                  placedAt: order.placedAt,
+                })}
+                style={({ pressed }) => ({
+                  marginHorizontal: 16,
+                  marginTop: -20,
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 16,
+                  padding: 16,
+                  borderWidth: 1.5,
+                  borderColor: '#10B981',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 8,
+                  elevation: 4,
+                  opacity: pressed ? 0.9 : 1,
+                  zIndex: 10,
+                })}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' }}>
+                    <Feather name="refresh-cw" size={20} color="#15803D" />
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>
+                      Refund Initiated
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#15803D', fontWeight: '600' }}>
+                      Tap to view refund status & breakdown ›
+                    </Text>
+                  </View>
+                </View>
+                <Feather name="chevron-right" size={20} color="#15803D" />
+              </Pressable>
+            )}
+
             <View style={{ paddingHorizontal: tokens.spacing.md, marginTop: tokens.spacing.md }}>
               <OrderStatusStepper status={order.status} />
             </View>

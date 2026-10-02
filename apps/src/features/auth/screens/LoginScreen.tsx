@@ -273,25 +273,6 @@ export function LoginScreen({ navigation }: Props) {
           </View>
         </Animated.View>
 
-        {/* Footer: Terms & Privacy policy */}
-        <View style={{
-          paddingVertical: 24,
-          alignItems: 'center',
-          gap: 6,
-        }}>
-          <Text style={{ textAlign: 'center', fontSize: 11, color: '#6B7280', fontWeight: '600' }}>
-            By continuing, you agree to our
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-            <Pressable onPress={() => showError('Terms of Service clicked')}>
-              <Text style={{ fontSize: 11, fontWeight: '800', color: '#14532D', textDecorationLine: 'underline' }}>Terms of Service</Text>
-            </Pressable>
-            <Text style={{ fontSize: 11, color: '#6B7280' }}>and</Text>
-            <Pressable onPress={() => showError('Privacy Policy clicked')}>
-              <Text style={{ fontSize: 11, fontWeight: '800', color: '#14532D', textDecorationLine: 'underline' }}>Privacy Policy</Text>
-            </Pressable>
-          </View>
-        </View>
       </ScrollView>
 
       <Toast

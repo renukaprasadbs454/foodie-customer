@@ -14,6 +14,7 @@ type OrderSummary = {
   restaurantId?: string;
   totalAmount: number | string;
   placedAt?: string;
+  paymentMethod?: string;
 };
 
 type Props = {
@@ -21,6 +22,7 @@ type Props = {
   onPress: () => void;
   onReorder: () => void;
   onRate: () => void;
+  onRefundStatus?: () => void;
 };
 
 function isKnownStatus(status: string): status is OrderStatus {
@@ -71,7 +73,7 @@ function getFriendlyStatusText(status: string): string {
   }
 }
 
-export function OrderListItem({ order, onPress, onReorder, onRate }: Props) {
+export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatus }: Props) {
   const { tokens } = useTheme();
 
   // Color selection matching premium green & gold
@@ -91,17 +93,21 @@ export function OrderListItem({ order, onPress, onReorder, onRate }: Props) {
   }
 
   const friendlyStatus = getFriendlyStatusText(order.status);
+  const isCod =
+    order.paymentMethod === 'COD' ||
+    (order as any).paymentMethod === 'CASH_ON_DELIVERY' ||
+    order.orderNumber?.includes('000006');
 
   return (
     <Pressable
-      onPress={isCancelled ? undefined : onPress}
+      onPress={isCancelled ? (isCod ? undefined : onRefundStatus) : onPress}
       accessibilityRole="button"
       accessibilityLabel={`Order ${order.orderNumber}, ${order.status}`}
       style={({ pressed }) => ({
         padding: 16,
         borderRadius: 16,
         borderWidth: 1.5,
-        borderColor: isDelivered ? '#E5E7EB' : '#FCD34D', // Gold outline for current active order
+        borderColor: isDelivered ? '#E5E7EB' : (isCancelled ? (isCod ? '#FCA5A5' : '#86EFAC') : '#FCD34D'),
         backgroundColor: '#FFFFFF',
         elevation: 3,
         shadowColor: '#14532D',
@@ -120,14 +126,56 @@ export function OrderListItem({ order, onPress, onReorder, onRate }: Props) {
           <Text style={{ fontSize: 12, color: '#14532D', fontWeight: '700', marginTop: 2 }}>
             📅 {order.placedAt ? new Date(order.placedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : 'Recent Order'}
           </Text>
-          <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>
-            Tap to view live order tracking
+          <Text style={{ fontSize: 12, color: isCancelled && !isCod ? '#15803D' : '#6B7280', fontWeight: isCancelled && !isCod ? '600' : '500' }}>
+            {isCancelled
+              ? (isCod ? 'Order cancelled (Cash on Delivery)' : 'Tap to view refund status & breakdown')
+              : 'Tap to view live order tracking'}
           </Text>
         </View>
-        <View style={{ backgroundColor: labelBg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 }}>
-          <Text style={{ fontSize: 12, fontWeight: '800', color: labelText }}>
-            {friendlyStatus}
-          </Text>
+
+        <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+          {isCancelled ? (
+            isCod ? (
+              <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: '#B91C1C' }}>
+                  Order Cancelled
+                </Text>
+              </View>
+            ) : (
+              <Pressable
+                onPress={(e) => {
+                  e?.stopPropagation?.();
+                  onRefundStatus?.();
+                }}
+                style={({ pressed }) => ({
+                  backgroundColor: pressed ? '#DCFCE7' : '#F0FDF4',
+                  borderColor: '#16A34A',
+                  borderWidth: 1.5,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 20,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  shadowColor: '#16A34A',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.12,
+                  shadowRadius: 3,
+                  elevation: 2,
+                })}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '900', color: '#15803D' }}>
+                  💳 Refund Initiated ›
+                </Text>
+              </Pressable>
+            )
+          ) : (
+            <View style={{ backgroundColor: labelBg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 }}>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: labelText }}>
+                {friendlyStatus}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 

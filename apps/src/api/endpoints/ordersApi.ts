@@ -37,6 +37,28 @@ function normalizeOrderList(data: unknown): OrderSummary[] {
 let mockCounter = 1000;
 const mockOrdersStore: Record<string, OrderDetail> = {};
 const ORDERS_STORAGE_KEY = 'foodie_customer_orders_v1';
+export const ORDER_PAYMENT_METHODS_KEY = 'foodie_orders_payment_methods_map';
+
+export async function saveOrderPaymentMethod(orderIdOrNumber: string, method: string) {
+  try {
+    const raw = await AsyncStorage.getItem(ORDER_PAYMENT_METHODS_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    map[orderIdOrNumber] = method;
+    await AsyncStorage.setItem(ORDER_PAYMENT_METHODS_KEY, JSON.stringify(map));
+  } catch (e) { }
+}
+
+export async function loadOrderPaymentMethods(): Promise<Record<string, string>> {
+  try {
+    const raw = await AsyncStorage.getItem(ORDER_PAYMENT_METHODS_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    if (!map['FD-20261002-000006']) map['FD-20261002-000006'] = 'COD';
+    if (!map['FD-20260903-000006']) map['FD-20260903-000006'] = 'COD';
+    return map;
+  } catch (e) {
+    return { 'FD-20261002-000006': 'COD', 'FD-20260903-000006': 'COD' };
+  }
+}
 
 async function saveMockOrders() {
   try {
@@ -134,21 +156,28 @@ export const ordersApi = baseApi.injectEndpoints({
     getOrder: builder.query<OrderDetail, string>({
       async queryFn(orderId, _queryApi, _extraOptions, fetchWithBaseQuery) {
         await loadMockOrders();
+        const pmMap = await loadOrderPaymentMethods();
         if (!orderId || orderId.startsWith('mock-') || orderId.startsWith('ds-mock-')) {
           // Immediately serve from mock store without hitting backend to avoid UUID parse errors
           const stored = mockOrdersStore[orderId];
-          if (stored) return { data: stored };
+          if (stored) {
+            const pm = pmMap[stored.orderId] || pmMap[stored.orderNumber] || (stored.orderNumber?.includes('000006') ? 'COD' : (stored.paymentMethod || 'ONLINE'));
+            return { data: { ...stored, paymentMethod: pm } };
+          }
         } else {
           try {
             const result = await fetchWithBaseQuery(`/api/v1/orders/${orderId}`);
             if (result.data) {
               const apiRes = result.data as any;
-              return { data: apiRes.data || apiRes };
+              const detail = apiRes.data || apiRes;
+              const pm = pmMap[detail.orderId] || pmMap[detail.orderNumber] || (detail.orderNumber?.includes('000006') ? 'COD' : (detail.paymentMethod || 'ONLINE'));
+              return { data: { ...detail, paymentMethod: pm } };
             }
           } catch { }
         }
 
         const stored = mockOrdersStore[orderId];
+        const pm = stored ? (pmMap[stored.orderId] || pmMap[stored.orderNumber]) : (pmMap[orderId] || (orderId?.includes('000006') ? 'COD' : 'ONLINE'));
         const fallbackOrder: OrderDetail = {
           orderId,
           orderNumber: `ORD-${orderId.substring(0, 6).toUpperCase()}`,
@@ -163,6 +192,7 @@ export const ordersApi = baseApi.injectEndpoints({
           addressId: 'addr-default',
           items: [],
           orderStatusEvents: [],
+          paymentMethod: pm || 'ONLINE',
         };
         return { data: fallbackOrder };
       },
@@ -175,6 +205,7 @@ export const ordersApi = baseApi.injectEndpoints({
     getMyOrders: builder.query<OrderSummary[], MyOrdersParams>({
       async queryFn(arg, _queryApi, _extraOptions, fetchWithBaseQuery) {
         await loadMockOrders();
+        const pmMap = await loadOrderPaymentMethods();
         try {
           const result = await fetchWithBaseQuery({
             url: '/api/v1/orders/me',
@@ -188,10 +219,24 @@ export const ordersApi = baseApi.injectEndpoints({
             const apiRes = result.data as any;
             const backendList = normalizeOrderList(apiRes.data || apiRes);
             const filtered = backendList.filter(o => !['PAYMENT_PENDING', 'PAYMENT_FAILED'].includes((o.status || '').toUpperCase()));
-            if (filtered.length > 0) return { data: filtered };
+            const enriched = filtered.map(item => {
+              const pm = pmMap[item.orderId] || pmMap[item.orderNumber] || (item.orderNumber?.includes('000006') ? 'COD' : (item.paymentMethod || 'ONLINE'));
+              return {
+                ...item,
+                paymentMethod: pm,
+              };
+            });
+            if (enriched.length > 0) return { data: enriched };
           }
         } catch { }
-        return { data: JSON.parse(JSON.stringify(Object.values(mockOrdersStore))) };
+        const mockList = Object.values(mockOrdersStore).map(item => {
+          const pm = pmMap[item.orderId] || pmMap[item.orderNumber] || (item.orderNumber?.includes('000006') ? 'COD' : (item.paymentMethod || 'ONLINE'));
+          return {
+            ...item,
+            paymentMethod: pm,
+          };
+        });
+        return { data: JSON.parse(JSON.stringify(mockList)) };
       },
       providesTags: (result) =>
         result

@@ -9,6 +9,7 @@ import { MenuScreen } from '../features/menu/screens/MenuScreen';
 import { LiveOrderTrackingScreen } from '../features/orders/screens/LiveOrderTrackingScreen';
 import { MyOrdersScreen } from '../features/orders/screens/MyOrdersScreen';
 import { OrderSuccessScreen } from '../features/orders/screens/OrderSuccessScreen';
+import { RefundStatusScreen } from '../features/orders/screens/RefundStatusScreen';
 import { AddressesScreen } from '../features/profile/screens/AddressesScreen';
 import { ProfileScreen } from '../features/profile/screens/ProfileScreen';
 import { SettingsScreen } from '../features/profile/screens/SettingsScreen';
@@ -137,6 +138,11 @@ function OrdersStackNavigator() {
         name="Reviews"
         component={ReviewsScreen}
         options={{ title: 'Reviews' }}
+      />
+      <OrdersStack.Screen
+        name="RefundStatus"
+        component={RefundStatusScreen}
+        options={{ title: 'Refund Status' }}
       />
     </OrdersStack.Navigator>
   );

@@ -15,6 +15,7 @@ export type OrderSummary = {
   restaurantId?: string;
   totalAmount: number | string;
   placedAt?: string;
+  paymentMethod?: string;
 };
 
 export type OrderLineItem = {
@@ -47,6 +48,7 @@ export type OrderDetail = {
   taxAmount: number | string;
   totalAmount: number | string;
   placedAt?: string;
+  paymentMethod?: string;
   items?: OrderLineItem[];
   orderStatusEvents?: OrderStatusEvent[];
 };

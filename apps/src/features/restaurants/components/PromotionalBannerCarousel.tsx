@@ -65,12 +65,16 @@ export function PromotionalBannerCarousel() {
         const interval = setInterval(() => {
             setCurrentIndex((prev) => {
                 const nextIndex = (prev + 1) % banners.length;
-                flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+                try {
+                    flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+                } catch {
+                    flatListRef.current?.scrollToOffset({ offset: nextIndex * width, animated: true });
+                }
                 return nextIndex;
             });
         }, 3000);
         return () => clearInterval(interval);
-    }, [banners]);
+    }, [banners, width]);
 
     if (isLoading) {
         return (
@@ -126,6 +130,17 @@ export function PromotionalBannerCarousel() {
                 showsHorizontalScrollIndicator={false}
                 onScroll={handleScroll}
                 keyExtractor={(item) => item.id}
+                getItemLayout={(_, index) => ({
+                    length: width,
+                    offset: width * index,
+                    index,
+                })}
+                onScrollToIndexFailed={(info) => {
+                    flatListRef.current?.scrollToOffset({
+                        offset: info.index * width,
+                        animated: true,
+                    });
+                }}
                 renderItem={({ item, index }) => {
                     const gradient = vibrantGradients[index % vibrantGradients.length];
                     const activeEmojis = emojis[index % emojis.length];

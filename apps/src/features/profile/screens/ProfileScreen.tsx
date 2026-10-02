@@ -21,6 +21,7 @@ import { toUnwrappedApiError } from '../../auth/apiError';
 import type { ProfileStackParamList } from '../../../navigation/types';
 import { ProfileSkeleton } from '../components/ProfileSkeleton';
 import { CustomerSupportModal } from '../components/CustomerSupportModal';
+import { PrivacyPolicyModal } from '../components/PrivacyPolicyModal';
 import { initialsFromName } from '../types';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -61,6 +62,7 @@ export function ProfileScreen({ navigation }: Props) {
   const [nameVal, setNameVal] = useState('');
   const [emailVal, setEmailVal] = useState('');
   const [isSupportModalVisible, setIsSupportModalVisible] = useState(false);
+  const [isPrivacyModalVisible, setIsPrivacyModalVisible] = useState(false);
 
   const [toast, setToast] = useState<{
     message: string;
@@ -500,12 +502,7 @@ export function ProfileScreen({ navigation }: Props) {
                 <View style={{ height: 1, backgroundColor: '#F3F4F6', marginLeft: 48 }} />
 
                 <Pressable
-                  onPress={() => {
-                    setToast({
-                      message: 'Privacy Policy: We encrypt personal details and transaction histories securely.',
-                      variant: 'info'
-                    });
-                  }}
+                  onPress={() => setIsPrivacyModalVisible(true)}
                   style={({ pressed }) => ({
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -560,6 +557,11 @@ export function ProfileScreen({ navigation }: Props) {
         variant={toast?.variant ?? 'info'}
         accessibilityLabel={toast?.message ?? 'Toast'}
         onDismiss={() => setToast(null)}
+      />
+
+      <PrivacyPolicyModal
+        visible={isPrivacyModalVisible}
+        onClose={() => setIsPrivacyModalVisible(false)}
       />
     </ScrollView>
   );

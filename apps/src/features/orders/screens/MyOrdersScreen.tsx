@@ -147,6 +147,14 @@ export function MyOrdersScreen({ navigation }: Props) {
                       orderId: item.orderId,
                     });
                   }}
+                  onRefundStatus={() => {
+                    navigation.navigate('RefundStatus', {
+                      orderId: item.orderId,
+                      orderNumber: item.orderNumber,
+                      totalAmount: item.totalAmount,
+                      placedAt: item.placedAt,
+                    });
+                  }}
                   onReorder={() => {
                     addCartItem({
                       menuItemId: `${item.restaurantId || 'mock-resto-1'}-item-mock`,

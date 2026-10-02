@@ -30,6 +30,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
             screens: {
               MyOrders: 'orders',
               LiveOrderTracking: 'orders/:orderId',
+              RefundStatus: 'orders/:orderId/refund',
             },
           },
           NotificationsTab: {

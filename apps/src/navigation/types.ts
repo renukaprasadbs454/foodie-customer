@@ -48,6 +48,12 @@ export type OrdersStackParamList = {
   LiveOrderTracking: { orderId: string };
   /** UI-API Reviews — submit mode from delivered tracking. */
   Reviews: ReviewsScreenParams;
+  RefundStatus: {
+    orderId: string;
+    orderNumber?: string;
+    totalAmount?: number | string;
+    placedAt?: string;
+  };
 };
 
 export type NotificationsStackParamList = {

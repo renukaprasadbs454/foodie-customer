@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   gridOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFill as any),
     backgroundColor: '#E2E8F0',
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   contentOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFill as any),
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',

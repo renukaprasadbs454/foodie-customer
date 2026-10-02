@@ -25,7 +25,7 @@ import {
 } from 'foodie-shared-rn';
 import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import { useGetCartQuery } from '../../../api/endpoints/cartApi';
-import { useCreateOrderMutation, useTransitionOrderStatusMutation } from '../../../api/endpoints/ordersApi';
+import { useCreateOrderMutation, useTransitionOrderStatusMutation, saveOrderPaymentMethod } from '../../../api/endpoints/ordersApi';
 import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
 import { useGetWalletBalanceQuery } from '../../../api/endpoints/walletApi';
 import { toUnwrappedApiError } from '../../auth/apiError';
@@ -33,6 +33,7 @@ import { formatMoney, parseMoney } from '../../menu/types';
 import type { BrowseStackParamList } from '../../../navigation/types';
 import { AddressPickerRow } from '../components/AddressPickerRow';
 import { CheckoutSkeleton } from '../components/CheckoutSkeleton';
+import { AddressRequiredModal } from '../../cart/components/AddressRequiredModal';
 import { isAddressId } from '../types';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Checkout'>;
@@ -53,6 +54,7 @@ export function CheckoutScreen({ navigation, route }: any) {
   const [useWallet, setUseWallet] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'COD'>('ONLINE');
   const placeAttemptKey = useRef<string | null>(null);
+  const [showAddressRequiredModal, setShowAddressRequiredModal] = useState<boolean>(false);
   const [toast, setToast] = useState<{
     message: string;
     variant: 'info' | 'success' | 'error' | 'warning';
@@ -112,7 +114,7 @@ export function CheckoutScreen({ navigation, route }: any) {
 
   const onPlaceOrder = async () => {
     if (!addressId || !isAddressId(addressId)) {
-      setToast({ message: 'Select a delivery address.', variant: 'error' });
+      setShowAddressRequiredModal(true);
       return;
     }
     if (!isDarkStoreMock && !cart?.items?.length) {
@@ -135,6 +137,10 @@ export function CheckoutScreen({ navigation, route }: any) {
         couponCode: route.params?.couponCode || undefined,
         idempotencyKey: placeAttemptKey.current,
       }).unwrap();
+      await saveOrderPaymentMethod(order.orderId, paymentMethod);
+      if (order.orderNumber) {
+        await saveOrderPaymentMethod(order.orderNumber, paymentMethod);
+      }
       trackAnalyticsEvent('checkout_completed', { orderId: order.orderId, paymentMethod });
       placeAttemptKey.current = null;
       if (paymentMethod === 'COD') {
@@ -555,6 +561,17 @@ export function CheckoutScreen({ navigation, route }: any) {
             variant={toast?.variant ?? 'info'}
             accessibilityLabel={toast?.message ?? 'Toast'}
             onDismiss={() => setToast(null)}
+          />
+
+          <AddressRequiredModal
+            visible={showAddressRequiredModal}
+            onClose={() => setShowAddressRequiredModal(false)}
+            onAddAddress={() => navigation.navigate('Addresses', { selectMode: true })}
+            addresses={addresses}
+            selectedAddressId={addressId}
+            onSelectAddress={(selectedId) => {
+              setAddressId(selectedId);
+            }}
           />
         </Animated.View>
       </KeyboardAvoidingView>

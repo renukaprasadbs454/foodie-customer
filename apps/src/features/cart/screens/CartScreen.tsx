@@ -24,6 +24,7 @@ import { toUnwrappedApiError } from '../../auth/apiError';
 import type { BrowseStackParamList } from '../../../navigation/types';
 import { formatMoney, isMenuRestaurantId } from '../../menu/types';
 import { CartItemRow } from '../components/CartItemRow';
+import { AddressRequiredModal } from '../components/AddressRequiredModal';
 import { useGetMenuQuery } from '../../../api/endpoints/menuApi';
 import { getDistanceKm, getEstimatedTimeMins } from '../../restaurants/types';
 import * as Location from 'expo-location';
@@ -51,6 +52,7 @@ export function CartScreen({ navigation, route }: Props) {
   const [selectedCouponCode, setSelectedCouponCode] = useState<string | null>(null);
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountAmount: number; finalTotal: number; } | null>(null);
   const [showCouponsModal, setShowCouponsModal] = useState<boolean>(false);
+  const [showAddressRequiredModal, setShowAddressRequiredModal] = useState<boolean>(false);
 
 
   const [toast, setToast] = useState<{
@@ -531,7 +533,13 @@ export function CartScreen({ navigation, route }: Props) {
 
                   <Pressable
                     style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}
-                    onPress={() => navigation.navigate('Addresses', { selectMode: true })}
+                    onPress={() => {
+                      if (!defaultAddress && (!addresses || addresses.length === 0)) {
+                        setShowAddressRequiredModal(true);
+                      } else {
+                        navigation.navigate('Addresses', { selectMode: true });
+                      }
+                    }}
                   >
                     <Text style={{ fontSize: 16 }}>📍</Text>
                     <View style={{ flex: 1 }}>
@@ -652,7 +660,13 @@ export function CartScreen({ navigation, route }: Props) {
           {checkoutEnabled ? (
             <Pressable
               accessibilityLabel="Continue to Checkout"
-              onPress={() => navigation.navigate('Checkout' as any, { mockItems: isDarkStoreMock ? mockItems : undefined, discount: appliedCoupon?.discountAmount || 0, couponCode: appliedCoupon?.code, taxes: calculatedTaxes, deliveryFee: deliveryFee })}
+              onPress={() => {
+                if (!defaultAddress && (!addresses || addresses.length === 0)) {
+                  setShowAddressRequiredModal(true);
+                  return;
+                }
+                navigation.navigate('Checkout' as any, { mockItems: isDarkStoreMock ? mockItems : undefined, discount: appliedCoupon?.discountAmount || 0, couponCode: appliedCoupon?.code, taxes: calculatedTaxes, deliveryFee: deliveryFee });
+              }}
               style={({ pressed }) => ({
                 backgroundColor: pressed ? '#0F3E22' : '#14532D',
                 paddingVertical: 16,
@@ -750,6 +764,23 @@ export function CartScreen({ navigation, route }: Props) {
           variant={toast?.variant ?? 'info'}
           accessibilityLabel={toast?.message ?? 'Toast'}
           onDismiss={() => setToast(null)}
+        />
+
+        <AddressRequiredModal
+          visible={showAddressRequiredModal}
+          onClose={() => setShowAddressRequiredModal(false)}
+          onAddAddress={() => navigation.navigate('Addresses', { selectMode: true })}
+          addresses={addresses || []}
+          selectedAddressId={defaultAddress?.addressId}
+          onSelectAddress={(addrId) => {
+            navigation.navigate('Checkout' as any, {
+              mockItems: isDarkStoreMock ? mockItems : undefined,
+              discount: appliedCoupon?.discountAmount || 0,
+              couponCode: appliedCoupon?.code,
+              taxes: calculatedTaxes,
+              deliveryFee: deliveryFee,
+            });
+          }}
         />
       </Animated.View>
     </SafeAreaView >
