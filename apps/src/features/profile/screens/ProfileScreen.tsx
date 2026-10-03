@@ -22,6 +22,7 @@ import type { ProfileStackParamList } from '../../../navigation/types';
 import { ProfileSkeleton } from '../components/ProfileSkeleton';
 import { CustomerSupportModal } from '../components/CustomerSupportModal';
 import { PrivacyPolicyModal } from '../components/PrivacyPolicyModal';
+import { TermsAndConditionsModal } from '../components/TermsAndConditionsModal';
 import { initialsFromName } from '../types';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -63,6 +64,7 @@ export function ProfileScreen({ navigation }: Props) {
   const [emailVal, setEmailVal] = useState('');
   const [isSupportModalVisible, setIsSupportModalVisible] = useState(false);
   const [isPrivacyModalVisible, setIsPrivacyModalVisible] = useState(false);
+  const [isTermsModalVisible, setIsTermsModalVisible] = useState(false);
 
   const [toast, setToast] = useState<{
     message: string;
@@ -481,12 +483,7 @@ export function ProfileScreen({ navigation }: Props) {
                 borderColor: '#E5E7EB',
               }}>
                 <Pressable
-                  onPress={() => {
-                    setToast({
-                      message: 'Terms & Conditions: Service usage agreement. Subject to standard Foodie terms.',
-                      variant: 'info'
-                    });
-                  }}
+                  onPress={() => setIsTermsModalVisible(true)}
                   style={({ pressed }) => ({
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -562,6 +559,11 @@ export function ProfileScreen({ navigation }: Props) {
       <PrivacyPolicyModal
         visible={isPrivacyModalVisible}
         onClose={() => setIsPrivacyModalVisible(false)}
+      />
+
+      <TermsAndConditionsModal
+        visible={isTermsModalVisible}
+        onClose={() => setIsTermsModalVisible(false)}
       />
     </ScrollView>
   );

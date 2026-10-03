@@ -107,7 +107,7 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
         padding: 16,
         borderRadius: 16,
         borderWidth: 1.5,
-        borderColor: isDelivered ? '#E5E7EB' : (isCancelled ? (isCod ? '#FCA5A5' : '#86EFAC') : '#FCD34D'),
+        borderColor: isDelivered ? '#E5E7EB' : (isCancelled ? '#FCA5A5' : '#FCD34D'),
         backgroundColor: '#FFFFFF',
         elevation: 3,
         shadowColor: '#14532D',
@@ -119,16 +119,16 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
       })}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ gap: 2 }}>
+        <View style={{ gap: 2, flex: 1, marginRight: 12 }}>
           <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>
             Reference #{order.orderNumber}
           </Text>
           <Text style={{ fontSize: 12, color: '#14532D', fontWeight: '700', marginTop: 2 }}>
             📅 {order.placedAt ? new Date(order.placedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : 'Recent Order'}
           </Text>
-          <Text style={{ fontSize: 12, color: isCancelled && !isCod ? '#15803D' : '#6B7280', fontWeight: isCancelled && !isCod ? '600' : '500' }}>
+          <Text style={{ fontSize: 12, color: isCancelled ? (isCod ? '#DC2626' : '#15803D') : '#6B7280', fontWeight: isCancelled ? '600' : '500' }}>
             {isCancelled
-              ? (isCod ? 'Order cancelled (Cash on Delivery)' : 'Tap to view refund status & breakdown')
+              ? (isCod ? 'Order cancelled (Cash on Delivery)' : 'Order cancelled • Tap to view refund status & breakdown')
               : 'Tap to view live order tracking'}
           </Text>
         </View>
@@ -142,32 +142,39 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
                 </Text>
               </View>
             ) : (
-              <Pressable
-                onPress={(e) => {
-                  e?.stopPropagation?.();
-                  onRefundStatus?.();
-                }}
-                style={({ pressed }) => ({
-                  backgroundColor: pressed ? '#DCFCE7' : '#F0FDF4',
-                  borderColor: '#16A34A',
-                  borderWidth: 1.5,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 20,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 4,
-                  shadowColor: '#16A34A',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.12,
-                  shadowRadius: 3,
-                  elevation: 2,
-                })}
-              >
-                <Text style={{ fontSize: 12, fontWeight: '900', color: '#15803D' }}>
-                  💳 Refund Initiated ›
-                </Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#B91C1C' }}>
+                    Order Cancelled
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={(e) => {
+                    e?.stopPropagation?.();
+                    onRefundStatus?.();
+                  }}
+                  style={({ pressed }) => ({
+                    backgroundColor: pressed ? '#DCFCE7' : '#F0FDF4',
+                    borderColor: '#16A34A',
+                    borderWidth: 1.5,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 20,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    shadowColor: '#16A34A',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.12,
+                    shadowRadius: 3,
+                    elevation: 2,
+                  })}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '900', color: '#15803D' }}>
+                    💳 Refund Initiated ›
+                  </Text>
+                </Pressable>
+              </View>
             )
           ) : (
             <View style={{ backgroundColor: labelBg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 }}>
