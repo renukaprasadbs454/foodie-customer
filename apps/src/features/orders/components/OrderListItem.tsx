@@ -1,11 +1,13 @@
 import React from 'react';
 import { Pressable, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import {
   Text,
   getOrderStatusColorRole,
   useTheme,
   type OrderStatus,
 } from 'foodie-shared-rn';
+import { useGetOrderRefundStatusQuery } from '../../../api/endpoints/ordersApi';
 
 type OrderSummary = {
   orderId: string;
@@ -98,6 +100,18 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
     (order as any).paymentMethod === 'CASH_ON_DELIVERY' ||
     order.orderNumber?.includes('000006');
 
+  // Query live refund status & approval for online cancelled orders
+  const refundQueryKey = order.orderNumber || order.orderId;
+  const { data: liveRefund } = useGetOrderRefundStatusQuery(refundQueryKey, {
+    skip: !isCancelled || isCod,
+    pollingInterval: 3000,
+  });
+
+  const isApproved = liveRefund?.status === 'APPROVED' || liveRefund?.refundApprovalState === 'IN_PROCESS';
+  const isRefunded = liveRefund?.status === 'REFUNDED' || liveRefund?.refundApprovalState === 'DONE';
+  const isRejected = liveRefund?.status === 'REJECTED' || liveRefund?.refundApprovalState === 'FAILED';
+  const refundRefId = liveRefund?.refundReference;
+
   return (
     <Pressable
       onPress={isCancelled ? (isCod ? undefined : onRefundStatus) : onPress}
@@ -107,7 +121,11 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
         padding: 16,
         borderRadius: 16,
         borderWidth: 1.5,
-        borderColor: isDelivered ? '#E5E7EB' : (isCancelled ? '#FCA5A5' : '#FCD34D'),
+        borderColor: isDelivered
+          ? '#E5E7EB'
+          : isCancelled
+          ? (isApproved ? '#93C5FD' : isRefunded ? '#86EFAC' : '#FCA5A5')
+          : '#FCD34D',
         backgroundColor: '#FFFFFF',
         elevation: 3,
         shadowColor: '#14532D',
@@ -126,9 +144,23 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
           <Text style={{ fontSize: 12, color: '#14532D', fontWeight: '700', marginTop: 2 }}>
             📅 {order.placedAt ? new Date(order.placedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : 'Recent Order'}
           </Text>
-          <Text style={{ fontSize: 12, color: isCancelled ? (isCod ? '#DC2626' : '#15803D') : '#6B7280', fontWeight: isCancelled ? '600' : '500' }}>
+          <Text style={{
+            fontSize: 12,
+            color: isCancelled
+              ? (isCod ? '#DC2626' : (isApproved ? '#1D4ED8' : isRefunded ? '#15803D' : '#D97706'))
+              : '#6B7280',
+            fontWeight: isCancelled ? '700' : '500',
+          }}>
             {isCancelled
-              ? (isCod ? 'Order cancelled (Cash on Delivery)' : 'Order cancelled • Tap to view refund status & breakdown')
+              ? (isCod
+                ? 'Order cancelled (Cash on Delivery)'
+                : isApproved
+                ? '🛡️ Approved by Admin • Refund in process'
+                : isRefunded
+                ? '✓ Refund credited to source account'
+                : isRejected
+                ? '✕ Cancellation declined by Admin'
+                : '⏳ In Admin review for refund approval')
               : 'Tap to view live order tracking'}
           </Text>
         </View>
@@ -142,20 +174,17 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
                 </Text>
               </View>
             ) : (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#B91C1C' }}>
-                    Order Cancelled
-                  </Text>
-                </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <Pressable
                   onPress={(e) => {
                     e?.stopPropagation?.();
                     onRefundStatus?.();
                   }}
                   style={({ pressed }) => ({
-                    backgroundColor: pressed ? '#DCFCE7' : '#F0FDF4',
-                    borderColor: '#16A34A',
+                    backgroundColor: pressed
+                      ? (isApproved ? '#BFDBFE' : isRefunded ? '#BBF7D0' : '#FDE68A')
+                      : (isApproved ? '#DBEAFE' : isRefunded ? '#DCFCE7' : isRejected ? '#FEE2E2' : '#FEF3C7'),
+                    borderColor: isApproved ? '#2563EB' : isRefunded ? '#16A34A' : isRejected ? '#DC2626' : '#D97706',
                     borderWidth: 1.5,
                     paddingHorizontal: 12,
                     paddingVertical: 6,
@@ -163,15 +192,30 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 4,
-                    shadowColor: '#16A34A',
+                    shadowColor: isApproved ? '#2563EB' : isRefunded ? '#16A34A' : '#D97706',
                     shadowOffset: { width: 0, height: 1 },
                     shadowOpacity: 0.12,
                     shadowRadius: 3,
                     elevation: 2,
                   })}
                 >
-                  <Text style={{ fontSize: 12, fontWeight: '900', color: '#15803D' }}>
-                    💳 Refund Initiated ›
+                  <Feather
+                    name={isApproved ? 'shield' : isRefunded ? 'check-circle' : isRejected ? 'x-circle' : 'clock'}
+                    size={12}
+                    color={isApproved ? '#1D4ED8' : isRefunded ? '#15803D' : isRejected ? '#B91C1C' : '#B45309'}
+                  />
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '900',
+                    color: isApproved ? '#1D4ED8' : isRefunded ? '#15803D' : isRejected ? '#B91C1C' : '#B45309',
+                  }}>
+                    {isApproved
+                      ? '🛡️ Approved ›'
+                      : isRefunded
+                      ? '✓ Credited ›'
+                      : isRejected
+                      ? '✕ Declined ›'
+                      : '⏳ In Review ›'}
                   </Text>
                 </Pressable>
               </View>
@@ -185,6 +229,83 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
           )}
         </View>
       </View>
+
+      {/* Online Cancelled Order: Refund Status & Refund ID Card Banner */}
+      {isCancelled && !isCod && (
+        <View style={{
+          marginTop: 2,
+          paddingHorizontal: 12,
+          paddingVertical: 9,
+          borderRadius: 12,
+          backgroundColor: isApproved ? '#EFF6FF' : isRefunded ? '#F0FDF4' : isRejected ? '#FEF2F2' : '#FFFBEB',
+          borderWidth: 1,
+          borderColor: isApproved ? '#BFDBFE' : isRefunded ? '#BBF7D0' : isRejected ? '#FECACA' : '#FDE68A',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Feather
+                name={isApproved ? 'check-circle' : isRefunded ? 'award' : isRejected ? 'alert-triangle' : 'clock'}
+                size={14}
+                color={isApproved ? '#1D4ED8' : isRefunded ? '#15803D' : isRejected ? '#DC2626' : '#D97706'}
+              />
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '800',
+                color: isApproved ? '#1D4ED8' : isRefunded ? '#15803D' : isRejected ? '#DC2626' : '#92400E',
+              }}>
+                {isApproved
+                  ? 'Admin Approved • Release Authorized'
+                  : isRefunded
+                  ? 'Refund Done • Credited to Source'
+                  : isRejected
+                  ? 'Refund Declined by Admin'
+                  : 'Awaiting Admin Approval in Portal'}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 11, color: '#374151', fontWeight: '600', marginTop: 3 }}>
+              {refundRefId ? (
+                <>
+                  Refund ID:{' '}
+                  <Text style={{ color: '#111827', fontWeight: '800' }}>
+                    {refundRefId}
+                  </Text>
+                </>
+              ) : (
+                'Refund will be released to bank once approved'
+              )}
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              onRefundStatus?.();
+            }}
+            style={({ pressed }) => ({
+              backgroundColor: pressed ? '#E5E7EB' : '#FFFFFF',
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: isApproved ? '#93C5FD' : isRefunded ? '#86EFAC' : '#FCD34D',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 3,
+            })}
+          >
+            <Text style={{
+              fontSize: 11,
+              fontWeight: '800',
+              color: isApproved ? '#1D4ED8' : isRefunded ? '#15803D' : '#92400E',
+            }}>
+              Refund Details ›
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
       {isCompleted && (
         <View style={{ marginTop: 4 }}>

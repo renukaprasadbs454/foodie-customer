@@ -11,7 +11,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Text, Toast } from 'foodie-shared-rn';
 import { Feather } from '@expo/vector-icons';
 import type { OrdersStackParamList } from '../../../navigation/types';
-import { useGetOrderQuery } from '../../../api/endpoints/ordersApi';
+import { useGetOrderQuery, useGetOrderRefundStatusQuery } from '../../../api/endpoints/ordersApi';
 import { formatMoney } from '../../menu/types';
 import { CustomerSupportModal } from '../../profile/components/CustomerSupportModal';
 
@@ -24,8 +24,19 @@ export function RefundStatusScreen({ navigation, route }: Props) {
   const orderQuery = useGetOrderQuery(orderId, { skip: !orderId });
   const order = orderQuery.data;
 
-  // Defaults to 'IN_PROCESS' (Admin Approved) with live selector to view all states
-  const [refundStatus, setRefundStatus] = useState<RefundApprovalState>('IN_PROCESS');
+  // Connect to live backend and admin approval status with auto-polling
+  const queryKey = orderNumber || orderId;
+  const {
+    data: liveRefundData,
+    refetch: refetchRefundStatus,
+    isFetching: isCheckingStatus,
+  } = useGetOrderRefundStatusQuery(queryKey, {
+    skip: !queryKey,
+    pollingInterval: 2500,
+  });
+
+  const refundStatus: RefundApprovalState =
+    liveRefundData?.refundApprovalState || 'PENDING_ADMIN';
   const [toast, setToast] = useState<{ message: string; variant: 'info' | 'success' | 'error' } | null>(null);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
 
@@ -42,8 +53,10 @@ export function RefundStatusScreen({ navigation, route }: Props) {
     hour12: true,
   });
 
-  const arnNumber = `ARN-${displayOrderNum.replace(/[^0-9]/g, '') || '98234710294'}`;
-  const refundId = `RF-${orderId ? orderId.substring(0, 8).toUpperCase() : '91827364'}`;
+  const refundId = liveRefundData?.refundReference || (orderId ? `RF-${orderId.substring(0, 8).toUpperCase()}` : 'RF-91827364');
+  const arnNumber = liveRefundData?.refundReference
+    ? `ARN-${liveRefundData.refundReference.replace(/[^0-9]/g, '').slice(0, 14) || '98234710294'}`
+    : `ARN-${displayOrderNum.replace(/[^0-9]/g, '') || '98234710294'}`;
 
   const copyToClipboard = (text: string, label: string) => {
     try {
@@ -105,89 +118,60 @@ export function RefundStatusScreen({ navigation, route }: Props) {
         style={{ flex: 1, backgroundColor: '#F2F2F7' }}
         contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }}
       >
-        {/* Interactive State Selector Bar */}
+        {/* Live Admin Approval Status Bar */}
         <View style={{
           backgroundColor: '#FFFFFF',
           borderRadius: 16,
-          padding: 6,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
           borderWidth: 1,
           borderColor: '#E5E7EB',
           flexDirection: 'row',
-          gap: 4,
+          alignItems: 'center',
+          justifyContent: 'space-between',
         }}>
-          <Pressable
-            onPress={() => setRefundStatus('PENDING_ADMIN')}
-            style={{
-              flex: 1,
-              paddingVertical: 7,
-              borderRadius: 10,
-              backgroundColor: refundStatus === 'PENDING_ADMIN' ? '#FEF3C7' : 'transparent',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{
-              fontSize: 11,
-              fontWeight: '800',
-              color: refundStatus === 'PENDING_ADMIN' ? '#B45309' : '#6B7280',
-            }}>
-              ⏳ Admin Review
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{
+              width: 10,
+              height: 10,
+              borderRadius: 5,
+              backgroundColor:
+                refundStatus === 'PENDING_ADMIN' ? '#F59E0B' :
+                refundStatus === 'IN_PROCESS' ? '#3B82F6' :
+                refundStatus === 'DONE' ? '#10B981' : '#EF4444',
+            }} />
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>
+              {refundStatus === 'PENDING_ADMIN'
+                ? 'Awaiting Admin Approval in Portal'
+                : refundStatus === 'IN_PROCESS'
+                ? 'Admin Approved • In Process'
+                : refundStatus === 'DONE'
+                ? 'Refund Credited to Source'
+                : 'Refund Declined / Paused'}
             </Text>
-          </Pressable>
+          </View>
 
           <Pressable
-            onPress={() => setRefundStatus('IN_PROCESS')}
-            style={{
-              flex: 1,
-              paddingVertical: 7,
+            onPress={() => void refetchRefundStatus()}
+            style={({ pressed }) => ({
+              paddingHorizontal: 12,
+              paddingVertical: 6,
               borderRadius: 10,
-              backgroundColor: refundStatus === 'IN_PROCESS' ? '#DBEAFE' : 'transparent',
+              backgroundColor: pressed ? '#F3F4F6' : '#F9FAFB',
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+              flexDirection: 'row',
               alignItems: 'center',
-            }}
+              gap: 5,
+            })}
           >
-            <Text style={{
-              fontSize: 11,
-              fontWeight: '800',
-              color: refundStatus === 'IN_PROCESS' ? '#1D4ED8' : '#6B7280',
-            }}>
-              🛡️ Approved (In Process)
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setRefundStatus('DONE')}
-            style={{
-              flex: 1,
-              paddingVertical: 7,
-              borderRadius: 10,
-              backgroundColor: refundStatus === 'DONE' ? '#DCFCE7' : 'transparent',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{
-              fontSize: 11,
-              fontWeight: '800',
-              color: refundStatus === 'DONE' ? '#15803D' : '#6B7280',
-            }}>
-              ✓ Done (Credited)
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setRefundStatus('FAILED')}
-            style={{
-              flex: 1,
-              paddingVertical: 7,
-              borderRadius: 10,
-              backgroundColor: refundStatus === 'FAILED' ? '#FEE2E2' : 'transparent',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{
-              fontSize: 11,
-              fontWeight: '800',
-              color: refundStatus === 'FAILED' ? '#B91C1C' : '#6B7280',
-            }}>
-              ✕ Not Done
+            <Feather
+              name="refresh-cw"
+              size={12}
+              color="#15803D"
+            />
+            <Text style={{ fontSize: 12, fontWeight: '800', color: '#15803D' }}>
+              {isCheckingStatus ? 'Checking...' : 'Refresh'}
             </Text>
           </Pressable>
         </View>

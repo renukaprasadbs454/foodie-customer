@@ -375,6 +375,79 @@ export const ordersApi = baseApi.injectEndpoints({
         { type: 'Order', id: arg.orderId },
       ],
     }),
+
+    getOrderRefundStatus: builder.query<{
+      orderId?: string;
+      status: 'PENDING_APPROVAL' | 'APPROVED' | 'REFUNDED' | 'REJECTED';
+      refundApprovalState: 'PENDING_ADMIN' | 'IN_PROCESS' | 'DONE' | 'FAILED';
+      refundReference?: string | null;
+      reviewedAt?: string | null;
+      reviewedBy?: string | null;
+    }, string>({
+      async queryFn(orderKey, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        if (!orderKey) {
+          return {
+            data: {
+              status: 'PENDING_APPROVAL',
+              refundApprovalState: 'PENDING_ADMIN',
+              refundReference: null,
+              reviewedAt: null,
+              reviewedBy: null,
+            },
+          };
+        }
+
+        const cleanKey = String(orderKey).trim().replace(/^[#\s]+/, '');
+
+        // 1. Try customer backend endpoint
+        try {
+          const res = await fetchWithBaseQuery(`/api/v1/orders/${encodeURIComponent(cleanKey)}/refund-status`);
+          if (res.data) {
+            const json = (res.data as any).data || res.data;
+            if (json && (json.status || json.refundApprovalState)) {
+              return { data: json };
+            }
+          }
+        } catch {}
+
+        // 2. Query connected Admin BFF on port 3000 / Metro proxy on 8081
+        const endpoints = [
+          `http://localhost:3000/api/bff/orders/${encodeURIComponent(cleanKey)}/refund-status`,
+          `http://127.0.0.1:3000/api/bff/orders/${encodeURIComponent(cleanKey)}/refund-status`,
+          `http://localhost:8081/orders/${encodeURIComponent(cleanKey)}/refund-status`,
+          `http://127.0.0.1:8081/orders/${encodeURIComponent(cleanKey)}/refund-status`,
+          `http://10.109.177.186:3000/api/bff/orders/${encodeURIComponent(cleanKey)}/refund-status`,
+          `http://10.109.177.186:8081/orders/${encodeURIComponent(cleanKey)}/refund-status`,
+        ];
+
+        for (const ep of endpoints) {
+          try {
+            const resp = await fetch(ep, {
+              headers: { Accept: 'application/json' },
+            });
+            if (resp.ok) {
+              const json = await resp.json();
+              const d = json && json.data ? json.data : json;
+              if (d && (d.status || d.refundApprovalState)) {
+                return { data: d };
+              }
+            }
+          } catch {}
+        }
+
+        return {
+          data: {
+            orderId: cleanKey,
+            status: 'PENDING_APPROVAL',
+            refundApprovalState: 'PENDING_ADMIN',
+            refundReference: null,
+            reviewedAt: null,
+            reviewedBy: null,
+          },
+        };
+      },
+      providesTags: (_res, _err, id) => [{ type: 'Order', id: `REFUND_${id}` }],
+    }),
   }),
 });
 
@@ -392,4 +465,5 @@ export const {
   useGetDeliveryPartnerQuery,
   useGetOrderMessagesQuery,
   useSendOrderMessageMutation,
+  useGetOrderRefundStatusQuery,
 } = ordersApi;

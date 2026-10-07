@@ -61,6 +61,49 @@ config.server = {
   ...config.server,
   enhanceMiddleware: (middleware) => {
     return (req, res, next) => {
+      if (req.url && (req.url.includes('/refund-status') || req.url.includes('/cancelled-refunds'))) {
+        const fs = require('fs');
+        const match = req.url.match(/(?:orders|cancelled-refunds|refund-status)\/([^/?]+)/);
+        const orderKey = match ? decodeURIComponent(match[1]) : '';
+        let statusObj = null;
+
+        try {
+          if (fs.existsSync('/tmp/foodie_refund_approvals.json')) {
+            const data = JSON.parse(fs.readFileSync('/tmp/foodie_refund_approvals.json', 'utf8'));
+            const cleanKey = orderKey.replace(/^CR-REF-/, '');
+            statusObj = data[orderKey] ||
+              data[cleanKey] ||
+              data['CR-REF-' + cleanKey] ||
+              Object.values(data).find(v => v && (v.orderId === orderKey || v.orderNumber === cleanKey || v.orderNumber === orderKey));
+          }
+        } catch (e) {}
+
+        const status = statusObj ? statusObj.status : 'PENDING_APPROVAL';
+        const refundApprovalState =
+          status === 'APPROVED' ? 'IN_PROCESS' :
+          status === 'REFUNDED' ? 'DONE' :
+          status === 'REJECTED' ? 'FAILED' : 'PENDING_ADMIN';
+
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'access-control-allow-origin': '*',
+          'access-control-allow-headers': '*',
+          'access-control-allow-methods': 'GET, POST, OPTIONS',
+        });
+        res.end(JSON.stringify({
+          success: true,
+          data: {
+            orderId: orderKey,
+            status: status,
+            refundApprovalState: refundApprovalState,
+            refundReference: statusObj ? statusObj.refundReference : null,
+            reviewedAt: statusObj ? statusObj.reviewedAt : null,
+            reviewedBy: statusObj ? statusObj.reviewedBy : null,
+          },
+        }));
+        return;
+      }
+
       if (req.url && req.url.startsWith('/api/')) {
         const targetHost = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.foodie.kwiko.org';
         const targetUrl = targetHost + req.url;
