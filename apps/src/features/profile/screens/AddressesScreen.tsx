@@ -68,10 +68,10 @@ export function AddressesScreen({ navigation, route }: Props) {
   } | null>(null);
 
   const [mapRegion, setMapRegion] = useState<Region>({
-    latitude: 12.9716,
-    longitude: 77.5946, // Default Bangalore
-    latitudeDelta: 0.005,
-    longitudeDelta: 0.005,
+    latitude: 13.3379,
+    longitude: 77.1173, // Default Tumkur
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
   });
   const [fetchingLocation, setFetchingLocation] = useState(false);
   const mapRef = useRef<MapView>(null);
