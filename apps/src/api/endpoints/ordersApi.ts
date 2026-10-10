@@ -309,6 +309,29 @@ export const ordersApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, orderId) => [{ type: 'Order', id: `partner-${orderId}` }],
     }),
 
+    getDeliveryLocation: builder.query<{ latitude: number; longitude: number; recordedAt?: string } | null, string>({
+      async queryFn(orderId, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        try {
+          const result = await fetchWithBaseQuery(`/api/v1/customers/orders/${orderId}/location`);
+          if (result.data) {
+            const apiRes = result.data as any;
+            const data = apiRes.data || apiRes;
+            if (data && data.latitude != null && data.longitude != null) {
+              return {
+                data: {
+                  latitude: Number(data.latitude),
+                  longitude: Number(data.longitude),
+                  recordedAt: data.recordedAt,
+                },
+              };
+            }
+          }
+        } catch { }
+        return { data: null };
+      },
+      providesTags: (_result, _error, orderId) => [{ type: 'Order', id: `loc-${orderId}` }],
+    }),
+
     getOrderMessages: builder.query<any[], string>({
       async queryFn(orderId, _queryApi, _extraOptions, fetchWithBaseQuery) {
         if (!mockOrdersStore[orderId]) {
@@ -408,7 +431,7 @@ export const ordersApi = baseApi.injectEndpoints({
               return { data: json };
             }
           }
-        } catch {}
+        } catch { }
 
         // 2. Query connected Admin BFF on port 3000 / Metro proxy on 8081
         const endpoints = [
@@ -432,7 +455,7 @@ export const ordersApi = baseApi.injectEndpoints({
                 return { data: d };
               }
             }
-          } catch {}
+          } catch { }
         }
 
         return {
@@ -463,6 +486,7 @@ export const {
   useGetMyOrdersQuery,
   useTransitionOrderStatusMutation,
   useGetDeliveryPartnerQuery,
+  useGetDeliveryLocationQuery,
   useGetOrderMessagesQuery,
   useSendOrderMessageMutation,
   useGetOrderRefundStatusQuery,

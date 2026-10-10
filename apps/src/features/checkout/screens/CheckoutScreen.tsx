@@ -11,6 +11,7 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Button,
@@ -140,6 +141,15 @@ export function CheckoutScreen({ navigation, route }: any) {
       await saveOrderPaymentMethod(order.orderId, paymentMethod);
       if (order.orderNumber) {
         await saveOrderPaymentMethod(order.orderNumber, paymentMethod);
+      }
+      const chosenAddr = addressesQuery.data?.find((a) => a.addressId === addressId);
+      if (chosenAddr) {
+        try {
+          await AsyncStorage.setItem(`order_delivery_address_${order.orderId}`, JSON.stringify(chosenAddr));
+          if (order.orderNumber) {
+            await AsyncStorage.setItem(`order_delivery_address_${order.orderNumber}`, JSON.stringify(chosenAddr));
+          }
+        } catch { }
       }
       trackAnalyticsEvent('checkout_completed', { orderId: order.orderId, paymentMethod });
       placeAttemptKey.current = null;

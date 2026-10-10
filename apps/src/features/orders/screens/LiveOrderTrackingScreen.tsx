@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { ScrollView, View, ActivityIndicator, Pressable, Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -19,10 +21,12 @@ import {
   useGetOrderQuery,
   useTransitionOrderStatusMutation,
   useGetDeliveryPartnerQuery,
+  useGetDeliveryLocationQuery,
 } from '../../../api/endpoints/ordersApi';
 import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
 import { useGetMenuQuery } from '../../../api/endpoints/menuApi';
 import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
+import type { CustomerAddress } from '../../checkout/types';
 import { toUnwrappedApiError } from '../../auth/apiError';
 import type { OrdersStackParamList } from '../../../navigation/types';
 import { OrderStatusStepper } from '../components/OrderStatusStepper';
@@ -30,6 +34,7 @@ import { TrackingMap } from '../components/TrackingMap';
 import { TrackingSkeleton } from '../components/TrackingSkeleton';
 import { OrderChat } from '../components/OrderChat';
 import { useOrderTrackingSubscription } from '../hooks/useOrderTrackingSubscription';
+import { globalLocation } from '../../../core/GlobalLocation';
 import {
   canCustomerCancelOrder,
   isOrderId,
@@ -149,17 +154,138 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
 
   const { data: restaurant } = useGetRestaurantQuery(orderQuery.data?.restaurantId ?? '', { skip: !orderQuery.data?.restaurantId });
   const { data: addresses } = useGetAddressesQuery(undefined);
-  const address = addresses?.find(a => a.addressId === orderQuery.data?.addressId) || addresses?.[0];
 
-  const restaurantLocation = {
-    latitude: restaurant?.latitude ? Number(restaurant.latitude) : 12.9352,
-    longitude: restaurant?.longitude ? Number(restaurant.longitude) : 77.6245,
-  };
+  const [cachedAddress, setCachedAddress] = useState<CustomerAddress | null>(null);
+  const [geocodedCoord, setGeocodedCoord] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  const customerLocation = {
-    latitude: address?.latitude ? Number(address.latitude) : 12.9716,
-    longitude: address?.longitude ? Number(address.longitude) : 77.5946,
-  };
+  useEffect(() => {
+    let active = true;
+    const loadCachedAddress = async () => {
+      try {
+        const key1 = `order_delivery_address_${orderId}`;
+        const key2 = orderQuery.data?.orderNumber ? `order_delivery_address_${orderQuery.data.orderNumber}` : null;
+        let stored = await AsyncStorage.getItem(key1);
+        if (!stored && key2) {
+          stored = await AsyncStorage.getItem(key2);
+        }
+        if (stored && active) {
+          setCachedAddress(JSON.parse(stored));
+        }
+      } catch { }
+    };
+    void loadCachedAddress();
+    return () => { active = false; };
+  }, [orderId, orderQuery.data?.orderNumber]);
+
+  const orderAddressId = orderQuery.data?.addressId;
+  const matchedAddress = addresses?.find(a => (a.addressId && a.addressId === orderAddressId) || ((a as any).id && (a as any).id === orderAddressId));
+  const fallbackAddressWithCoords = addresses?.find(a => a.latitude && a.longitude && Number(a.latitude) !== 0 && !isNaN(Number(a.latitude))) || addresses?.find(a => a.isDefault) || addresses?.[0];
+  const selectedAddr = cachedAddress || matchedAddress || fallbackAddressWithCoords;
+
+  useEffect(() => {
+    if (!selectedAddr) return;
+
+    let active = true;
+    const resolveExactCoords = async () => {
+      const hasCoords = selectedAddr.latitude && Number(selectedAddr.latitude) !== 0 && !isNaN(Number(selectedAddr.latitude));
+      const latVal = hasCoords ? Number(selectedAddr.latitude) : 0;
+      const lngVal = hasCoords ? Number(selectedAddr.longitude) : 0;
+
+      const fullText = [(selectedAddr as any).houseFlatNo, selectedAddr.line1, selectedAddr.line2, (selectedAddr as any).landmark, selectedAddr.city, (selectedAddr as any).state, selectedAddr.pincode].filter(Boolean).join(', ');
+      const isTumkurText = fullText.toLowerCase().includes('tumk') || (selectedAddr.pincode && selectedAddr.pincode.startsWith('572'));
+      const isBangaloreCoords = Math.abs(latVal - 12.9716) < 0.05 && Math.abs(lngVal - 77.5946) < 0.05;
+
+      if (!hasCoords || (isBangaloreCoords && isTumkurText)) {
+        try {
+          const results = await Location.geocodeAsync(fullText);
+          if (results && results.length > 0 && active) {
+            setGeocodedCoord({ latitude: results[0].latitude, longitude: results[0].longitude });
+            return;
+          }
+        } catch { }
+
+        if (selectedAddr.city || selectedAddr.pincode) {
+          try {
+            const results = await Location.geocodeAsync(`${selectedAddr.city || ''} ${selectedAddr.pincode || ''}`.trim());
+            if (results && results.length > 0 && active) {
+              setGeocodedCoord({ latitude: results[0].latitude, longitude: results[0].longitude });
+              return;
+            }
+          } catch { }
+        }
+
+        if (isTumkurText && active) {
+          setGeocodedCoord({ latitude: 13.3379, longitude: 77.1173 });
+        }
+      }
+    };
+
+    void resolveExactCoords();
+    return () => { active = false; };
+  }, [selectedAddr?.addressId, selectedAddr?.line1, selectedAddr?.city, selectedAddr?.pincode]);
+
+  const orderObj = orderQuery.data as any;
+  const orderLat = Number(orderObj?.latitude || orderObj?.deliveryLatitude || orderObj?.deliveryAddress?.latitude);
+  const orderLng = Number(orderObj?.longitude || orderObj?.deliveryLongitude || orderObj?.deliveryAddress?.longitude);
+
+  const restaurantLocation = useMemo(() => {
+    if (restaurant?.latitude && Number(restaurant.latitude) !== 0 && !isNaN(Number(restaurant.latitude))) {
+      return {
+        latitude: Number(restaurant.latitude),
+        longitude: Number(restaurant.longitude),
+      };
+    }
+    // Tumkur city center default
+    return {
+      latitude: 13.3379,
+      longitude: 77.1173,
+    };
+  }, [restaurant?.latitude, restaurant?.longitude]);
+
+  const customerLocation = useMemo(() => {
+    if (geocodedCoord) {
+      return geocodedCoord;
+    }
+    if (selectedAddr?.latitude && selectedAddr?.longitude && Number(selectedAddr.latitude) !== 0 && !isNaN(Number(selectedAddr.latitude))) {
+      const latVal = Number(selectedAddr.latitude);
+      const lngVal = Number(selectedAddr.longitude);
+      const isBangalore = Math.abs(latVal - 12.9716) < 0.05 && Math.abs(lngVal - 77.5946) < 0.05;
+      const fullText = [selectedAddr.line1, selectedAddr.line2, selectedAddr.city, selectedAddr.pincode].filter(Boolean).join(', ');
+      const isTumkur = fullText.toLowerCase().includes('tumk') || (selectedAddr.pincode && selectedAddr.pincode.startsWith('572'));
+      if (!(isBangalore && isTumkur)) {
+        return { latitude: latVal, longitude: lngVal };
+      }
+    }
+    if (!isNaN(orderLat) && !isNaN(orderLng) && orderLat !== 0 && orderLng !== 0) {
+      return { latitude: orderLat, longitude: orderLng };
+    }
+    if (globalLocation.coords && globalLocation.coords.latitude !== 0) {
+      return globalLocation.coords;
+    }
+    return {
+      latitude: restaurantLocation.latitude + 0.012,
+      longitude: restaurantLocation.longitude + 0.012,
+    };
+  }, [geocodedCoord, selectedAddr, orderLat, orderLng, restaurantLocation]);
+
+  const isDeliveryActive = ['ASSIGNED', 'REACHED_RESTAURANT', 'READY_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(orderQuery.data?.status || '');
+  const deliveryLocationQuery = useGetDeliveryLocationQuery(validId ? orderId : '', {
+    skip: !validId || !isDeliveryActive,
+    pollingInterval: 2500,
+  });
+
+  const effectiveDriverLocation = useMemo(() => {
+    if (location && location.lat !== 0 && !isNaN(location.lat)) {
+      return { latitude: location.lat, longitude: location.lng };
+    }
+    if (deliveryLocationQuery.data && deliveryLocationQuery.data.latitude !== 0 && !isNaN(deliveryLocationQuery.data.latitude)) {
+      return {
+        latitude: deliveryLocationQuery.data.latitude,
+        longitude: deliveryLocationQuery.data.longitude,
+      };
+    }
+    return null;
+  }, [location, deliveryLocationQuery.data]);
 
   // Separate subscription drives fallback polling (shared cache).
   const pollSubscription = useGetOrderQuery(orderId, {
@@ -479,11 +605,54 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
 
                 <TrackingMap
                   location={location}
+                  driverLocation={effectiveDriverLocation}
                   orderStatus={order.status}
                   restaurantLocation={restaurantLocation}
                   customerLocation={customerLocation}
                   onEtaUpdate={setRouteTravelTime}
                 />
+              </View>
+            )}
+
+            {/* Delivery Address Card */}
+            {selectedAddr && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#FFFFFF',
+                padding: tokens.spacing.md,
+                borderRadius: 16,
+                marginTop: tokens.spacing.md,
+                marginHorizontal: tokens.spacing.md,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.05,
+                shadowRadius: 3,
+                elevation: 2,
+              }}>
+                <View style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: '#EFF6FF',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ fontSize: 22 }}>🏠</Text>
+                </View>
+                <View style={{ flex: 1, marginLeft: tokens.spacing.md }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#16A34A', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Delivering To ({selectedAddr.label || 'Home'})
+                  </Text>
+                  <Text style={{ fontWeight: '700', fontSize: 14, color: '#1F2937', marginTop: 2 }} numberOfLines={1}>
+                    {[selectedAddr.line1, selectedAddr.line2].filter(Boolean).join(', ') || 'Your delivery address'}
+                  </Text>
+                  <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 1 }} numberOfLines={1}>
+                    {[selectedAddr.city, selectedAddr.pincode].filter(Boolean).join(' - ')}
+                  </Text>
+                </View>
               </View>
             )}
 

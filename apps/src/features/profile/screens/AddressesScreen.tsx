@@ -15,7 +15,8 @@ import {
   useTheme,
 } from 'foodie-shared-rn';
 import * as Location from 'expo-location';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { Marker, Region, PROVIDER_GOOGLE } from 'react-native-maps';
+import { globalLocation } from '../../../core/GlobalLocation';
 import {
   useAddAddressMutation,
   useGetAddressesQuery,
@@ -135,6 +136,11 @@ export function AddressesScreen({ navigation, route }: Props) {
   const openAddForm = () => {
     setEditingId(null);
     resetForm();
+    const initLat = globalLocation.coords?.latitude ?? mapRegion.latitude ?? 13.3379;
+    const initLng = globalLocation.coords?.longitude ?? mapRegion.longitude ?? 77.1173;
+    setLatitude(initLat.toString());
+    setLongitude(initLng.toString());
+    setMapRegion(prev => ({ ...prev, latitude: initLat, longitude: initLng }));
     setFormVisible(true);
     setTimeout(() => {
       void fetchExactLocation();
@@ -148,28 +154,37 @@ export function AddressesScreen({ navigation, route }: Props) {
     setLine2(address.line2 || '');
     setCity(address.city || '');
     setPincode(address.pincode || '');
-    setLatitude(address.latitude?.toString() || '');
-    setLongitude(address.longitude?.toString() || '');
+    const validLat = address.latitude && Number(address.latitude) !== 0 ? address.latitude.toString() : '13.3379';
+    const validLng = address.longitude && Number(address.longitude) !== 0 ? address.longitude.toString() : '77.1173';
+    setLatitude(validLat);
+    setLongitude(validLng);
     setIsDefault(!!address.isDefault);
-    if (address.latitude && address.longitude) {
-      setMapRegion(prev => ({
-        ...prev,
-        latitude: Number(address.latitude),
-        longitude: Number(address.longitude),
-      }));
-    }
+    setMapRegion(prev => ({
+      ...prev,
+      latitude: Number(validLat),
+      longitude: Number(validLng),
+    }));
     setFormVisible(true);
   };
 
   const onSave = async () => {
+    let finalLat = latitude;
+    let finalLng = longitude;
+    if (!finalLat || Number(finalLat) === 0 || isNaN(Number(finalLat))) {
+      finalLat = mapRegion.latitude ? mapRegion.latitude.toString() : '13.3379';
+    }
+    if (!finalLng || Number(finalLng) === 0 || isNaN(Number(finalLng))) {
+      finalLng = mapRegion.longitude ? mapRegion.longitude.toString() : '77.1173';
+    }
+
     const validated = validateAddressForm({
       label,
       line1,
       line2,
       city,
       pincode,
-      latitude,
-      longitude,
+      latitude: finalLat,
+      longitude: finalLng,
       isDefault,
     });
     if (!validated.ok) {
@@ -355,6 +370,7 @@ export function AddressesScreen({ navigation, route }: Props) {
               <View style={{ height: 160, borderRadius: 12, overflow: 'hidden', borderColor: '#F59E0B', borderWidth: 1, backgroundColor: '#E5E7EB' }}>
                 <MapView
                   ref={mapRef}
+                  provider={PROVIDER_GOOGLE}
                   style={{ flex: 1 }}
                   region={mapRegion}
                   onRegionChangeComplete={(r) => {
