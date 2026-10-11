@@ -78,10 +78,9 @@ function getFriendlyStatusText(status: string): string {
 export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatus }: Props) {
   const { tokens } = useTheme();
 
-  // Color selection matching premium green & gold
   const isDelivered = order.status === 'DELIVERED';
   const isCancelled = order.status === 'CANCELLED' || order.status === 'REJECTED';
-  const isCompleted = isDelivered || order.status === 'PICKED_UP' || order.status === 'OUT_FOR_DELIVERY';
+  const isCompleted = isDelivered;
 
   let labelBg = '#FEF3C7'; // Default gold accent
   let labelText = '#D97706';

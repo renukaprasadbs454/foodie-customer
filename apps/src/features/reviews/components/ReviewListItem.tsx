@@ -11,6 +11,75 @@ type Props = {
 export function ReviewListItem({ review }: Props) {
   const rating = Number(review.restaurantRating) || 5;
 
+  const renderComment = (comment: string) => {
+    const hasStructuredFeedback =
+      comment.includes('[Food & Dining]:') ||
+      comment.includes('[Delivery Service]:') ||
+      comment.includes('[Restaurant]:') ||
+      comment.includes('[Delivery]:');
+
+    if (!hasStructuredFeedback) {
+      return (
+        <Text style={{ fontSize: 14, color: '#111827', fontWeight: '600', marginTop: 4, lineHeight: 20 }}>
+          "{comment}"
+        </Text>
+      );
+    }
+
+    const sections = comment.split('\n\n').filter(Boolean);
+    return (
+      <View style={{ gap: 8, marginTop: 4 }}>
+        {sections.map((section, idx) => {
+          const isFood =
+            section.startsWith('[Food & Dining]:') || section.startsWith('[Restaurant]:');
+          const isDelivery =
+            section.startsWith('[Delivery Service]:') || section.startsWith('[Delivery]:');
+
+          const cleanText = section
+            .replace(/^\[(Food & Dining|Restaurant|Delivery Service|Delivery)\]:\s*/, '')
+            .trim();
+
+          return (
+            <View
+              key={idx}
+              style={{
+                backgroundColor: isFood ? '#F0FDF4' : isDelivery ? '#FFFBEB' : '#F9FAFB',
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 10,
+                borderLeftWidth: 3.5,
+                borderLeftColor: isFood ? '#059669' : isDelivery ? '#D97706' : '#9CA3AF',
+                gap: 2,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <FontAwesome
+                  name={isFood ? 'cutlery' : isDelivery ? 'motorcycle' : 'comment-o'}
+                  size={12}
+                  color={isFood ? '#047857' : isDelivery ? '#B45309' : '#6B7280'}
+                />
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '800',
+                    color: isFood ? '#047857' : isDelivery ? '#B45309' : '#6B7280',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  {isFood ? 'Food & Dining' : isDelivery ? 'Delivery Partner' : 'Note'}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 13, color: '#1F2937', fontWeight: '600', lineHeight: 18 }}>
+                {cleanText}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
   return (
     <View
       style={{
@@ -62,11 +131,8 @@ export function ReviewListItem({ review }: Props) {
         </View>
       )}
 
-      {review.comment ? (
-        <Text style={{ fontSize: 14, color: '#111827', fontWeight: '600', marginTop: 4, lineHeight: 20 }}>
-          "{review.comment}"
-        </Text>
-      ) : null}
+      {review.comment ? renderComment(review.comment) : null}
     </View>
   );
 }
+

@@ -39,6 +39,7 @@ import { useGetCartQuery } from '../../../api/endpoints/cartApi';
 import { useGetNotificationsQuery } from '../../../api/endpoints/notificationsApi';
 import { useGetMyOrdersQuery } from '../../../api/endpoints/ordersApi';
 import { useGetMyProfileQuery } from '../../../api/endpoints/usersApi';
+import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CATEGORY_ITEMS } from '../mockData';
 import { GlobalCartBanner } from '../../cart/components/GlobalCartBanner';
@@ -52,6 +53,54 @@ import { PromotionalBannerCarousel } from '../components/PromotionalBannerCarous
 import { syncSupportChatMessages, connectToAgentAndCreateEnquiry, pollLiveAdminMessages, sendLiveCustomerMessageToAdmin } from '../../profile/supportAiEngine';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Home'>;
+
+async function reverseGeocodeCoords(lat: number, lng: number): Promise<string | null> {
+  // 1. Fast boundary match for Tumkur (app default center)
+  if (Math.abs(lat - 13.3379) < 0.15 && Math.abs(lng - 77.1173) < 0.15) {
+    return 'Tumkur, Karnataka';
+  }
+  // 2. Fast boundary match for Bengaluru
+  if (Math.abs(lat - 12.9716) < 0.25 && Math.abs(lng - 77.5946) < 0.25) {
+    return 'Bengaluru, Karnataka';
+  }
+
+  // 3. Try expo Location.reverseGeocodeAsync
+  try {
+    const res = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+    if (res && res.length > 0) {
+      const item = res[0];
+      const parts = [
+        item.name && !item.name.includes('+') && !item.name.match(/^[0-9A-Z]+\+[0-9A-Z]+$/) ? item.name : null,
+        item.district || item.subregion || item.city,
+        item.region,
+      ].filter(Boolean);
+      if (parts.length > 0) return parts.join(', ');
+    }
+  } catch (e) {}
+
+  // 4. Try free reverse geocode API with short timeout
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    const resp = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timer);
+    if (resp.ok) {
+      const json = await resp.json();
+      const addr = json.address;
+      if (addr) {
+        const area = addr.suburb || addr.neighbourhood || addr.road || addr.village || addr.town || addr.city;
+        const city = addr.city || addr.town || addr.county || addr.state;
+        const formatted = [area, city].filter(Boolean).join(', ');
+        if (formatted) return formatted;
+      }
+    }
+  } catch (e) {}
+
+  return null;
+}
 
 /**
  * P2-CUS-01 Home — location-optional APPROVED restaurant feed (UI-API Home).
@@ -70,6 +119,10 @@ export function HomeScreen({ navigation }: Props) {
   } | null>(null);
   const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [currentAddress, setCurrentAddress] = useState('Locating...');
+
+  // Fetch saved delivery addresses (Instant priority & selection)
+  const addressesQuery = useGetAddressesQuery(undefined, { refetchOnFocus: true });
+  const savedAddresses = addressesQuery.data ?? [];
 
   // Fetch profile for dynamic customer name & contact details
   const profileQuery = useGetMyProfileQuery();
@@ -248,61 +301,132 @@ export function HomeScreen({ navigation }: Props) {
   useFocusEffect(
     React.useCallback(() => {
       void feed.refetch();
-    }, [feed.refetch])
+      void addressesQuery.refetch();
+    }, [feed.refetch, addressesQuery.refetch])
   );
 
+  // 1. Immediately apply saved default or first address when loaded
+  useEffect(() => {
+    if (savedAddresses.length > 0) {
+      const defAddr = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
+      if (defAddr) {
+        const prefix = defAddr.label ? `${defAddr.label} • ` : '';
+        const main = defAddr.line1 || defAddr.city || 'Delivery Address';
+        const cityPart = defAddr.city && !main.includes(defAddr.city) ? `, ${defAddr.city}` : '';
+        const fullAddr = `${prefix}${main}${cityPart}`;
+        setCurrentAddress(fullAddr);
+
+        if (defAddr.latitude && defAddr.longitude && Number(defAddr.latitude) !== 0) {
+          setUserCoords({
+            latitude: Number(defAddr.latitude),
+            longitude: Number(defAddr.longitude),
+          });
+        }
+      }
+    }
+  }, [savedAddresses]);
+
+  // 2. Resolve live location or fallback cleanly without hanging
   useEffect(() => {
     let isMounted = true;
-    (async () => {
+
+    const detectLocation = async () => {
+      // Browser fast geolocation on Web
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            if (!isMounted) return;
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            setUserCoords({ latitude: lat, longitude: lng });
+
+            const resolved = await reverseGeocodeCoords(lat, lng);
+            if (isMounted) {
+              if (savedAddresses.length === 0 || currentAddress === 'Locating...') {
+                setCurrentAddress(resolved || 'Tumkur, Karnataka');
+              }
+            }
+          },
+          () => {
+            if (isMounted && currentAddress === 'Locating...') {
+              if (savedAddresses.length > 0) {
+                const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
+                setCurrentAddress(def.line1 ? `${def.line1}, ${def.city}` : def.city);
+              } else {
+                setCurrentAddress('Tumkur, Karnataka');
+              }
+            }
+          },
+          { timeout: 3500, maximumAge: 60000 }
+        );
+        return;
+      }
+
+      // Mobile Expo Location
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          if (isMounted) setCurrentAddress('Location Permission Denied');
+          if (isMounted && currentAddress === 'Locating...') {
+            if (savedAddresses.length > 0) {
+              const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
+              setCurrentAddress(def.line1 ? `${def.line1}, ${def.city}` : def.city);
+            } else {
+              setCurrentAddress('Tumkur, Karnataka');
+            }
+          }
           return;
         }
 
-        const fetchLocAndGeocode = async (loc: Location.LocationObject) => {
-          if (!isMounted) return;
-          setUserCoords({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-          });
+        const loc = await Promise.race([
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500)),
+        ]);
 
-          try {
-            const reverseGeocode = await Location.reverseGeocodeAsync({
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-            });
-            if (reverseGeocode.length > 0 && isMounted) {
-              const addr = reverseGeocode[0];
-              const parts = [
-                addr.name && !addr.name.includes('+') && !addr.name.match(/^[0-9A-Z]+\+[0-9A-Z]+$/) ? addr.name : null,
-                addr.district || addr.subregion || addr.city,
-                addr.region,
-              ].filter(Boolean);
-              setCurrentAddress(parts.join(', ') || 'Unknown Location');
-            }
-          } catch (e) {
-            // Silently fallback if geocode fails
+        if (loc && isMounted) {
+          setUserCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+          const resolved = await reverseGeocodeCoords(loc.coords.latitude, loc.coords.longitude);
+          if (isMounted && (savedAddresses.length === 0 || currentAddress === 'Locating...')) {
+            setCurrentAddress(resolved || 'Tumkur, Karnataka');
           }
-        };
-
-        // Get initial quickly
-        const lastLoc = await Location.getLastKnownPositionAsync().catch(() => null);
-        if (lastLoc) await fetchLocAndGeocode(lastLoc);
-
-        // Try getting accurate
-        const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        await fetchLocAndGeocode(location);
-
-      } catch (err) {
+        } else if (isMounted && currentAddress === 'Locating...') {
+          if (savedAddresses.length > 0) {
+            const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
+            setCurrentAddress(def.line1 ? `${def.line1}, ${def.city}` : def.city);
+          } else {
+            setCurrentAddress('Tumkur, Karnataka');
+          }
+        }
+      } catch (e) {
         if (isMounted && currentAddress === 'Locating...') {
-          setCurrentAddress('Bengaluru, Karnataka');
+          if (savedAddresses.length > 0) {
+            const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
+            setCurrentAddress(def.line1 ? `${def.line1}, ${def.city}` : def.city);
+          } else {
+            setCurrentAddress('Tumkur, Karnataka');
+          }
         }
       }
-    })();
-    return () => { isMounted = false; };
-  }, []);
+    };
+
+    void detectLocation();
+
+    // Guaranteed safety timeout: under no circumstances should "Locating..." remain after 2.5s
+    const safetyTimer = setTimeout(() => {
+      if (isMounted && currentAddress === 'Locating...') {
+        if (savedAddresses.length > 0) {
+          const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
+          setCurrentAddress(def.line1 ? `${def.line1}, ${def.city}` : def.city);
+        } else {
+          setCurrentAddress('Tumkur, Karnataka');
+        }
+      }
+    }, 2500);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyTimer);
+    };
+  }, [savedAddresses]);
 
   const applyCuisine = () => {
     const next = cuisineDraft.trim() || undefined;
@@ -437,19 +561,28 @@ export function HomeScreen({ navigation }: Props) {
           </View>
         </View>
 
-        {/* Second Row: Location Button (Subtle) */}
+        {/* Second Row: Location Button (Subtle & Clickable) */}
         <Pressable
-          onPress={() => navigation.navigate('Addresses', {})}
+          onPress={() => navigation.navigate('Addresses', { selectMode: true })}
           accessibilityRole="button"
           accessibilityLabel="Change delivery address"
           style={({ pressed }) => ({
             flexDirection: 'row',
             alignItems: 'center',
-            opacity: pressed ? 0.7 : 1,
+            opacity: pressed ? 0.75 : 1,
+            backgroundColor: 'rgba(255, 255, 255, 0.12)',
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 20,
+            alignSelf: 'flex-start',
+            marginTop: 4,
           })}
         >
-          <Text style={{ fontSize: 13, color: '#A7F3D0', fontWeight: '800', letterSpacing: 0.5 }}>DELIVERING TO  </Text>
-          <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '800' }}>
+          <Text style={{ marginRight: 6, fontSize: 13 }}>📍</Text>
+          <Text style={{ fontSize: 12, color: '#A7F3D0', fontWeight: '800', letterSpacing: 0.5 }}>
+            DELIVERING TO{' '}
+          </Text>
+          <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>
             {currentAddress.length > 28 ? currentAddress.substring(0, 28) + '...' : currentAddress}
           </Text>
           <Text style={{ color: '#FCD34D', fontSize: 16, marginLeft: 6, fontWeight: '900' }}>›</Text>

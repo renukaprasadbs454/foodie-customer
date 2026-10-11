@@ -714,8 +714,8 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
               </View>
             )}
 
-            {/* Live Delivery Partner Block */}
-            {['ASSIGNED', 'REACHED_RESTAURANT', 'READY_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.status) && deliveryPartner && (
+            {/* Live Delivery Partner Block (Active Deliveries) */}
+            {['ASSIGNED', 'REACHED_RESTAURANT', 'READY_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(order.status) && deliveryPartner && (
               <View style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -794,21 +794,6 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                 >
                   <Text style={{ color: '#EF4444', fontSize: 16, fontWeight: '500' }}>Cancel Order</Text>
                 </Pressable>
-              ) : null}
-
-              {order.status === 'DELIVERED' ? (
-                <Button
-                  label="Leave a review"
-                  accessibilityLabel="Leave a review"
-                  onPress={() =>
-                    navigation.navigate('Reviews', {
-                      mode: 'submit',
-                      orderId,
-                      restaurantId: order.restaurantId,
-                    })
-                  }
-                  style={{ marginTop: tokens.spacing.md }}
-                />
               ) : null}
 
               <Button
