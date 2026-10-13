@@ -53,10 +53,18 @@ export function RefundStatusScreen({ navigation, route }: Props) {
     hour12: true,
   });
 
-  const refundId = liveRefundData?.refundReference || (orderId ? `RF-${orderId.substring(0, 8).toUpperCase()}` : 'RF-91827364');
+  const refundId =
+    liveRefundData?.refundReference ||
+    (refundStatus === 'PENDING_ADMIN'
+      ? 'Awaiting Admin Approval'
+      : orderId
+      ? `RF-${orderId.substring(0, 8).toUpperCase()}`
+      : 'RF-91827364');
   const arnNumber = liveRefundData?.refundReference
     ? `ARN-${liveRefundData.refundReference.replace(/[^0-9]/g, '').slice(0, 14) || '98234710294'}`
-    : `ARN-${displayOrderNum.replace(/[^0-9]/g, '') || '98234710294'}`;
+    : (refundStatus === 'PENDING_ADMIN'
+      ? 'Awaiting Admin Release'
+      : `ARN-${displayOrderNum.replace(/[^0-9]/g, '') || '98234710294'}`);
 
   const copyToClipboard = (text: string, label: string) => {
     try {

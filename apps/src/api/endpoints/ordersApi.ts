@@ -422,28 +422,16 @@ export const ordersApi = baseApi.injectEndpoints({
 
         const cleanKey = String(orderKey).trim().replace(/^[#\s]+/, '');
 
-        // 1. Try customer backend endpoint
-        try {
-          const res = await fetchWithBaseQuery(`/api/v1/orders/${encodeURIComponent(cleanKey)}/refund-status`);
-          if (res.data) {
-            const json = (res.data as any).data || res.data;
-            if (json && (json.status || json.refundApprovalState)) {
-              return { data: json };
-            }
-          }
-        } catch { }
-
-        // 2. Query connected Admin BFF on port 3000 / Metro proxy on 8081
-        const endpoints = [
-          `http://localhost:3000/api/bff/orders/${encodeURIComponent(cleanKey)}/refund-status`,
-          `http://127.0.0.1:3000/api/bff/orders/${encodeURIComponent(cleanKey)}/refund-status`,
+        // 1. Query connected Admin Panel & Metro approvals store first
+        const adminEndpoints = [
+          `/orders/${encodeURIComponent(cleanKey)}/refund-status`,
           `http://localhost:8081/orders/${encodeURIComponent(cleanKey)}/refund-status`,
           `http://127.0.0.1:8081/orders/${encodeURIComponent(cleanKey)}/refund-status`,
-          `http://10.109.177.186:3000/api/bff/orders/${encodeURIComponent(cleanKey)}/refund-status`,
-          `http://10.109.177.186:8081/orders/${encodeURIComponent(cleanKey)}/refund-status`,
+          `http://localhost:3000/api/bff/orders/${encodeURIComponent(cleanKey)}/refund-status`,
+          `http://127.0.0.1:3000/api/bff/orders/${encodeURIComponent(cleanKey)}/refund-status`,
         ];
 
-        for (const ep of endpoints) {
+        for (const ep of adminEndpoints) {
           try {
             const resp = await fetch(ep, {
               headers: { Accept: 'application/json' },
@@ -451,13 +439,48 @@ export const ordersApi = baseApi.injectEndpoints({
             if (resp.ok) {
               const json = await resp.json();
               const d = json && json.data ? json.data : json;
-              if (d && (d.status || d.refundApprovalState)) {
+              if (d && (d.status === 'APPROVED' || d.status === 'REFUNDED')) {
                 return { data: d };
+              }
+              if (d && d.status === 'REJECTED') {
+                return { data: d };
+              }
+              if (d && (d.status === 'PENDING_APPROVAL' || d.refundApprovalState === 'PENDING_ADMIN')) {
+                return {
+                  data: {
+                    orderId: cleanKey,
+                    status: 'PENDING_APPROVAL',
+                    refundApprovalState: 'PENDING_ADMIN',
+                    refundReference: null,
+                    reviewedAt: null,
+                    reviewedBy: null,
+                  },
+                };
               }
             }
           } catch { }
         }
 
+        // 2. Query backend endpoint (only accept if approved by an actual human admin, reject automated 'SYSTEM' stub)
+        try {
+          const res = await fetchWithBaseQuery(`/api/v1/orders/${encodeURIComponent(cleanKey)}/refund-status`);
+          if (res.data) {
+            const json = (res.data as any).data || res.data;
+            if (
+              json &&
+              (json.status === 'APPROVED' || json.status === 'REFUNDED') &&
+              json.reviewedBy &&
+              json.reviewedBy !== 'SYSTEM'
+            ) {
+              return { data: json };
+            }
+            if (json && json.status === 'REJECTED') {
+              return { data: json };
+            }
+          }
+        } catch { }
+
+        // Default: strictly pending admin review in Admin Panel
         return {
           data: {
             orderId: cleanKey,
