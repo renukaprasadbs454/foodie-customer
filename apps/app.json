@@ -12,6 +12,9 @@
       "bundleIdentifier": "com.delimo.customer",
       "config": {
         "googleMapsApiKey": "AIzaSyBef3prJr9YvHFDYczEJ-mzZfSlLd2vHbE"
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

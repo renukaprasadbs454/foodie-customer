@@ -33,6 +33,7 @@ import type { BrowseStackParamList } from '../../../navigation/types';
 import { RestaurantCard } from '../components/RestaurantCard';
 import { RestaurantListSkeleton } from '../components/RestaurantListSkeleton';
 import { useRestaurantFeed } from '../hooks/useRestaurantFeed';
+import { useDetectZoneQuery } from '../../../api/endpoints/restaurantsApi';
 import type { RestaurantSort } from '../types';
 import { RESTAURANT_SORT_WHITELIST } from '../types';
 import { useGetCartQuery } from '../../../api/endpoints/cartApi';
@@ -281,11 +282,18 @@ export function HomeScreen({ navigation }: Props) {
 
   // Removed redundant syncChatFromStorage manually
 
+  const zoneQuery = useDetectZoneQuery(
+    { lat: userCoords?.latitude ?? 0, lng: userCoords?.longitude ?? 0 },
+    { skip: !userCoords?.latitude || !userCoords?.longitude, refetchOnFocus: true }
+  );
+  const detectedZone = zoneQuery.data;
+
   const feed = useRestaurantFeed({
     cuisineType,
     sort,
     userLatitude: userCoords?.latitude,
     userLongitude: userCoords?.longitude,
+    zoneId: detectedZone?.zoneId ?? undefined,
   });
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -302,7 +310,8 @@ export function HomeScreen({ navigation }: Props) {
     React.useCallback(() => {
       void feed.refetch();
       void addressesQuery.refetch();
-    }, [feed.refetch, addressesQuery.refetch])
+      void zoneQuery.refetch();
+    }, [feed.refetch, addressesQuery.refetch, zoneQuery.refetch])
   );
 
   // 1. Immediately apply saved default or first address when loaded
@@ -561,32 +570,58 @@ export function HomeScreen({ navigation }: Props) {
           </View>
         </View>
 
-        {/* Second Row: Location Button (Subtle & Clickable) */}
-        <Pressable
-          onPress={() => navigation.navigate('Addresses', { selectMode: true })}
-          accessibilityRole="button"
-          accessibilityLabel="Change delivery address"
-          style={({ pressed }) => ({
-            flexDirection: 'row',
-            alignItems: 'center',
-            opacity: pressed ? 0.75 : 1,
-            backgroundColor: 'rgba(255, 255, 255, 0.12)',
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 20,
-            alignSelf: 'flex-start',
-            marginTop: 4,
-          })}
-        >
-          <Text style={{ marginRight: 6, fontSize: 13 }}>📍</Text>
-          <Text style={{ fontSize: 12, color: '#A7F3D0', fontWeight: '800', letterSpacing: 0.5 }}>
-            DELIVERING TO{' '}
-          </Text>
-          <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>
-            {currentAddress.length > 28 ? currentAddress.substring(0, 28) + '...' : currentAddress}
-          </Text>
-          <Text style={{ color: '#FCD34D', fontSize: 16, marginLeft: 6, fontWeight: '900' }}>›</Text>
-        </Pressable>
+        {/* Second Row: Operating Zone Badge & Location Selector */}
+        <View style={{ marginTop: 4, gap: 5 }}>
+          {detectedZone?.zoneName ? (
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: detectedZone.serviceable ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.25)',
+              paddingHorizontal: 10,
+              paddingVertical: 3,
+              borderRadius: 12,
+              alignSelf: 'flex-start',
+              borderWidth: 1,
+              borderColor: detectedZone.serviceable ? '#4ADE80' : '#FCA5A5',
+              gap: 6,
+            }}>
+              <View style={{
+                width: 7,
+                height: 7,
+                borderRadius: 4,
+                backgroundColor: detectedZone.serviceable ? '#4ADE80' : '#EF4444',
+              }} />
+              <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900', letterSpacing: 0.3 }}>
+                {detectedZone.serviceable ? `${detectedZone.zoneName.toUpperCase()}` : 'OUTSIDE OPERATING ZONE'}
+              </Text>
+            </View>
+          ) : null}
+
+          <Pressable
+            onPress={() => navigation.navigate('Addresses', { selectMode: true })}
+            accessibilityRole="button"
+            accessibilityLabel="Change delivery address"
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              opacity: pressed ? 0.75 : 1,
+              backgroundColor: 'rgba(255, 255, 255, 0.12)',
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 20,
+              alignSelf: 'flex-start',
+            })}
+          >
+            <Text style={{ marginRight: 6, fontSize: 13 }}>📍</Text>
+            <Text style={{ fontSize: 12, color: '#A7F3D0', fontWeight: '800', letterSpacing: 0.5 }}>
+              DELIVERING TO{' '}
+            </Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>
+              {currentAddress.length > 28 ? currentAddress.substring(0, 28) + '...' : currentAddress}
+            </Text>
+            <Text style={{ color: '#FCD34D', fontSize: 16, marginLeft: 6, fontWeight: '900' }}>›</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={{ paddingHorizontal: tokens.spacing.md, gap: tokens.spacing.lg }}>
@@ -698,7 +733,9 @@ export function HomeScreen({ navigation }: Props) {
               Top Restaurants
             </Text>
             <Text variant="caption" color={tokens.color.textSecondary}>
-              Chef-crafted meals curated for you
+              {detectedZone?.zoneName && detectedZone.serviceable
+                ? `Serving all restaurants in ${detectedZone.zoneName}`
+                : 'Chef-crafted meals curated for you'}
             </Text>
           </View>
           <Pressable
@@ -814,6 +851,58 @@ export function HomeScreen({ navigation }: Props) {
                   description="Pull to retry. Check your connection."
                   accessibilityLabel="Restaurant feed error"
                 />
+              ) : detectedZone && !detectedZone.serviceable ? (
+                <View style={{
+                  backgroundColor: '#FFFBEB',
+                  borderColor: '#F59E0B',
+                  borderWidth: 1.5,
+                  borderRadius: 16,
+                  padding: 24,
+                  marginHorizontal: tokens.spacing.md,
+                  alignItems: 'center',
+                  marginTop: 16,
+                  shadowColor: '#B45309',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 8,
+                  elevation: 2,
+                }}>
+                  <Text style={{ fontSize: 36, marginBottom: 8 }}>📍</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: '#92400E', textAlign: 'center', marginBottom: 6 }}>
+                    No Restaurants Available In Your Area
+                  </Text>
+                  <Text style={{ fontSize: 14, color: '#B45309', textAlign: 'center', marginBottom: 16, lineHeight: 20 }}>
+                    {detectedZone.message || 'We currently only deliver within admin-created operating zones.'}
+                  </Text>
+                  {detectedZone.availableZones && detectedZone.availableZones.length > 0 && (
+                    <View style={{ width: '100%', marginBottom: 16 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#78350F', marginBottom: 8, textAlign: 'center', letterSpacing: 0.5 }}>
+                        ACTIVE ADMIN OPERATING ZONES
+                      </Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
+                        {detectedZone.availableZones.map((z) => (
+                          <View key={z} style={{ backgroundColor: '#FDE68A', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: '#78350F' }}>✓ {z}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                  <Pressable
+                    onPress={() => navigation.navigate('Addresses', { selectMode: true })}
+                    style={({ pressed }) => ({
+                      backgroundColor: '#14532D',
+                      paddingHorizontal: 20,
+                      paddingVertical: 12,
+                      borderRadius: 24,
+                      opacity: pressed ? 0.85 : 1,
+                    })}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 14 }}>
+                      Change Delivery Address 📍
+                    </Text>
+                  </Pressable>
+                </View>
               ) : (
                 <EmptyState
                   title="No restaurants found"

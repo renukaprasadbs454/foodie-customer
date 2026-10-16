@@ -7,6 +7,7 @@ type FeedArgs = Omit<RestaurantListParams, 'page' | 'size'> & {
   size?: number;
   userLatitude?: number;
   userLongitude?: number;
+  zoneId?: string;
 };
 
 function normalizeTerm(raw: string): string {
@@ -58,6 +59,7 @@ export function useRestaurantFeed(args: FeedArgs) {
     sort: args.sort === 'nearby' ? undefined : args.sort,
     lat: args.userLatitude,
     lng: args.userLongitude,
+    zoneId: args.zoneId,
   });
 
   const items = useMemo(() => {

@@ -1,5 +1,6 @@
 import { baseApi } from '../baseApi';
 import type {
+  CustomerZoneInfo,
   RestaurantListParams,
   RestaurantPublicProfile,
   RestaurantReview,
@@ -65,6 +66,7 @@ export const restaurantsApi = baseApi.injectEndpoints({
         search,
         lat,
         lng,
+        zoneId,
         cuisineType,
         page = 0,
         size = DEFAULT_RESTAURANT_PAGE_SIZE,
@@ -75,6 +77,7 @@ export const restaurantsApi = baseApi.injectEndpoints({
           ...(search ? { search } : {}),
           ...(lat !== undefined ? { lat } : {}),
           ...(lng !== undefined ? { lng } : {}),
+          ...(zoneId ? { zoneId } : {}),
           ...(cuisineType ? { cuisineType } : {}),
           page,
           size: Math.min(size, 100),
@@ -158,6 +161,28 @@ export const restaurantsApi = baseApi.injectEndpoints({
       ],
       keepUnusedDataFor: 120,
     }),
+    detectZone: builder.query<CustomerZoneInfo, { lat: number; lng: number }>({
+      query: ({ lat, lng }) => ({
+        url: '/api/v1/restaurants/zone-detect',
+        params: { lat, lng },
+      }),
+      transformResponse: (response: any) => {
+        const d = response?.data ?? response;
+        return {
+          serviceable: Boolean(d?.serviceable),
+          zoneId: d?.zoneId ?? null,
+          zoneName: d?.zoneName ?? null,
+          cityName: d?.cityName ?? null,
+          latitude: d?.latitude ? Number(d.latitude) : null,
+          longitude: d?.longitude ? Number(d.longitude) : null,
+          restaurantCount: d?.restaurantCount ?? 0,
+          availableZones: Array.isArray(d?.availableZones) ? d.availableZones : [],
+          message: d?.message ?? '',
+        };
+      },
+      providesTags: ['Restaurant'],
+      keepUnusedDataFor: 60,
+    }),
   }),
 });
 
@@ -166,4 +191,6 @@ export const {
   useLazyGetRestaurantsQuery,
   useGetRestaurantQuery,
   useGetRestaurantReviewsQuery,
+  useDetectZoneQuery,
+  useLazyDetectZoneQuery,
 } = restaurantsApi;

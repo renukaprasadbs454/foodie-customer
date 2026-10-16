@@ -16,10 +16,23 @@ export type RestaurantListParams = {
   search?: string;
   lat?: number;
   lng?: number;
+  zoneId?: string;
   cuisineType?: string;
   page?: number;
   size?: number;
   sort?: RestaurantSort;
+};
+
+export type CustomerZoneInfo = {
+  serviceable: boolean;
+  zoneId?: string | null;
+  zoneName?: string | null;
+  cityName?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  restaurantCount: number;
+  availableZones: string[];
+  message?: string;
 };
 
 /** §3.1 list item (public APPROVED feed). */
