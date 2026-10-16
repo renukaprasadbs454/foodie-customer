@@ -308,10 +308,35 @@ export function HomeScreen({ navigation }: Props) {
 
   useFocusEffect(
     React.useCallback(() => {
-      void feed.refetch();
-      void addressesQuery.refetch();
-      void zoneQuery.refetch();
-    }, [feed.refetch, addressesQuery.refetch, zoneQuery.refetch])
+      try {
+        if (!feed.isUninitialized) {
+          void feed.refetch();
+        }
+      } catch {
+        // Safe guard against uninitialized RTK Query
+      }
+      try {
+        if (!addressesQuery.isUninitialized) {
+          void addressesQuery.refetch();
+        }
+      } catch {
+        // Safe guard against uninitialized RTK Query
+      }
+      try {
+        if (!zoneQuery.isUninitialized) {
+          void zoneQuery.refetch();
+        }
+      } catch {
+        // Safe guard against uninitialized RTK Query
+      }
+    }, [
+      feed.isUninitialized,
+      feed.refetch,
+      addressesQuery.isUninitialized,
+      addressesQuery.refetch,
+      zoneQuery.isUninitialized,
+      zoneQuery.refetch,
+    ])
   );
 
   // 1. Immediately apply saved default or first address when loaded
@@ -835,7 +860,16 @@ export function HomeScreen({ navigation }: Props) {
               <RefreshControl
                 refreshing={feed.isFetching && feed.items.length > 0}
                 onRefresh={() => {
-                  void feed.refetch();
+                  try {
+                    if (!feed.isUninitialized) void feed.refetch();
+                  } catch {
+                    // Safe guard
+                  }
+                  try {
+                    if (!zoneQuery.isUninitialized) void zoneQuery.refetch();
+                  } catch {
+                    // Safe guard
+                  }
                 }}
                 tintColor={tokens.color.accent}
               />

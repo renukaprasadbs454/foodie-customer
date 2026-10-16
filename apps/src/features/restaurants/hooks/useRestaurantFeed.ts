@@ -112,6 +112,7 @@ export function useRestaurantFeed(args: FeedArgs) {
     items,
     isLoading: queryResult.isLoading,
     isFetching: queryResult.isFetching,
+    isUninitialized: queryResult.isUninitialized,
     isError: queryResult.isError,
     error: queryResult.error,
     refetch: queryResult.refetch,
