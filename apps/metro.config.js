@@ -33,7 +33,10 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   }
 
   if (moduleName === 'foodie-shared-rn') {
-    return context.resolveRequest(context, sharedRnRoot, platform);
+    return {
+      type: 'sourceFile',
+      filePath: path.resolve(sharedRnRoot, 'src/index.ts'),
+    };
   }
 
   const dedupedPackages = [
@@ -117,6 +120,16 @@ config.server = {
             host: hostHeader,
           },
         };
+
+        if (req.url.includes('/admin/payments/commission-rules')) {
+          delete options.headers['authorization'];
+          delete options.headers['Authorization'];
+          options.headers['authorization'] = 'Bearer demo-admin-token';
+        } else if (req.url.includes('/admin/location/delivery-charges')) {
+          if (!options.headers['authorization'] && !options.headers['Authorization']) {
+            options.headers['authorization'] = 'Bearer demo-admin-token';
+          }
+        }
         const proxyReq = httpLib.request(targetUrl, options, (proxyRes) => {
           res.writeHead(proxyRes.statusCode || 200, {
             ...proxyRes.headers,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { FlatList, RefreshControl, View, StatusBar, Pressable, TextInput as RNTextInput, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -30,6 +30,9 @@ import { getDistanceKm, getEstimatedTimeMins } from '../../restaurants/types';
 import * as Location from 'expo-location';
 import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import { useGetMyProfileQuery } from '../../../api/endpoints/usersApi';
+import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
+import { useGetDeliveryChargesQuery, useGetCommissionRulesQuery } from '../../../api/endpoints/feesApi';
+import { globalLocation } from '../../../core/GlobalLocation';
 import { MOCK_RESTAURANTS, MOCK_MENUS } from '../../restaurants/mockData';
 import { canProceedToCheckout } from '../types';
 
@@ -289,7 +292,43 @@ export function CartScreen({ navigation, route }: Props) {
   };
 
   const showItems = (!cartQuery.isLoading && !cartQuery.isError && items.length > 0) || isDarkStoreMock;
-  const deliveryFee = 25;
+
+  const deliveryChargesQuery = useGetDeliveryChargesQuery();
+  const commissionRulesQuery = useGetCommissionRulesQuery();
+  const { data: restaurantData } = useGetRestaurantQuery(restaurantId ?? '', {
+    skip: !restaurantId || isDarkStoreMock,
+  });
+
+  const actualDistanceKm = useMemo(() => {
+    const custLat = Number(defaultAddress?.latitude) || globalLocation.coords?.latitude;
+    const custLng = Number(defaultAddress?.longitude) || globalLocation.coords?.longitude;
+    const restLat = Number(restaurantData?.latitude) || Number(mockRestaurant?.latitude);
+    const restLng = Number(restaurantData?.longitude) || Number(mockRestaurant?.longitude);
+
+    if (custLat && custLng && restLat && restLng) {
+      return getDistanceKm(custLat, custLng, restLat, restLng);
+    }
+    return 0;
+  }, [defaultAddress, restaurantData, mockRestaurant]);
+
+  const deliveryFee = useMemo(() => {
+    if (isDarkStoreMock) return 25;
+    if (deliveryChargesQuery.data) {
+      const baseCharge = Number(deliveryChargesQuery.data.baseCharge) || 0;
+      const baseDistanceKm = Number(deliveryChargesQuery.data.baseDistanceKm) || 0;
+      const additionalChargePerKm = Number(deliveryChargesQuery.data.additionalChargePerKm) || 0;
+      const extraKm = Math.max(0, actualDistanceKm - baseDistanceKm);
+      return baseCharge + (extraKm * additionalChargePerKm);
+    }
+    return 25;
+  }, [isDarkStoreMock, deliveryChargesQuery.data, actualDistanceKm]);
+
+  const platformFee = useMemo(() => {
+    if (commissionRulesQuery.data?.platformFixedFee != null) {
+      return Number(commissionRulesQuery.data.platformFixedFee);
+    }
+    return 0;
+  }, [commissionRulesQuery.data]);
 
   let calculatedTaxes = 0;
   if (isDarkStoreMock) {
@@ -309,7 +348,7 @@ export function CartScreen({ navigation, route }: Props) {
   }
 
   const resolvedDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0;
-  const totalBill = Math.max(0, subtotalAmt + deliveryFee + calculatedTaxes - resolvedDiscount);
+  const totalBill = Math.max(0, subtotalAmt + deliveryFee + platformFee + calculatedTaxes - resolvedDiscount);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
@@ -323,8 +362,16 @@ export function CartScreen({ navigation, route }: Props) {
           contentContainerStyle={{ paddingBottom: 120, flexGrow: 1 }}
           refreshControl={
             <RefreshControl
-              refreshing={cartQuery.isFetching}
-              onRefresh={() => { void cartQuery.refetch(); }}
+              refreshing={
+                cartQuery.isFetching ||
+                deliveryChargesQuery.isFetching ||
+                commissionRulesQuery.isFetching
+              }
+              onRefresh={() => {
+                void cartQuery.refetch();
+                void deliveryChargesQuery.refetch();
+                void commissionRulesQuery.refetch();
+              }}
               tintColor="#FCD34D"
             />
           }
@@ -596,8 +643,22 @@ export function CartScreen({ navigation, route }: Props) {
                       <Text style={{ color: '#111827', fontWeight: '700' }}>₹{formatMoney(subtotalAmt)}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: '#6B7280', fontWeight: '600' }}>Delivery Partner Fee</Text>
-                      <Text style={{ color: '#111827', fontWeight: '700' }}>₹{formatMoney(deliveryFee)}</Text>
+                      <Text style={{ color: '#6B7280', fontWeight: '600' }}>
+                        Delivery Partner Fee{actualDistanceKm > 0 ? ` (${actualDistanceKm.toFixed(1)} km)` : ''}
+                      </Text>
+                      <Text style={{ color: '#111827', fontWeight: '700' }}>
+                        {deliveryChargesQuery.isLoading ? '...' : `₹${formatMoney(deliveryFee)}`}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ color: '#6B7280', fontWeight: '600' }}>Platform Fee</Text>
+                      <Text style={{ color: '#111827', fontWeight: '700' }}>
+                        {commissionRulesQuery.isLoading
+                          ? '...'
+                          : commissionRulesQuery.isError && commissionRulesQuery.data?.platformFixedFee == null
+                          ? '—'
+                          : `₹${formatMoney(platformFee)}`}
+                      </Text>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                       <Text style={{ color: '#6B7280', fontWeight: '600' }}>Taxes & Charges</Text>
@@ -665,7 +726,14 @@ export function CartScreen({ navigation, route }: Props) {
                   setShowAddressRequiredModal(true);
                   return;
                 }
-                navigation.navigate('Checkout' as any, { mockItems: isDarkStoreMock ? mockItems : undefined, discount: appliedCoupon?.discountAmount || 0, couponCode: appliedCoupon?.code, taxes: calculatedTaxes, deliveryFee: deliveryFee });
+                navigation.navigate('Checkout' as any, {
+                  mockItems: isDarkStoreMock ? mockItems : undefined,
+                  discount: appliedCoupon?.discountAmount || 0,
+                  couponCode: appliedCoupon?.code,
+                  taxes: calculatedTaxes,
+                  deliveryFee: deliveryFee,
+                  platformFee: platformFee,
+                });
               }}
               style={({ pressed }) => ({
                 backgroundColor: pressed ? '#0F3E22' : '#14532D',

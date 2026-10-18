@@ -29,6 +29,9 @@ import { useGetCartQuery } from '../../../api/endpoints/cartApi';
 import { useCreateOrderMutation, useTransitionOrderStatusMutation, saveOrderPaymentMethod } from '../../../api/endpoints/ordersApi';
 import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
 import { useGetWalletBalanceQuery } from '../../../api/endpoints/walletApi';
+import { useGetDeliveryChargesQuery, useGetCommissionRulesQuery } from '../../../api/endpoints/feesApi';
+import { getDistanceKm } from '../../restaurants/types';
+import { globalLocation } from '../../../core/GlobalLocation';
 import { toUnwrappedApiError } from '../../auth/apiError';
 import { formatMoney, parseMoney } from '../../menu/types';
 import type { BrowseStackParamList } from '../../../navigation/types';
@@ -81,6 +84,49 @@ export function CheckoutScreen({ navigation, route }: any) {
   const addresses = addressesQuery.data ?? [];
   const walletBalance = Number(walletQuery.data?.balance || 0);
 
+  const deliveryChargesQuery = useGetDeliveryChargesQuery();
+  const commissionRulesQuery = useGetCommissionRulesQuery();
+
+  const chosenAddr = useMemo(() => {
+    return addresses.find((a) => a.addressId === addressId);
+  }, [addresses, addressId]);
+
+  const actualDistanceKm = useMemo(() => {
+    const custLat = Number(chosenAddr?.latitude) || globalLocation.coords?.latitude;
+    const custLng = Number(chosenAddr?.longitude) || globalLocation.coords?.longitude;
+    const restLat = Number(restaurant?.latitude);
+    const restLng = Number(restaurant?.longitude);
+
+    if (custLat && custLng && restLat && restLng) {
+      return getDistanceKm(custLat, custLng, restLat, restLng);
+    }
+    return 0;
+  }, [chosenAddr, restaurant]);
+
+  const calculatedDeliveryFee = useMemo(() => {
+    if (isDarkStoreMock) {
+      return route.params?.deliveryFee ?? 25;
+    }
+    if (deliveryChargesQuery.data) {
+      const baseCharge = Number(deliveryChargesQuery.data.baseCharge) || 0;
+      const baseDistanceKm = Number(deliveryChargesQuery.data.baseDistanceKm) || 0;
+      const additionalChargePerKm = Number(deliveryChargesQuery.data.additionalChargePerKm) || 0;
+      const extraKm = Math.max(0, actualDistanceKm - baseDistanceKm);
+      return baseCharge + (extraKm * additionalChargePerKm);
+    }
+    return route.params?.deliveryFee ?? 25;
+  }, [isDarkStoreMock, deliveryChargesQuery.data, actualDistanceKm, route.params?.deliveryFee]);
+
+  const actualPlatformFee = useMemo(() => {
+    if (commissionRulesQuery.data?.platformFixedFee != null) {
+      return Number(commissionRulesQuery.data.platformFixedFee);
+    }
+    if (route.params?.platformFee != null) {
+      return Number(route.params.platformFee);
+    }
+    return 0;
+  }, [commissionRulesQuery.data, route.params?.platformFee]);
+
   useEffect(() => {
     trackAnalyticsEvent('customer_checkout_viewed');
     trackAnalyticsEvent('checkout_started');
@@ -111,7 +157,7 @@ export function CheckoutScreen({ navigation, route }: any) {
 
 
 
-  const loading = cartQuery.isLoading || addressesQuery.isLoading || createState.isLoading || walletQuery.isLoading;
+  const loading = cartQuery.isLoading || addressesQuery.isLoading || createState.isLoading || walletQuery.isLoading || deliveryChargesQuery.isLoading;
 
   const onPlaceOrder = async () => {
     if (!addressId || !isAddressId(addressId)) {
@@ -200,8 +246,9 @@ export function CheckoutScreen({ navigation, route }: any) {
   const routeDiscount = route.params?.discount ?? 0;
   const totalDiscount = routeDiscount;
   const routeTaxes = route.params?.taxes ?? 18;
-  const routeDelivery = route.params?.deliveryFee ?? 25;
-  const orderTotal = Math.max(0, subtotal + routeDelivery + routeTaxes - totalDiscount);
+  const deliveryFee = calculatedDeliveryFee;
+  const platformFee = actualPlatformFee;
+  const orderTotal = Math.max(0, subtotal + deliveryFee + platformFee + routeTaxes - totalDiscount);
   const walletApplied = useWallet ? Math.min(walletBalance, orderTotal) : 0;
   const grandTotal = Math.max(0, orderTotal - walletApplied);
 
@@ -220,11 +267,19 @@ export function CheckoutScreen({ navigation, route }: any) {
             }}
             refreshControl={
               <RefreshControl
-                refreshing={cartQuery.isFetching || addressesQuery.isFetching || walletQuery.isFetching}
+                refreshing={
+                  cartQuery.isFetching ||
+                  addressesQuery.isFetching ||
+                  walletQuery.isFetching ||
+                  deliveryChargesQuery.isFetching ||
+                  commissionRulesQuery.isFetching
+                }
                 onRefresh={() => {
                   void cartQuery.refetch();
                   void addressesQuery.refetch();
                   void walletQuery.refetch();
+                  void deliveryChargesQuery.refetch();
+                  void commissionRulesQuery.refetch();
                 }}
                 tintColor="#FCD34D"
               />
@@ -473,8 +528,22 @@ export function CheckoutScreen({ navigation, route }: any) {
                         <Text style={{ color: '#111827', fontWeight: '700' }}>₹{formatMoney(subtotal)}</Text>
                       </View>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ color: '#6B7280', fontWeight: '600' }}>Delivery Fee</Text>
-                        <Text style={{ color: '#111827', fontWeight: '700' }}>₹{formatMoney(routeDelivery)}</Text>
+                        <Text style={{ color: '#6B7280', fontWeight: '600' }}>
+                          Delivery Partner Fee{actualDistanceKm > 0 ? ` (${actualDistanceKm.toFixed(1)} km)` : ''}
+                        </Text>
+                        <Text style={{ color: '#111827', fontWeight: '700' }}>
+                          {deliveryChargesQuery.isLoading ? '...' : `₹${formatMoney(deliveryFee)}`}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ color: '#6B7280', fontWeight: '600' }}>Platform Fee</Text>
+                        <Text style={{ color: '#111827', fontWeight: '700' }}>
+                          {commissionRulesQuery.isLoading && route.params?.platformFee == null
+                            ? '...'
+                            : commissionRulesQuery.isError && actualPlatformFee === 0 && route.params?.platformFee == null
+                            ? '—'
+                            : `₹${formatMoney(platformFee)}`}
+                        </Text>
                       </View>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                         <Text style={{ color: '#6B7280', fontWeight: '600' }}>Taxes & Charges</Text>
