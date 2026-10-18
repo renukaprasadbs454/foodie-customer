@@ -293,14 +293,7 @@ export function HomeScreen({ navigation }: Props) {
       } catch {
         // Safe guard against uninitialized RTK Query
       }
-    }, [
-      feed.isUninitialized,
-      feed.refetch,
-      addressesQuery.isUninitialized,
-      addressesQuery.refetch,
-      zoneQuery.isUninitialized,
-      zoneQuery.refetch,
-    ])
+    }, [])
   );
 
   // 1. Sync identified operating zone with global location state
@@ -313,7 +306,7 @@ export function HomeScreen({ navigation }: Props) {
   // 2. Fetch live exact GPS location immediately on initial mount (every time app opens)
   useEffect(() => {
     void triggerLocateMe();
-  }, [triggerLocateMe]);
+  }, []);
 
   // 3. Fall back to saved default address ONLY if GPS locating completed, was denied/failed, and coords are still missing
   useEffect(() => {

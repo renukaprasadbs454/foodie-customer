@@ -166,119 +166,124 @@ export async function reverseGeocodeCoords(lat: number, lng: number): Promise<st
   return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 }
 
+let activeLocatePromise: Promise<GlobalLocationData> | null = null;
+
 /**
  * Fetch the user's exact live location using device GPS.
- * High accuracy is strictly enforced.
+ * High accuracy is strictly enforced. Deduplicates in-flight calls to avoid re-render loops.
  */
 export async function fetchExactLocation(force: boolean = false): Promise<GlobalLocationData> {
-  globalLocation.isLocating = true;
-  notifyListeners();
-
-  try {
-    // 1. Web browser high-accuracy geolocation
-    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.geolocation) {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: force ? 0 : 30000,
-        });
-      });
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      const address = await reverseGeocodeCoords(lat, lng);
-
-      globalLocation.coords = { latitude: lat, longitude: lng };
-      globalLocation.address = address;
-      globalLocation.source = 'GPS';
-      globalLocation.isLocating = false;
-
-      void AsyncStorage.setItem(STORAGE_KEYS.LAST_COORDS, JSON.stringify(globalLocation.coords));
-      void AsyncStorage.setItem(STORAGE_KEYS.LAST_ADDRESS, address);
-      void AsyncStorage.removeItem(STORAGE_KEYS.SELECTED_ADDRESS);
-
-      try {
-        const detected = await detectZoneFromCoords(lat, lng);
-        if (detected) {
-          globalLocation.zone = detected;
-        }
-      } catch {
-        // ignore
-      }
-
-      notifyListeners();
-      return { ...globalLocation };
-    }
-
-    // 2. Mobile Native Location
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      console.warn('Location permission was not granted by the user.');
-      // Fallback to cached coords if available
-      await loadCachedCoordsFallback();
-      globalLocation.isLocating = false;
-      notifyListeners();
-      return { ...globalLocation };
-    }
-
-    // Attempt high accuracy position with fallback to balanced/last known
-    let location: Location.LocationObject | null = null;
-    try {
-      location = await Promise.race([
-        Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        }),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 7000)),
-      ]);
-    } catch (posErr) {
-      console.warn('Position fetch failed, falling back to last known position:', posErr);
-    }
-
-    if (!location) {
-      try {
-        location = await Location.getLastKnownPositionAsync();
-      } catch {
-        // ignore
-      }
-    }
-
-    if (location?.coords) {
-      const lat = location.coords.latitude;
-      const lng = location.coords.longitude;
-      const address = await reverseGeocodeCoords(lat, lng);
-
-      globalLocation.coords = { latitude: lat, longitude: lng };
-      globalLocation.address = address;
-      globalLocation.source = 'GPS';
-      globalLocation.isLocating = false;
-
-      void AsyncStorage.setItem(STORAGE_KEYS.LAST_COORDS, JSON.stringify(globalLocation.coords));
-      void AsyncStorage.setItem(STORAGE_KEYS.LAST_ADDRESS, address);
-      void AsyncStorage.removeItem(STORAGE_KEYS.SELECTED_ADDRESS);
-
-      try {
-        const detected = await detectZoneFromCoords(lat, lng);
-        if (detected) {
-          globalLocation.zone = detected;
-        }
-      } catch {
-        // ignore
-      }
-
-      notifyListeners();
-      return { ...globalLocation };
-    } else {
-      await loadCachedCoordsFallback();
-    }
-  } catch (err) {
-    console.warn('Error fetching exact location:', err);
-    await loadCachedCoordsFallback();
-  } finally {
-    globalLocation.isLocating = false;
-    notifyListeners();
+  if (activeLocatePromise) {
+    return activeLocatePromise;
   }
 
-  return { ...globalLocation };
+  activeLocatePromise = (async () => {
+    globalLocation.isLocating = true;
+    notifyListeners();
+
+    try {
+      // 1. Web browser high-accuracy geolocation
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.geolocation) {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: force ? 0 : 30000,
+          });
+        });
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const address = await reverseGeocodeCoords(lat, lng);
+
+        globalLocation.coords = { latitude: lat, longitude: lng };
+        globalLocation.address = address;
+        globalLocation.source = 'GPS';
+
+        void AsyncStorage.setItem(STORAGE_KEYS.LAST_COORDS, JSON.stringify(globalLocation.coords));
+        void AsyncStorage.setItem(STORAGE_KEYS.LAST_ADDRESS, address);
+        void AsyncStorage.removeItem(STORAGE_KEYS.SELECTED_ADDRESS);
+
+        try {
+          const detected = await detectZoneFromCoords(lat, lng);
+          if (detected) {
+            globalLocation.zone = detected;
+          }
+        } catch {
+          // ignore
+        }
+
+        return { ...globalLocation };
+      }
+
+      // 2. Mobile Native Location
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.warn('Location permission was not granted by the user.');
+        // Fallback to cached coords if available
+        await loadCachedCoordsFallback();
+        return { ...globalLocation };
+      }
+
+      // Attempt high accuracy position with fallback to balanced/last known
+      let location: Location.LocationObject | null = null;
+      try {
+        location = await Promise.race([
+          Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          }),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 7000)),
+        ]);
+      } catch (posErr) {
+        console.warn('Position fetch failed, falling back to last known position:', posErr);
+      }
+
+      if (!location) {
+        try {
+          location = await Location.getLastKnownPositionAsync();
+        } catch {
+          // ignore
+        }
+      }
+
+      if (location?.coords) {
+        const lat = location.coords.latitude;
+        const lng = location.coords.longitude;
+        const address = await reverseGeocodeCoords(lat, lng);
+
+        globalLocation.coords = { latitude: lat, longitude: lng };
+        globalLocation.address = address;
+        globalLocation.source = 'GPS';
+
+        void AsyncStorage.setItem(STORAGE_KEYS.LAST_COORDS, JSON.stringify(globalLocation.coords));
+        void AsyncStorage.setItem(STORAGE_KEYS.LAST_ADDRESS, address);
+        void AsyncStorage.removeItem(STORAGE_KEYS.SELECTED_ADDRESS);
+
+        try {
+          const detected = await detectZoneFromCoords(lat, lng);
+          if (detected) {
+            globalLocation.zone = detected;
+          }
+        } catch {
+          // ignore
+        }
+
+        return { ...globalLocation };
+      } else {
+        await loadCachedCoordsFallback();
+      }
+    } catch (err) {
+      console.warn('Error fetching exact location:', err);
+      await loadCachedCoordsFallback();
+    } finally {
+      globalLocation.isLocating = false;
+      notifyListeners();
+      activeLocatePromise = null;
+    }
+
+    return { ...globalLocation };
+  })();
+
+  return activeLocatePromise;
 }
 
 async function loadCachedCoordsFallback() {
@@ -358,8 +363,16 @@ export async function setSelectedAddress(addr: {
 
 /**
  * Set the currently identified operating zone.
+ * Avoids firing listeners if the zone content has not changed.
  */
 export function setGlobalZone(zone: CustomerZoneInfo | null) {
+  if (
+    globalLocation.zone?.zoneId === zone?.zoneId &&
+    globalLocation.zone?.serviceable === zone?.serviceable &&
+    globalLocation.zone?.restaurantCount === zone?.restaurantCount
+  ) {
+    return;
+  }
   globalLocation.zone = zone;
   notifyListeners();
 }
@@ -384,8 +397,10 @@ export async function initGlobalLocation() {
   return await fetchExactLocation(true);
 }
 
+const stableTriggerLocate = () => fetchExactLocation(true);
+
 /**
- * Custom React hook to subscribe to global location state.
+ * Custom React hook to subscribe to global location state with stable function references.
  */
 export function useGlobalLocation() {
   const [state, setState] = useState<GlobalLocationData>({ ...globalLocation });
@@ -399,7 +414,7 @@ export function useGlobalLocation() {
 
   return {
     ...state,
-    fetchExactLocation: () => fetchExactLocation(true),
+    fetchExactLocation: stableTriggerLocate,
     setSelectedAddress,
     setZone: setGlobalZone,
   };
