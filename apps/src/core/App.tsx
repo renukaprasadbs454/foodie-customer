@@ -68,18 +68,16 @@ class RootErrorBoundary extends Component<
  */
 export default function App() {
   React.useEffect(() => {
-    setTimeout(() => {
-      void (async () => {
-        if (!isExpoGo()) {
-          try {
-            await Notifications.requestPermissionsAsync();
-          } catch { }
-        }
+    void (async () => {
+      if (!isExpoGo()) {
         try {
-          await initGlobalLocation();
+          await Notifications.requestPermissionsAsync();
         } catch { }
-      })();
-    }, 100);
+      }
+      try {
+        await initGlobalLocation();
+      } catch { }
+    })();
   }, []);
 
   return (

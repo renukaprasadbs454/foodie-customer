@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, AppState, AppStateStatus } from 'react-native';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { CustomerZoneInfo } from '../features/restaurants/types';
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.foodie.kwiko.org';
 
 export type LocationSource = 'GPS' | 'SELECTED_ADDRESS' | 'FALLBACK';
 
@@ -52,6 +54,56 @@ function notifyListeners() {
       // Ignore listener errors
     }
   });
+}
+
+let appStateSubscriptionInitialized = false;
+
+export function setupLocationAppStateListener() {
+  if (appStateSubscriptionInitialized) return;
+  if (typeof AppState === 'undefined' || !AppState?.addEventListener) return;
+  appStateSubscriptionInitialized = true;
+
+  let lastState = AppState.currentState;
+  AppState.addEventListener('change', (nextState: AppStateStatus) => {
+    // Re-fetch live location every time app returns to active foreground
+    if (lastState && lastState.match(/inactive|background/) && nextState === 'active') {
+      void initGlobalLocation();
+    }
+    lastState = nextState;
+  });
+}
+
+/**
+ * Detect customer operating zone dynamically from coordinates.
+ */
+export async function detectZoneFromCoords(lat: number, lng: number): Promise<CustomerZoneInfo | null> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const resp = await fetch(`${API_BASE_URL}/api/v1/restaurants/zone-detect?lat=${lat}&lng=${lng}`, {
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (resp.ok) {
+      const json = await resp.json();
+      const d = json?.data ?? json;
+      return {
+        serviceable: Boolean(d?.serviceable),
+        zoneId: d?.zoneId ?? null,
+        zoneName: d?.zoneName ?? null,
+        cityName: d?.cityName ?? null,
+        latitude: d?.latitude ? Number(d.latitude) : null,
+        longitude: d?.longitude ? Number(d.longitude) : null,
+        restaurantCount: d?.restaurantCount ?? 0,
+        availableZones: Array.isArray(d?.availableZones) ? d.availableZones : [],
+        message: d?.message ?? '',
+      };
+    }
+  } catch (e) {
+    // Gracefully handle zone detect failure
+  }
+  return null;
 }
 
 /**
@@ -145,6 +197,15 @@ export async function fetchExactLocation(force: boolean = false): Promise<Global
       void AsyncStorage.setItem(STORAGE_KEYS.LAST_ADDRESS, address);
       void AsyncStorage.removeItem(STORAGE_KEYS.SELECTED_ADDRESS);
 
+      try {
+        const detected = await detectZoneFromCoords(lat, lng);
+        if (detected) {
+          globalLocation.zone = detected;
+        }
+      } catch {
+        // ignore
+      }
+
       notifyListeners();
       return { ...globalLocation };
     }
@@ -160,21 +221,25 @@ export async function fetchExactLocation(force: boolean = false): Promise<Global
       return { ...globalLocation };
     }
 
-    // Attempt high accuracy position
+    // Attempt high accuracy position with fallback to balanced/last known
     let location: Location.LocationObject | null = null;
     try {
       location = await Promise.race([
         Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+          accuracy: Location.Accuracy.Balanced,
         }),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), 7000)),
       ]);
     } catch (posErr) {
-      console.warn('High accuracy fetch failed, falling back to last known position:', posErr);
+      console.warn('Position fetch failed, falling back to last known position:', posErr);
     }
 
     if (!location) {
-      location = await Location.getLastKnownPositionAsync();
+      try {
+        location = await Location.getLastKnownPositionAsync();
+      } catch {
+        // ignore
+      }
     }
 
     if (location?.coords) {
@@ -190,6 +255,15 @@ export async function fetchExactLocation(force: boolean = false): Promise<Global
       void AsyncStorage.setItem(STORAGE_KEYS.LAST_COORDS, JSON.stringify(globalLocation.coords));
       void AsyncStorage.setItem(STORAGE_KEYS.LAST_ADDRESS, address);
       void AsyncStorage.removeItem(STORAGE_KEYS.SELECTED_ADDRESS);
+
+      try {
+        const detected = await detectZoneFromCoords(lat, lng);
+        if (detected) {
+          globalLocation.zone = detected;
+        }
+      } catch {
+        // ignore
+      }
 
       notifyListeners();
       return { ...globalLocation };
@@ -209,20 +283,6 @@ export async function fetchExactLocation(force: boolean = false): Promise<Global
 
 async function loadCachedCoordsFallback() {
   try {
-    const cachedSelected = await AsyncStorage.getItem(STORAGE_KEYS.SELECTED_ADDRESS);
-    if (cachedSelected) {
-      const parsed = JSON.parse(cachedSelected);
-      if (parsed?.latitude && parsed?.longitude) {
-        globalLocation.coords = {
-          latitude: Number(parsed.latitude),
-          longitude: Number(parsed.longitude),
-        };
-        globalLocation.address = parsed.formatted || parsed.line1 || 'Saved Address';
-        globalLocation.source = 'SELECTED_ADDRESS';
-        return;
-      }
-    }
-
     const cached = await AsyncStorage.getItem(STORAGE_KEYS.LAST_COORDS);
     const cachedAddr = await AsyncStorage.getItem(STORAGE_KEYS.LAST_ADDRESS);
     if (cached) {
@@ -248,7 +308,7 @@ async function loadCachedCoordsFallback() {
 }
 
 /**
- * Explicitly switch delivery location to a saved user address.
+ * Explicitly switch delivery location to a saved user address for the current session.
  */
 export async function setSelectedAddress(addr: {
   addressId?: string | null;
@@ -276,18 +336,19 @@ export async function setSelectedAddress(addr: {
   globalLocation.source = 'SELECTED_ADDRESS';
   globalLocation.isLocating = false;
 
+  // Resolve zone for selected address
   try {
-    await AsyncStorage.setItem(
-      STORAGE_KEYS.SELECTED_ADDRESS,
-      JSON.stringify({
-        addressId: addr.addressId,
-        formatted,
-        line1: addr.line1,
-        city: addr.city,
-        latitude: lat,
-        longitude: lng,
-      })
-    );
+    const detected = await detectZoneFromCoords(lat, lng);
+    if (detected) {
+      globalLocation.zone = detected;
+    }
+  } catch {
+    // Ignore
+  }
+
+  // Clear persistent override so every app launch/reopen starts fresh with live GPS
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEYS.SELECTED_ADDRESS);
   } catch {
     // Ignore storage errors
   }
@@ -304,32 +365,23 @@ export function setGlobalZone(zone: CustomerZoneInfo | null) {
 }
 
 /**
- * Initialize location on application startup.
- * Immediately requests high-accuracy live location.
+ * Initialize location on application startup or reopening.
+ * Wipes prior session address overrides and immediately requests high-accuracy live GPS location.
  */
 export async function initGlobalLocation() {
-  // Check if user previously selected a manual address override
+  setupLocationAppStateListener();
+
+  // Reset to live GPS mode on every app opening
+  globalLocation.source = 'GPS';
+
   try {
-    const cachedSelected = await AsyncStorage.getItem(STORAGE_KEYS.SELECTED_ADDRESS);
-    if (cachedSelected) {
-      const parsed = JSON.parse(cachedSelected);
-      if (parsed?.latitude && parsed?.longitude) {
-        globalLocation.coords = {
-          latitude: Number(parsed.latitude),
-          longitude: Number(parsed.longitude),
-        };
-        globalLocation.address = parsed.formatted || parsed.line1 || 'Saved Address';
-        globalLocation.source = 'SELECTED_ADDRESS';
-        notifyListeners();
-        return;
-      }
-    }
+    await AsyncStorage.removeItem(STORAGE_KEYS.SELECTED_ADDRESS);
   } catch {
-    // Proceed to live GPS fetch
+    // Ignore storage errors
   }
 
   // Fetch live exact GPS location on app opening
-  await fetchExactLocation(true);
+  return await fetchExactLocation(true);
 }
 
 /**

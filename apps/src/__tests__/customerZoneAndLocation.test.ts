@@ -1,5 +1,9 @@
 jest.mock('react-native', () => ({
   Platform: { OS: 'ios' },
+  AppState: {
+    currentState: 'active',
+    addEventListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
+  },
 }));
 
 import {
@@ -8,6 +12,7 @@ import {
   subscribeLocation,
   setGlobalZone,
   reverseGeocodeCoords,
+  initGlobalLocation,
 } from '../core/GlobalLocation';
 
 jest.mock('expo-location', () => ({
@@ -87,5 +92,29 @@ describe('Customer Zone and Location Engine', () => {
     expect(typeof addr).toBe('string');
     expect(addr.length).toBeGreaterThan(0);
     expect(addr).toContain('Tumkur');
+  });
+
+  it('fetches fresh GPS location and clears manual address override on every app open', async () => {
+    // First simulate manual address selection during session
+    await setSelectedAddress({
+      addressId: 'manual-addr',
+      label: 'Old Address',
+      line1: 'MG Road',
+      city: 'Bengaluru',
+      latitude: 12.9716,
+      longitude: 77.5946,
+    });
+    expect(globalLocation.source).toBe('SELECTED_ADDRESS');
+
+    // Simulate closing and reopening the app
+    await initGlobalLocation();
+
+    // Must reset back to live GPS source and fresh live coordinates
+    expect(globalLocation.source).toBe('GPS');
+    expect(globalLocation.coords).toEqual({
+      latitude: 13.3379,
+      longitude: 77.1173,
+    });
+    expect(globalLocation.address).toContain('Tumkur');
   });
 });

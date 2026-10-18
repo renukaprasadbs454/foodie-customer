@@ -310,16 +310,14 @@ export function HomeScreen({ navigation }: Props) {
     }
   }, [detectedZone, setZone]);
 
-  // 2. Fetch live exact GPS location immediately on initial mount
+  // 2. Fetch live exact GPS location immediately on initial mount (every time app opens)
   useEffect(() => {
-    if (!userCoords) {
-      void triggerLocateMe();
-    }
-  }, [userCoords, triggerLocateMe]);
+    void triggerLocateMe();
+  }, [triggerLocateMe]);
 
-  // 3. Fall back to saved default address only if GPS was denied or unavailable and source is FALLBACK
+  // 3. Fall back to saved default address ONLY if GPS locating completed, was denied/failed, and coords are still missing
   useEffect(() => {
-    if ((!userCoords || locationSource === 'FALLBACK') && savedAddresses.length > 0) {
+    if (!isLocating && !userCoords && locationSource === 'FALLBACK' && savedAddresses.length > 0) {
       const defAddr = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
       if (defAddr && defAddr.latitude && defAddr.longitude && Number(defAddr.latitude) !== 0) {
         void setSelectedAddress({
@@ -332,7 +330,7 @@ export function HomeScreen({ navigation }: Props) {
         });
       }
     }
-  }, [userCoords, savedAddresses, locationSource]);
+  }, [isLocating, userCoords, savedAddresses, locationSource]);
 
   const applyCuisine = () => {
     const next = cuisineDraft.trim() || undefined;
