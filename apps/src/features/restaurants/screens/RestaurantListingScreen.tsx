@@ -100,7 +100,7 @@ export function RestaurantListingScreen({ navigation, route }: Props) {
           </Text>
         ) : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: tokens.spacing.sm }}>
-          {RESTAURANT_SORT_WHITELIST.map((option) => (
+          {RESTAURANT_SORT_WHITELIST.filter((opt) => opt !== 'topPosition').map((option) => (
             <Pressable
               key={option}
               onPress={() => {

@@ -89,10 +89,36 @@ export function RestaurantCard({ restaurant, onPress, columnMode, userLat, userL
       <View style={{ height: columnMode ? 110 : 150, width: '100%', backgroundColor: '#F0ECE4' }}>
         <Image
           source={{ uri: imageUrl }}
-          style={{ width: '100%', height: '100%', opacity: isClosed ? 0.3 : 1 }}
+          style={{ width: '100%', height: '100%', opacity: isClosed ? 0.35 : 1 }}
           resizeMode="cover"
         />
-        {restaurant.city && !columnMode ? (
+        {isClosed ? (
+          <View style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(17, 24, 39, 0.65)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: 8,
+          }}>
+            <View style={{
+              backgroundColor: 'rgba(31, 41, 55, 0.95)',
+              paddingVertical: 5,
+              paddingHorizontal: 12,
+              borderRadius: 16,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.15)',
+            }}>
+              <Text style={{ color: '#F9FAFB', fontWeight: '800', fontSize: columnMode ? 11 : 13, textAlign: 'center' }}>
+                Currently Closed
+              </Text>
+              <Text style={{ color: '#D1D5DB', fontSize: columnMode ? 9 : 10, textAlign: 'center', marginTop: 2 }}>
+                We will notify you when they open
+              </Text>
+            </View>
+          </View>
+        ) : restaurant.city && !columnMode ? (
           <View style={{
             position: 'absolute',
             top: tokens.spacing.sm,
@@ -110,16 +136,35 @@ export function RestaurantCard({ restaurant, onPress, columnMode, userLat, userL
       </View>
 
       {/* Info details */}
-      <View style={{ padding: columnMode ? tokens.spacing.sm : tokens.spacing.md, gap: 4 }}>
+      <View style={{
+        padding: columnMode ? tokens.spacing.sm : tokens.spacing.md,
+        gap: 4,
+        backgroundColor: isClosed ? '#F9FAFB' : tokens.color.surface,
+      }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text
             variant={columnMode ? "label" : "heading3"}
             numberOfLines={1}
-            style={{ flex: 1, fontWeight: '700', color: tokens.color.textPrimary, fontSize: columnMode ? 13 : 16 }}
+            style={{
+              flex: 1,
+              fontWeight: '700',
+              color: isClosed ? '#4B5563' : tokens.color.textPrimary,
+              fontSize: columnMode ? 13 : 16,
+            }}
           >
             {restaurant.name}
           </Text>
-          {rating ? (
+          {isClosed ? (
+            <View style={{
+              backgroundColor: '#FEE2E2',
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+              borderRadius: 4,
+              marginLeft: 4,
+            }}>
+              <Text style={{ color: '#DC2626', fontSize: 10, fontWeight: '800' }}>CLOSED</Text>
+            </View>
+          ) : rating ? (
             <View style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -166,33 +211,6 @@ export function RestaurantCard({ restaurant, onPress, columnMode, userLat, userL
           </Text>
         </View>
       </View>
-
-      {/* CLOSED OVERLAY */}
-      {isClosed && (
-        <View style={{
-          position: 'absolute',
-          top: 0, bottom: 0, left: 0, right: 0,
-          backgroundColor: 'rgba(255,255,255,0.7)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: tokens.spacing.md,
-        }}>
-          <View style={{
-            backgroundColor: '#1F2937', // Dark Gray
-            paddingVertical: 8,
-            paddingHorizontal: 16,
-            borderRadius: 20,
-            opacity: 0.95,
-          }}>
-            <Text style={{ color: '#F9FAFB', fontWeight: 'bold', fontSize: 13, textAlign: 'center' }}>
-              Currently Closed
-            </Text>
-            <Text style={{ color: '#D1D5DB', fontSize: 10, textAlign: 'center', marginTop: 2 }}>
-              We will notify you when they open
-            </Text>
-          </View>
-        </View>
-      )}
     </TouchableOpacity>
   );
 }

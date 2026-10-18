@@ -75,7 +75,7 @@ export default function App() {
         } catch { }
       }
       try {
-        await initGlobalLocation();
+        await initGlobalLocation(true);
       } catch { }
     })();
   }, []);

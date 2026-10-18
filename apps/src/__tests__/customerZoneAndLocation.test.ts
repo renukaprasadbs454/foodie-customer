@@ -106,8 +106,8 @@ describe('Customer Zone and Location Engine', () => {
     });
     expect(globalLocation.source).toBe('SELECTED_ADDRESS');
 
-    // Simulate closing and reopening the app
-    await initGlobalLocation();
+    // Simulate closing and reopening the app (forceGps: true)
+    await initGlobalLocation(true);
 
     // Must reset back to live GPS source and fresh live coordinates
     expect(globalLocation.source).toBe('GPS');
@@ -116,5 +116,24 @@ describe('Customer Zone and Location Engine', () => {
       longitude: 77.1173,
     });
     expect(globalLocation.address).toContain('Tumkur');
+  });
+
+  it('preserves selected address across in-session page refresh', async () => {
+    await setSelectedAddress({
+      addressId: 'manual-addr-2',
+      label: 'Home',
+      line1: 'Indiranagar 100ft Rd',
+      city: 'Bengaluru',
+      latitude: 12.9716,
+      longitude: 77.5946,
+    });
+    expect(globalLocation.source).toBe('SELECTED_ADDRESS');
+
+    // Simulate page refresh (calling initGlobalLocation without forceGps)
+    await initGlobalLocation(false);
+
+    // Selected address MUST be preserved!
+    expect(globalLocation.source).toBe('SELECTED_ADDRESS');
+    expect(globalLocation.address).toContain('Indiranagar');
   });
 });

@@ -9,12 +9,16 @@ import { authApi } from '../../api/endpoints/authApi';
 import { clearCredentials, setCredentials } from './authSlice';
 import type { AppDispatch, RootState } from '../../store/store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { initGlobalLocation } from '../../core/GlobalLocation';
 
 /** Apply contracted token data to SecureStore + authSlice (P2-AUTH-01). */
 export async function applyAuthSession(
   dispatch: AppDispatch,
   data: AuthTokenData,
 ): Promise<void> {
+  // Pre-fetch live GPS location immediately during login so Home feed loads instantly
+  void initGlobalLocation(true);
+
   await saveRefreshToken(data.refreshToken);
   await AsyncStorage.setItem('foodie.isNewUser', data.isNewUser ? 'true' : 'false');
   dispatch(
