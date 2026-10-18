@@ -303,9 +303,11 @@ export function HomeScreen({ navigation }: Props) {
     }
   }, [detectedZone, setZone]);
 
-  // 2. Fetch live exact GPS location immediately on initial mount (every time app opens)
+  // 2. Fetch live exact GPS location immediately on initial mount only if no address or coords exist
   useEffect(() => {
-    void triggerLocateMe();
+    if (!userCoords && locationSource !== 'SELECTED_ADDRESS') {
+      void triggerLocateMe();
+    }
   }, []);
 
   // 3. Fall back to saved default address ONLY if GPS locating completed, was denied/failed, and coords are still missing
@@ -708,7 +710,6 @@ export function HomeScreen({ navigation }: Props) {
                   } catch {
                     // Safe guard
                   }
-                  void triggerLocateMe();
                 }}
                 tintColor={tokens.color.accent}
               />
