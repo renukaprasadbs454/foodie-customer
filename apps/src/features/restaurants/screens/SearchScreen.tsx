@@ -15,6 +15,8 @@ import { RestaurantCard } from '../components/RestaurantCard';
 import { RestaurantListSkeleton } from '../components/RestaurantListSkeleton';
 import { useRestaurantFeed } from '../hooks/useRestaurantFeed';
 import { GlobalCartBanner } from '../../cart/components/GlobalCartBanner';
+import { useGlobalLocation } from '../../../core/GlobalLocation';
+import { useDetectZoneQuery } from '../../../api/endpoints/restaurantsApi';
 
 const ALL_FOODS_SUGGESTIONS = [
   { name: 'Biriyani', image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=120&q=80' },
@@ -33,9 +35,20 @@ export function SearchScreen({ navigation, route }: Props) {
   const { tokens } = useTheme();
   const [query, setQuery] = useState(route.params?.initialQuery ?? '');
   const debounced = useDebouncedValue(query.trim(), 350);
+
+  const { coords, zone: globalZone } = useGlobalLocation();
+  const zoneQuery = useDetectZoneQuery(
+    { lat: coords?.latitude ?? 0, lng: coords?.longitude ?? 0 },
+    { skip: !coords?.latitude || !coords?.longitude }
+  );
+  const activeZone = zoneQuery.data || globalZone;
+
   const feed = useRestaurantFeed({
     search: debounced.length > 0 ? debounced : undefined,
     sort: 'avgRating',
+    userLatitude: coords?.latitude,
+    userLongitude: coords?.longitude,
+    zoneId: activeZone?.zoneId ?? undefined,
   });
 
   const matchingFoods = query.trim().length > 0
@@ -97,9 +110,12 @@ export function SearchScreen({ navigation, route }: Props) {
           gap: 16,
         }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontSize: 32, fontWeight: '900', color: '#FCD34D', letterSpacing: -0.5 }}>
-              Search
-            </Text>
+            <View>
+              <Text style={{ fontSize: 32, fontWeight: '900', color: '#FCD34D', letterSpacing: -0.5 }}>
+                Search
+              </Text>
+
+            </View>
             <Pressable
               onPress={() => navigation.navigate('Home')}
               style={{
@@ -268,17 +284,31 @@ export function SearchScreen({ navigation, route }: Props) {
                 </View>
               }
               ListEmptyComponent={
-                <View style={{ marginTop: 40, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 48, marginBottom: 12 }}>🍽️</Text>
-                  <Text style={{ fontSize: 18, fontWeight: '800', color: '#14532D', marginBottom: 4 }}>No Results Found</Text>
-                  <Text style={{ fontSize: 14, color: '#6B7280', textAlign: 'center', marginHorizontal: 32 }}>
-                    Try checking spelling or type another restaurant name.
-                  </Text>
-                </View>
+                activeZone && !activeZone.serviceable ? (
+                  <View style={{ marginTop: 30, alignItems: 'center', paddingHorizontal: 20 }}>
+                    <Text style={{ fontSize: 40, marginBottom: 10 }}>📍</Text>
+                    <Text style={{ fontSize: 17, fontWeight: '800', color: '#B45309', marginBottom: 6, textAlign: 'center' }}>
+                      Location Outside Delivery Coverage
+                    </Text>
+                    <Text style={{ fontSize: 13, color: '#92400E', textAlign: 'center', lineHeight: 18 }}>
+                      We do not deliver to this location yet. Please select another delivery address.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={{ marginTop: 40, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 48, marginBottom: 12 }}>🍽️</Text>
+                    <Text style={{ fontSize: 18, fontWeight: '800', color: '#14532D', marginBottom: 4 }}>No Results Found</Text>
+                    <Text style={{ fontSize: 14, color: '#6B7280', textAlign: 'center', marginHorizontal: 32 }}>
+                      Try checking spelling or type another dish or restaurant name.
+                    </Text>
+                  </View>
+                )
               }
               renderItem={({ item }) => (
                 <RestaurantCard
                   restaurant={item}
+                  userLat={coords?.latitude}
+                  userLng={coords?.longitude}
                   onPress={() => {
                     trackAnalyticsEvent('result_tapped', {
                       restaurantId: item.id,

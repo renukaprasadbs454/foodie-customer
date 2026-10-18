@@ -52,60 +52,17 @@ import {
 } from '../../../api/endpoints/supportApi';
 import { PromotionalBannerCarousel } from '../components/PromotionalBannerCarousel';
 import { syncSupportChatMessages, connectToAgentAndCreateEnquiry, pollLiveAdminMessages, sendLiveCustomerMessageToAdmin } from '../../profile/supportAiEngine';
+import {
+  useGlobalLocation,
+  setSelectedAddress,
+  fetchExactLocation,
+  reverseGeocodeCoords,
+} from '../../../core/GlobalLocation';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Home'>;
 
-async function reverseGeocodeCoords(lat: number, lng: number): Promise<string | null> {
-  // 1. Fast boundary match for Tumkur (app default center)
-  if (Math.abs(lat - 13.3379) < 0.15 && Math.abs(lng - 77.1173) < 0.15) {
-    return 'Tumkur, Karnataka';
-  }
-  // 2. Fast boundary match for Bengaluru
-  if (Math.abs(lat - 12.9716) < 0.25 && Math.abs(lng - 77.5946) < 0.25) {
-    return 'Bengaluru, Karnataka';
-  }
-
-  // 3. Try expo Location.reverseGeocodeAsync
-  try {
-    const res = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-    if (res && res.length > 0) {
-      const item = res[0];
-      const parts = [
-        item.name && !item.name.includes('+') && !item.name.match(/^[0-9A-Z]+\+[0-9A-Z]+$/) ? item.name : null,
-        item.district || item.subregion || item.city,
-        item.region,
-      ].filter(Boolean);
-      if (parts.length > 0) return parts.join(', ');
-    }
-  } catch (e) {}
-
-  // 4. Try free reverse geocode API with short timeout
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2500);
-    const resp = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-      { signal: controller.signal }
-    );
-    clearTimeout(timer);
-    if (resp.ok) {
-      const json = await resp.json();
-      const addr = json.address;
-      if (addr) {
-        const area = addr.suburb || addr.neighbourhood || addr.road || addr.village || addr.town || addr.city;
-        const city = addr.city || addr.town || addr.county || addr.state;
-        const formatted = [area, city].filter(Boolean).join(', ');
-        if (formatted) return formatted;
-      }
-    }
-  } catch (e) {}
-
-  return null;
-}
-
 /**
- * P2-CUS-01 Home — location-optional APPROVED restaurant feed (UI-API Home).
- * No COD UI. Geo bias omitted until a location module is approved (feed without lat/lng).
+ * P2-CUS-01 Home — exact GPS location and admin operating zone driven restaurant feed.
  */
 export function HomeScreen({ navigation }: Props) {
   const { tokens } = useTheme();
@@ -118,8 +75,15 @@ export function HomeScreen({ navigation }: Props) {
     message: string;
     variant: 'info' | 'success' | 'error' | 'warning';
   } | null>(null);
-  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [currentAddress, setCurrentAddress] = useState('Locating...');
+
+  const {
+    coords: userCoords,
+    address: currentAddress,
+    isLocating,
+    source: locationSource,
+    fetchExactLocation: triggerLocateMe,
+    setZone,
+  } = useGlobalLocation();
 
   // Fetch saved delivery addresses (Instant priority & selection)
   const addressesQuery = useGetAddressesQuery(undefined, { refetchOnFocus: true });
@@ -339,128 +303,36 @@ export function HomeScreen({ navigation }: Props) {
     ])
   );
 
-  // 1. Immediately apply saved default or first address when loaded
+  // 1. Sync identified operating zone with global location state
   useEffect(() => {
-    if (savedAddresses.length > 0) {
-      const defAddr = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
-      if (defAddr) {
-        const prefix = defAddr.label ? `${defAddr.label} • ` : '';
-        const main = defAddr.line1 || defAddr.city || 'Delivery Address';
-        const cityPart = defAddr.city && !main.includes(defAddr.city) ? `, ${defAddr.city}` : '';
-        const fullAddr = `${prefix}${main}${cityPart}`;
-        setCurrentAddress(fullAddr);
+    if (detectedZone) {
+      setZone(detectedZone);
+    }
+  }, [detectedZone, setZone]);
 
-        if (defAddr.latitude && defAddr.longitude && Number(defAddr.latitude) !== 0) {
-          setUserCoords({
-            latitude: Number(defAddr.latitude),
-            longitude: Number(defAddr.longitude),
-          });
-        }
+  // 2. Fetch live exact GPS location immediately on initial mount
+  useEffect(() => {
+    if (!userCoords) {
+      void triggerLocateMe();
+    }
+  }, [userCoords, triggerLocateMe]);
+
+  // 3. Fall back to saved default address only if GPS was denied or unavailable and source is FALLBACK
+  useEffect(() => {
+    if ((!userCoords || locationSource === 'FALLBACK') && savedAddresses.length > 0) {
+      const defAddr = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
+      if (defAddr && defAddr.latitude && defAddr.longitude && Number(defAddr.latitude) !== 0) {
+        void setSelectedAddress({
+          addressId: defAddr.addressId,
+          label: defAddr.label,
+          line1: defAddr.line1,
+          city: defAddr.city,
+          latitude: defAddr.latitude,
+          longitude: defAddr.longitude,
+        });
       }
     }
-  }, [savedAddresses]);
-
-  // 2. Resolve live location or fallback cleanly without hanging
-  useEffect(() => {
-    let isMounted = true;
-
-    const detectLocation = async () => {
-      // Browser fast geolocation on Web
-      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            if (!isMounted) return;
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
-            setUserCoords({ latitude: lat, longitude: lng });
-
-            const resolved = await reverseGeocodeCoords(lat, lng);
-            if (isMounted) {
-              if (savedAddresses.length === 0 || currentAddress === 'Locating...') {
-                setCurrentAddress(resolved || 'Tumkur, Karnataka');
-              }
-            }
-          },
-          () => {
-            if (isMounted && currentAddress === 'Locating...') {
-              if (savedAddresses.length > 0) {
-                const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
-                setCurrentAddress(def.line1 ? `${def.line1}, ${def.city}` : def.city);
-              } else {
-                setCurrentAddress('Tumkur, Karnataka');
-              }
-            }
-          },
-          { timeout: 3500, maximumAge: 60000 }
-        );
-        return;
-      }
-
-      // Mobile Expo Location
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          if (isMounted && currentAddress === 'Locating...') {
-            if (savedAddresses.length > 0) {
-              const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
-              setCurrentAddress(def.line1 ? `${def.line1}, ${def.city}` : def.city);
-            } else {
-              setCurrentAddress('Tumkur, Karnataka');
-            }
-          }
-          return;
-        }
-
-        const loc = await Promise.race([
-          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-          new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500)),
-        ]);
-
-        if (loc && isMounted) {
-          setUserCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-          const resolved = await reverseGeocodeCoords(loc.coords.latitude, loc.coords.longitude);
-          if (isMounted && (savedAddresses.length === 0 || currentAddress === 'Locating...')) {
-            setCurrentAddress(resolved || 'Tumkur, Karnataka');
-          }
-        } else if (isMounted && currentAddress === 'Locating...') {
-          if (savedAddresses.length > 0) {
-            const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
-            setCurrentAddress(def.line1 ? `${def.line1}, ${def.city}` : def.city);
-          } else {
-            setCurrentAddress('Tumkur, Karnataka');
-          }
-        }
-      } catch (e) {
-        if (isMounted && currentAddress === 'Locating...') {
-          if (savedAddresses.length > 0) {
-            const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
-            setCurrentAddress(def.line1 ? `${def.line1}, ${def.city}` : def.city);
-          } else {
-            setCurrentAddress('Tumkur, Karnataka');
-          }
-        }
-      }
-    };
-
-    void detectLocation();
-
-    // Guaranteed safety timeout: under no circumstances should "Locating..." remain after 2.5s
-    const safetyTimer = setTimeout(() => {
-      if (isMounted && currentAddress === 'Locating...') {
-        if (savedAddresses.length > 0) {
-          const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
-          setCurrentAddress(def.line1 ? `${def.line1}, ${def.city}` : def.city);
-        } else {
-          setCurrentAddress('Tumkur, Karnataka');
-        }
-      }
-    }, 2500);
-
-    return () => {
-      isMounted = false;
-      clearTimeout(safetyTimer);
-    };
-  }, [savedAddresses]);
+  }, [userCoords, savedAddresses, locationSource]);
 
   const applyCuisine = () => {
     const next = cuisineDraft.trim() || undefined;
@@ -595,33 +467,8 @@ export function HomeScreen({ navigation }: Props) {
           </View>
         </View>
 
-        {/* Second Row: Operating Zone Badge & Location Selector */}
-        <View style={{ marginTop: 4, gap: 5 }}>
-          {detectedZone?.zoneName ? (
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: detectedZone.serviceable ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.25)',
-              paddingHorizontal: 10,
-              paddingVertical: 3,
-              borderRadius: 12,
-              alignSelf: 'flex-start',
-              borderWidth: 1,
-              borderColor: detectedZone.serviceable ? '#4ADE80' : '#FCA5A5',
-              gap: 6,
-            }}>
-              <View style={{
-                width: 7,
-                height: 7,
-                borderRadius: 4,
-                backgroundColor: detectedZone.serviceable ? '#4ADE80' : '#EF4444',
-              }} />
-              <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900', letterSpacing: 0.3 }}>
-                {detectedZone.serviceable ? `${detectedZone.zoneName.toUpperCase()}` : 'OUTSIDE OPERATING ZONE'}
-              </Text>
-            </View>
-          ) : null}
-
+        {/* Second Row: Location Selector */}
+        <View style={{ marginTop: 6 }}>
           <Pressable
             onPress={() => navigation.navigate('Addresses', { selectMode: true })}
             accessibilityRole="button"
@@ -642,7 +489,9 @@ export function HomeScreen({ navigation }: Props) {
               DELIVERING TO{' '}
             </Text>
             <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>
-              {currentAddress.length > 28 ? currentAddress.substring(0, 28) + '...' : currentAddress}
+              {(currentAddress || 'Locating...').length > 28
+                ? (currentAddress || 'Locating...').substring(0, 28) + '...'
+                : (currentAddress || 'Locating...')}
             </Text>
             <Text style={{ color: '#FCD34D', fontSize: 16, marginLeft: 6, fontWeight: '900' }}>›</Text>
           </Pressable>
@@ -758,9 +607,7 @@ export function HomeScreen({ navigation }: Props) {
               Top Restaurants
             </Text>
             <Text variant="caption" color={tokens.color.textSecondary}>
-              {detectedZone?.zoneName && detectedZone.serviceable
-                ? `Serving all restaurants in ${detectedZone.zoneName}`
-                : 'Chef-crafted meals curated for you'}
+              Chef-crafted meals curated for you
             </Text>
           </View>
           <Pressable
@@ -858,7 +705,7 @@ export function HomeScreen({ navigation }: Props) {
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
-                refreshing={feed.isFetching && feed.items.length > 0}
+                refreshing={(feed.isFetching || isLocating) && feed.items.length > 0}
                 onRefresh={() => {
                   try {
                     if (!feed.isUninitialized) void feed.refetch();
@@ -870,6 +717,7 @@ export function HomeScreen({ navigation }: Props) {
                   } catch {
                     // Safe guard
                   }
+                  void triggerLocateMe();
                 }}
                 tintColor={tokens.color.accent}
               />
@@ -906,22 +754,8 @@ export function HomeScreen({ navigation }: Props) {
                     No Restaurants Available In Your Area
                   </Text>
                   <Text style={{ fontSize: 14, color: '#B45309', textAlign: 'center', marginBottom: 16, lineHeight: 20 }}>
-                    {detectedZone.message || 'We currently only deliver within admin-created operating zones.'}
+                    We do not deliver to this location yet. Please try selecting a different delivery address.
                   </Text>
-                  {detectedZone.availableZones && detectedZone.availableZones.length > 0 && (
-                    <View style={{ width: '100%', marginBottom: 16 }}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#78350F', marginBottom: 8, textAlign: 'center', letterSpacing: 0.5 }}>
-                        ACTIVE ADMIN OPERATING ZONES
-                      </Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
-                        {detectedZone.availableZones.map((z) => (
-                          <View key={z} style={{ backgroundColor: '#FDE68A', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
-                            <Text style={{ fontSize: 12, fontWeight: '700', color: '#78350F' }}>✓ {z}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  )}
                   <Pressable
                     onPress={() => navigation.navigate('Addresses', { selectMode: true })}
                     style={({ pressed }) => ({

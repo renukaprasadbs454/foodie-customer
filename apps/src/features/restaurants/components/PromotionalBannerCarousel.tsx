@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { View, FlatList, Image, Dimensions, Pressable, Animated, Easing } from 'react-native';
 import { Text, useTheme } from 'foodie-shared-rn';
 import { useGetActiveBannersQuery } from '../../../api/endpoints/bannersApi';
+import { useGlobalLocation } from '../../../core/GlobalLocation';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -56,9 +57,15 @@ const FloatingShape = ({ emoji, initialDelay, left, right, top, bottom, size = 4
 export function PromotionalBannerCarousel() {
     const { tokens } = useTheme();
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
+    const { zone } = useGlobalLocation();
     const { data: banners, isLoading } = useGetActiveBannersQuery();
     const flatListRef = useRef<FlatList>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
+
+    // If outside operating zone, do not show promotions for other zones
+    if (zone && !zone.serviceable) {
+        return null;
+    }
 
     useEffect(() => {
         if (!banners || banners.length <= 1) return;

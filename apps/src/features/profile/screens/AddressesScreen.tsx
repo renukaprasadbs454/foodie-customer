@@ -16,7 +16,7 @@ import {
 } from 'foodie-shared-rn';
 import * as Location from 'expo-location';
 import MapView, { Marker, Region, PROVIDER_GOOGLE } from 'react-native-maps';
-import { globalLocation } from '../../../core/GlobalLocation';
+import { globalLocation, setSelectedAddress } from '../../../core/GlobalLocation';
 import {
   useAddAddressMutation,
   useGetAddressesQuery,
@@ -211,8 +211,18 @@ export function AddressesScreen({ navigation, route }: Props) {
       setFormVisible(false);
       resetForm();
       setEditingId(null);
-      if (selectMode && !editingId) {
-        navigation.goBack();
+      if (selectMode) {
+        await setSelectedAddress({
+          addressId: editingId || undefined,
+          label: validated.value.label,
+          line1: validated.value.line1,
+          city: validated.value.city,
+          latitude: validated.value.latitude,
+          longitude: validated.value.longitude,
+        });
+        if (!editingId) {
+          navigation.goBack();
+        }
       }
     } catch (error) {
       handleError(toUnwrappedApiError(error));
@@ -285,6 +295,8 @@ export function AddressesScreen({ navigation, route }: Props) {
                   Offline — showing cached addresses. Changes are blocked.
                 </Text>
               ) : null}
+
+
               {addressesQuery.isLoading && addresses.length === 0 ? (
                 <AddressListSkeleton />
               ) : null}
@@ -343,9 +355,18 @@ export function AddressesScreen({ navigation, route }: Props) {
                         try {
                           await setDefault(address.addressId).unwrap();
                         } catch (err) {
-                          handleError(toUnwrappedApiError(err));
-                          return;
+                          // continue
                         }
+                      }
+                      if (address.latitude && address.longitude) {
+                        await setSelectedAddress({
+                          addressId: address.addressId,
+                          label: address.label,
+                          line1: address.line1,
+                          city: address.city,
+                          latitude: address.latitude,
+                          longitude: address.longitude,
+                        });
                       }
                       trackAnalyticsEvent('address_selected', {
                         addressId: address.addressId,
@@ -393,10 +414,7 @@ export function AddressesScreen({ navigation, route }: Props) {
                 )}
               </View>
 
-              <Pressable onPress={fetchExactLocation} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 16 }}>📍</Text>
-                <Text style={{ color: '#F59E0B', fontWeight: '700', fontSize: 14 }}>Locate Me</Text>
-              </Pressable>
+
 
               <View style={{ flexDirection: 'row', gap: tokens.spacing.md }}>
                 {['Home', 'Work', 'Other'].map(l => (

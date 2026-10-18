@@ -16,10 +16,12 @@ import { useRestaurantFeed } from '../hooks/useRestaurantFeed';
 import type { RestaurantSort } from '../types';
 import { RESTAURANT_SORT_WHITELIST, isRestaurantSort } from '../types';
 import { GlobalCartBanner } from '../../cart/components/GlobalCartBanner';
+import { useGlobalLocation } from '../../../core/GlobalLocation';
+import { useDetectZoneQuery } from '../../../api/endpoints/restaurantsApi';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'RestaurantListing'>;
 
-/** P2-CUS-01 Restaurant Listing — filtered/sorted §3.1 results. */
+/** P2-CUS-01 Restaurant Listing — zone-constrained filtered/sorted results. */
 export function RestaurantListingScreen({ navigation, route }: Props) {
   const { tokens } = useTheme();
   const { isConnected } = useConnectivity();
@@ -30,7 +32,21 @@ export function RestaurantListingScreen({ navigation, route }: Props) {
   const [cuisineType] = useState(route.params?.cuisineType);
   const search = route.params?.search;
 
-  const feed = useRestaurantFeed({ search, cuisineType, sort });
+  const { coords, zone: globalZone } = useGlobalLocation();
+  const zoneQuery = useDetectZoneQuery(
+    { lat: coords?.latitude ?? 0, lng: coords?.longitude ?? 0 },
+    { skip: !coords?.latitude || !coords?.longitude }
+  );
+  const activeZone = zoneQuery.data || globalZone;
+
+  const feed = useRestaurantFeed({
+    search,
+    cuisineType,
+    sort,
+    userLatitude: coords?.latitude,
+    userLongitude: coords?.longitude,
+    zoneId: activeZone?.zoneId ?? undefined,
+  });
 
   useEffect(() => {
     trackAnalyticsEvent('customer_restaurant_listing_viewed');
@@ -56,9 +72,27 @@ export function RestaurantListingScreen({ navigation, route }: Props) {
           borderBottomRightRadius: 24,
           paddingBottom: tokens.spacing.lg,
         }}>
-          <Text variant="heading1" accessibilityRole="header" style={{ color: '#F59E0B', fontWeight: '900' }}>
-            Listing
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View>
+              <Text variant="heading1" accessibilityRole="header" style={{ color: '#F59E0B', fontWeight: '900' }}>
+                All Restaurants
+              </Text>
+              <Text style={{ color: '#A7F3D0', fontSize: 13, fontWeight: '700', marginTop: 2 }}>
+                Available at your delivery location
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 20,
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>‹ Back</Text>
+            </Pressable>
+          </View>
         </View>
         {!isConnected ? (
           <Text variant="caption" color={tokens.color.warning}>
@@ -133,6 +167,8 @@ export function RestaurantListingScreen({ navigation, route }: Props) {
               <RestaurantCard
                 restaurant={item}
                 columnMode={true}
+                userLat={coords?.latitude}
+                userLng={coords?.longitude}
                 onPress={() =>
                   navigation.navigate('Menu', {
                     restaurantId: item.id,
