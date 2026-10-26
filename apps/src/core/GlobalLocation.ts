@@ -208,6 +208,9 @@ export async function fetchExactLocation(force: boolean = false): Promise<Global
           const lng = pos.coords.longitude;
           globalLocation.coords = { latitude: lat, longitude: lng };
           globalLocation.source = 'GPS';
+          if (globalLocation.address && (globalLocation.address.includes('•') || globalLocation.address.startsWith('Home') || globalLocation.address.startsWith('Office'))) {
+            globalLocation.address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          }
           globalLocation.isLocating = false;
           notifyListeners();
 
@@ -246,6 +249,9 @@ export async function fetchExactLocation(force: boolean = false): Promise<Global
         // Set coords & source instantly so restaurants render immediately with zero delay!
         globalLocation.coords = { latitude: lat, longitude: lng };
         globalLocation.source = 'GPS';
+        if (globalLocation.address && (globalLocation.address.includes('•') || globalLocation.address.startsWith('Home') || globalLocation.address.startsWith('Office'))) {
+          globalLocation.address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        }
         globalLocation.isLocating = false;
         notifyListeners();
 

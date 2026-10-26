@@ -62,12 +62,43 @@ export function useRestaurantFeed(args: FeedArgs) {
     zoneId: args.zoneId,
   });
 
+  // If a dedicated/approved expansion zone has 0 local restaurants, fall back to nearby restaurants from neighboring zones
+  const shouldFetchNearbyFallback = Boolean(
+    args.zoneId &&
+    !queryResult.isLoading &&
+    !queryResult.isFetching &&
+    Array.isArray(queryResult.data) &&
+    queryResult.data.length === 0
+  );
+
+  const fallbackQuery = useGetRestaurantsQuery(
+    {
+      cuisineType: args.cuisineType,
+      search: args.search,
+    },
+    {
+      skip: !shouldFetchNearbyFallback,
+    }
+  );
+
+  const isExpandedFromNearby = Boolean(
+    shouldFetchNearbyFallback &&
+    Array.isArray(fallbackQuery.data) &&
+    fallbackQuery.data.length > 0
+  );
+
   const items = useMemo(() => {
-    const apiItems = queryResult.data;
+    const hasPrimaryData = Array.isArray(queryResult.data) && queryResult.data.length > 0;
+    const apiItems = hasPrimaryData ? queryResult.data : fallbackQuery.data;
     let list: RestaurantSummary[] = [];
 
     if (Array.isArray(apiItems)) {
-      list = [...apiItems];
+      list = [...apiItems].filter((r) => {
+        if (!r.latitude || !r.longitude) return !hasPrimaryData ? false : true;
+        const nLat = Number(r.latitude);
+        const nLng = Number(r.longitude);
+        return !isNaN(nLat) && !isNaN(nLng) && (nLat !== 0 || nLng !== 0);
+      });
       if (args.cuisineType) {
         list = list.filter(item => checkRestaurantMatch(item, args.cuisineType || ''));
       }
@@ -75,12 +106,12 @@ export function useRestaurantFeed(args: FeedArgs) {
       list = [];
     }
 
-    // Sorting is still applied locally for UX fast sorting
+    // Proximity sorting by distance to customer coordinates
     if (args.sort === 'avgRating') {
       list.sort((a, b) => (b.avgRating ?? 0) - (a.avgRating ?? 0));
     } else if (args.sort === 'createdAt') {
       list.sort((a, b) => (b.id ?? '').localeCompare(a.id ?? ''));
-    } else if (args.sort === 'nearby' || (!args.sort && args.userLatitude !== undefined && args.userLongitude !== undefined)) {
+    } else if (args.sort === 'nearby' || (!args.sort && args.userLatitude !== undefined && args.userLongitude !== undefined) || isExpandedFromNearby) {
       if (args.userLatitude !== undefined && args.userLongitude !== undefined) {
         const uLat = args.userLatitude;
         const uLng = args.userLongitude;
@@ -100,24 +131,30 @@ export function useRestaurantFeed(args: FeedArgs) {
     return list;
   }, [
     queryResult.data,
+    fallbackQuery.data,
     queryResult.isError,
     args.cuisineType,
     args.search,
     args.sort,
     args.userLatitude,
     args.userLongitude,
+    isExpandedFromNearby,
   ]);
 
   return {
     items,
-    isLoading: queryResult.isLoading,
-    isFetching: queryResult.isFetching,
+    isLoading: queryResult.isLoading || (shouldFetchNearbyFallback && fallbackQuery.isLoading),
+    isFetching: queryResult.isFetching || fallbackQuery.isFetching,
     isUninitialized: queryResult.isUninitialized,
-    isError: queryResult.isError,
-    error: queryResult.error,
-    refetch: queryResult.refetch,
+    isError: queryResult.isError && fallbackQuery.isError,
+    error: queryResult.error || fallbackQuery.error,
+    refetch: () => {
+      void queryResult.refetch();
+      if (shouldFetchNearbyFallback) void fallbackQuery.refetch();
+    },
     onLoadMore: () => { },
     hasMore: false,
+    isExpandedFromNearby,
   };
 }
 

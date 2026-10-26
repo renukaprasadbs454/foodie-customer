@@ -37,6 +37,6 @@ export const ENV = {
   appVersion: Constants.expoConfig?.version ?? '0.1.0',
 } as const;
 
-if (__DEV__) {
+if (typeof __DEV__ !== 'undefined' && __DEV__) {
   console.log('[Foodie Env] Target API Base URL:', ENV.apiBaseUrl);
 }

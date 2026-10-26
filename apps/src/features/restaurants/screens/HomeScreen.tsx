@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   FlatList,
   Pressable,
@@ -33,9 +33,9 @@ import type { BrowseStackParamList } from '../../../navigation/types';
 import { RestaurantCard } from '../components/RestaurantCard';
 import { RestaurantListSkeleton } from '../components/RestaurantListSkeleton';
 import { useRestaurantFeed } from '../hooks/useRestaurantFeed';
-import { useDetectZoneQuery } from '../../../api/endpoints/restaurantsApi';
+import { useDetectZoneQuery, useGetRestaurantsQuery } from '../../../api/endpoints/restaurantsApi';
 import type { RestaurantSort } from '../types';
-import { RESTAURANT_SORT_WHITELIST } from '../types';
+import { RESTAURANT_SORT_WHITELIST, getDistanceKm } from '../types';
 import { useGetCartQuery } from '../../../api/endpoints/cartApi';
 import { useGetNotificationsQuery } from '../../../api/endpoints/notificationsApi';
 import { useGetMyOrdersQuery } from '../../../api/endpoints/ordersApi';
@@ -58,6 +58,7 @@ import {
   fetchExactLocation,
   reverseGeocodeCoords,
 } from '../../../core/GlobalLocation';
+import { submitCustomerUnserviceableAreaRequest } from '../services/unserviceableAreaService';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Home'>;
 
@@ -260,6 +261,21 @@ export function HomeScreen({ navigation }: Props) {
     zoneId: detectedZone?.zoneId ?? undefined,
   });
 
+  // Query nearby restaurants across the system to calculate proximity to customer live coordinates
+  const allNearbyQuery = useGetRestaurantsQuery({});
+
+  const nearbyRestaurants = useMemo(() => {
+    if (!Array.isArray(allNearbyQuery.data) || !userCoords) return [];
+    return [...allNearbyQuery.data]
+      .filter((r) => r.latitude && r.longitude && Number(r.latitude) !== 0)
+      .map((r) => {
+        const dist = getDistanceKm(userCoords.latitude, userCoords.longitude, Number(r.latitude), Number(r.longitude));
+        return { ...r, distanceKm: dist };
+      })
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, 4);
+  }, [allNearbyQuery.data, userCoords]);
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -326,6 +342,49 @@ export function HomeScreen({ navigation }: Props) {
       }
     }
   }, [isLocating, userCoords, savedAddresses, locationSource]);
+
+  // 4. Automatically submit unserviceable area request to Super Admin dashboard
+  // when user gives location access and there are no restaurants in their area.
+  const [unserviceableLogged, setUnserviceableLogged] = useState(false);
+
+  useEffect(() => {
+    if (!userCoords || isLocating) return;
+    if (feed.isLoading || feed.isFetching) return;
+
+    const isUnserviceableZone = Boolean(detectedZone && !detectedZone.serviceable);
+    const noRestaurantsInArea = feed.items.length === 0 && !cuisineType;
+
+    if (isUnserviceableZone || noRestaurantsInArea) {
+      void submitCustomerUnserviceableAreaRequest({
+        customerName: currentUserName,
+        email: currentUserEmail,
+        phone: currentUserPhone,
+        address: currentAddress || `${userCoords.latitude.toFixed(4)}, ${userCoords.longitude.toFixed(4)}`,
+        coords: userCoords,
+        cityName: detectedZone?.cityName,
+        zoneId: detectedZone?.zoneId,
+        zoneName: detectedZone?.zoneName,
+      }).then((res) => {
+        if (res.success) {
+          setUnserviceableLogged(true);
+        }
+      });
+    } else {
+      setUnserviceableLogged(false);
+    }
+  }, [
+    userCoords,
+    isLocating,
+    feed.isLoading,
+    feed.isFetching,
+    feed.items.length,
+    detectedZone,
+    currentAddress,
+    currentUserName,
+    currentUserEmail,
+    currentUserPhone,
+    cuisineType,
+  ]);
 
   const applyCuisine = () => {
     const next = cuisineDraft.trim() || undefined;
@@ -662,6 +721,30 @@ export function HomeScreen({ navigation }: Props) {
             Offline — showing cached results.
           </Text>
         )}
+
+        {/* Expansion approved banner */}
+        {feed.isExpandedFromNearby && (
+          <View style={{
+            backgroundColor: '#ECFDF5',
+            borderColor: '#10B981',
+            borderWidth: 1.5,
+            borderRadius: 12,
+            padding: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 4,
+          }}>
+            <Text style={{ fontSize: 22, marginRight: 10 }}>🎉</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: '#065F46' }}>
+                Area Expansion Approved by Admin!
+              </Text>
+              <Text style={{ fontSize: 11, color: '#047857', marginTop: 2 }}>
+                Delivering from nearby zone restaurants with real-time distance tracking.
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -725,7 +808,7 @@ export function HomeScreen({ navigation }: Props) {
                   description="Pull to retry. Check your connection."
                   accessibilityLabel="Restaurant feed error"
                 />
-              ) : detectedZone && !detectedZone.serviceable ? (
+              ) : (detectedZone && !detectedZone.serviceable) || (feed.items.length === 0 && !cuisineType && !!userCoords) ? (
                 <View style={{
                   backgroundColor: '#FFFBEB',
                   borderColor: '#F59E0B',
@@ -746,8 +829,89 @@ export function HomeScreen({ navigation }: Props) {
                     No Restaurants Available In Your Area
                   </Text>
                   <Text style={{ fontSize: 14, color: '#B45309', textAlign: 'center', marginBottom: 16, lineHeight: 20 }}>
-                    We do not deliver to this location yet. Please try selecting a different delivery address.
+                    We do not deliver to this location yet. Your area details have been automatically forwarded to our Super Admin team to onboard nearby restaurants!
                   </Text>
+
+                  {/* Super Admin Automatic Notification Status Card */}
+                  <View style={{
+                    backgroundColor: '#ECFDF5',
+                    borderColor: '#10B981',
+                    borderWidth: 1.5,
+                    borderRadius: 12,
+                    padding: 14,
+                    width: '100%',
+                    marginBottom: 16,
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                      <Text style={{ fontSize: 16, marginRight: 8 }}>✅</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: '#065F46' }}>
+                        Logged in Super Admin Dashboard
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#047857', lineHeight: 18 }}>
+                      • Requester: <Text style={{ fontWeight: '700' }}>{currentUserName}</Text> ({currentUserPhone})
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#047857', lineHeight: 18 }} numberOfLines={2}>
+                      • Requested Area: <Text style={{ fontWeight: '700' }}>{currentAddress || `${userCoords?.latitude.toFixed(4)}, ${userCoords?.longitude.toFixed(4)}`}</Text>
+                    </Text>
+                    <Text style={{ fontSize: 11, color: '#059669', marginTop: 6, fontWeight: '600' }}>
+                      Status: PENDING EXPANSION REVIEW (Super Admin Notified)
+                    </Text>
+                  </View>
+
+                  {/* Nearby Zone Available Restaurants with Distances */}
+                  {nearbyRestaurants.length > 0 && (
+                    <View style={{
+                      backgroundColor: '#FEF3C7',
+                      borderColor: '#F59E0B',
+                      borderWidth: 1.5,
+                      borderRadius: 12,
+                      padding: 14,
+                      width: '100%',
+                      marginBottom: 16,
+                    }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                        <Text style={{ fontSize: 16, marginRight: 8 }}>🛵</Text>
+                        <Text style={{ fontSize: 13, fontWeight: '800', color: '#92400E' }}>
+                          Restaurants Available from Nearby Zones
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: 11, color: '#78350F', marginBottom: 8, lineHeight: 16 }}>
+                        These restaurants operate in neighboring zones. Distance to your live coordinates:
+                      </Text>
+                      {nearbyRestaurants.map((nr: any) => (
+                        <View
+                          key={nr.id}
+                          style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            paddingVertical: 5,
+                            borderTopWidth: 1,
+                            borderTopColor: 'rgba(245, 158, 11, 0.2)',
+                          }}
+                        >
+                          <View style={{ flex: 1, paddingRight: 8 }}>
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: '#1F2937' }} numberOfLines={1}>
+                              {nr.name}
+                            </Text>
+                            <Text style={{ fontSize: 10, color: '#6B7280' }} numberOfLines={1}>
+                              {Array.isArray(nr.cuisineTypes) ? nr.cuisineTypes.slice(0, 2).join(' · ') : ''}
+                            </Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={{ fontSize: 12, fontWeight: '800', color: '#B45309' }}>
+                              {nr.distanceKm.toFixed(1)} km
+                            </Text>
+                            <Text style={{ fontSize: 9, color: '#92400E', fontWeight: '600' }}>
+                              nearby zone
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
                   <Pressable
                     onPress={() => navigation.navigate('Addresses', { selectMode: true })}
                     style={({ pressed }) => ({
