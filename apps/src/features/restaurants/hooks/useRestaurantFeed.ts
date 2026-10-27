@@ -8,6 +8,7 @@ type FeedArgs = Omit<RestaurantListParams, 'page' | 'size'> & {
   userLatitude?: number;
   userLongitude?: number;
   zoneId?: string;
+  isServiceable?: boolean;
 };
 
 function normalizeTerm(raw: string): string {
@@ -53,17 +54,25 @@ function checkRestaurantMatch(item: RestaurantSummary, searchStr: string): boole
 }
 
 export function useRestaurantFeed(args: FeedArgs) {
-  const queryResult = useGetRestaurantsQuery({
-    cuisineType: args.cuisineType,
-    search: args.search,
-    sort: args.sort === 'nearby' ? undefined : args.sort,
-    lat: args.userLatitude,
-    lng: args.userLongitude,
-    zoneId: args.zoneId,
-  });
+  const isUnserviceable = args.isServiceable === false;
+
+  const queryResult = useGetRestaurantsQuery(
+    {
+      cuisineType: args.cuisineType,
+      search: args.search,
+      sort: args.sort === 'nearby' ? undefined : args.sort,
+      lat: args.userLatitude,
+      lng: args.userLongitude,
+      zoneId: args.zoneId,
+    },
+    {
+      skip: isUnserviceable,
+    }
+  );
 
   // If a dedicated/approved expansion zone has 0 local restaurants, fall back to nearby restaurants from neighboring zones
   const shouldFetchNearbyFallback = Boolean(
+    !isUnserviceable &&
     args.zoneId &&
     !queryResult.isLoading &&
     !queryResult.isFetching &&
@@ -88,6 +97,10 @@ export function useRestaurantFeed(args: FeedArgs) {
   );
 
   const items = useMemo(() => {
+    if (isUnserviceable) {
+      return [];
+    }
+
     const hasPrimaryData = Array.isArray(queryResult.data) && queryResult.data.length > 0;
     const apiItems = hasPrimaryData ? queryResult.data : fallbackQuery.data;
     let list: RestaurantSummary[] = [];
