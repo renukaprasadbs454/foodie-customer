@@ -14,6 +14,10 @@ export type CustomerProfile = {
   phoneNumber?: string | null;
   defaultAddressId?: string | null;
   profileImageUrl?: string | null;
+  accountStatus?: 'ACTIVE' | 'SUSPENDED';
+  isSuspended?: boolean;
+  suspensionReason?: string | null;
+  isCodDisabled?: boolean;
 };
 
 export type UpdateProfileRequest = {

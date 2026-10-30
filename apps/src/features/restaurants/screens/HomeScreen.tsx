@@ -90,8 +90,8 @@ export function HomeScreen({ navigation }: Props) {
   const addressesQuery = useGetAddressesQuery(undefined, { refetchOnFocus: true });
   const savedAddresses = addressesQuery.data ?? [];
 
-  // Fetch profile for dynamic customer name & contact details
-  const profileQuery = useGetMyProfileQuery();
+  // Fetch profile for dynamic customer name & contact details with live sync
+  const profileQuery = useGetMyProfileQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true });
   const currentUserName = profileQuery.data?.fullName || 'Customer User';
   const currentUserEmail = profileQuery.data?.email || 'customer@foodie.com';
   const currentUserPhone = profileQuery.data?.phoneNumber || '+91 98765 43210';
@@ -580,6 +580,46 @@ export function HomeScreen({ navigation }: Props) {
       </View>
 
       <View style={{ paddingHorizontal: tokens.spacing.md, gap: tokens.spacing.lg }}>
+
+        {/* Account Suspended Warning Banner */}
+        {Boolean(profileQuery.data?.isSuspended || profileQuery.data?.accountStatus === 'SUSPENDED') && (
+          <View style={{
+            backgroundColor: '#FEF2F2',
+            borderWidth: 1.5,
+            borderColor: '#EF4444',
+            borderRadius: tokens.radius.lg,
+            padding: 14,
+            shadowColor: '#DC2626',
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 0.12,
+            shadowRadius: 8,
+            elevation: 3,
+            marginTop: -tokens.spacing.xs,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ fontSize: 16, marginRight: 6 }}>🚫</Text>
+                <Text style={{ color: '#991B1B', fontWeight: '800', fontSize: 15 }}>
+                  Account Suspended
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => (navigation as any).navigate('Profile' as any)}
+                style={{
+                  backgroundColor: '#DC2626',
+                  paddingHorizontal: 12,
+                  paddingVertical: 5,
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 11 }}>View Profile ➔</Text>
+              </Pressable>
+            </View>
+            <Text style={{ color: '#7F1D1D', fontSize: 13, lineHeight: 18 }}>
+              {profileQuery.data?.suspensionReason ? `Reason: ${profileQuery.data.suspensionReason}. ` : ''}Your account has been suspended by administration. Ordering is temporarily disabled.
+            </Text>
+          </View>
+        )}
 
         {/* Styled Search Button */}
         <Pressable

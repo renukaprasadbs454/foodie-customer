@@ -49,7 +49,8 @@ export function CartScreen({ navigation, route }: Props) {
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   const { data: addresses } = useGetAddressesQuery();
-  const { data: myProfile } = useGetMyProfileQuery();
+  const { data: myProfile } = useGetMyProfileQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true });
+  const isSuspended = Boolean(myProfile?.isSuspended || myProfile?.accountStatus === 'SUSPENDED');
 
   const [applyCouponMutation, applyState] = useApplyCouponMutation();
   const [selectedCouponCode, setSelectedCouponCode] = useState<string | null>(null);
@@ -116,7 +117,7 @@ export function CartScreen({ navigation, route }: Props) {
     restaurantId = 'mock-resto-darkstore';
   }
 
-  const checkoutEnabled = canProceedToCheckout(items.length);
+  const checkoutEnabled = canProceedToCheckout(items.length) && !isSuspended;
 
   const validId = restaurantId ? (isMenuRestaurantId(restaurantId) || restaurantId.startsWith('mock-resto-')) : false;
   const isMock = restaurantId?.startsWith('mock-resto-') ?? false;
@@ -404,6 +405,23 @@ export function CartScreen({ navigation, route }: Props) {
                   </Text>
                 </View>
               </View>
+              {isSuspended && (
+                <View style={{
+                  marginTop: 12,
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1.5,
+                  borderColor: '#EF4444',
+                  borderRadius: 12,
+                  padding: 12,
+                }}>
+                  <Text style={{ color: '#991B1B', fontWeight: '800', fontSize: 14 }}>
+                    🚫 Account Suspended
+                  </Text>
+                  <Text style={{ color: '#7F1D1D', fontSize: 12, marginTop: 2 }}>
+                    {myProfile?.suspensionReason ? `Reason: ${myProfile.suspensionReason}. ` : ''}Your account has been suspended by administration. Checkout is disabled.
+                  </Text>
+                </View>
+              )}
             </View>
           }
           renderItem={({ item, index }) => {
@@ -718,7 +736,36 @@ export function CartScreen({ navigation, route }: Props) {
           shadowRadius: 8,
           elevation: 10
         }}>
-          {checkoutEnabled ? (
+          {isSuspended ? (
+            <Pressable
+              accessibilityLabel="Account Suspended"
+              onPress={() => {
+                setToast({
+                  message: `Account Suspended: ${myProfile?.suspensionReason || 'Security review'}. Ordering is disabled.`,
+                  variant: 'error',
+                });
+              }}
+              style={{
+                backgroundColor: '#DC2626',
+                paddingVertical: 16,
+                borderRadius: 12,
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 1.5,
+                borderColor: '#F87171',
+                shadowColor: '#DC2626',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.25,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 15, letterSpacing: 0.5 }}>
+                🚫 Account Suspended — Ordering Disabled
+              </Text>
+            </Pressable>
+          ) : checkoutEnabled ? (
             <Pressable
               accessibilityLabel="Continue to Checkout"
               onPress={() => {
