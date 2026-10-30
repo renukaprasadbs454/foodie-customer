@@ -56,57 +56,98 @@ export function MenuItemRow({ item, quantity = 0, onAdd, onIncrement, onDecremen
       accessibilityState={{ disabled }}
       accessibilityLabel={`${item.name}${disabled ? ', unavailable' : ''}`}
       style={{
-        paddingVertical: tokens.spacing.lg,
+        paddingVertical: 16,
+        paddingHorizontal: 4,
         borderBottomWidth: 1,
-        borderBottomColor: tokens.color.border,
+        borderBottomColor: '#F0ECE4',
         opacity: disabled ? 0.6 : 1,
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: tokens.spacing.md,
+        alignItems: 'flex-start',
+        gap: 14,
       }}
     >
       {/* Details Container on Left */}
-      <View style={{ flex: 1, gap: tokens.spacing.xs }}>
-        {/* Vegetarian / Non-Vegetarian Indicator */}
+      <View style={{ flex: 1, gap: 5 }}>
+        {/* Vegetarian / Non-Vegetarian Authentic FSSAI Indicator */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <View style={{
-            width: 14,
-            height: 14,
+            width: 15,
+            height: 15,
             borderWidth: 1.5,
-            borderColor: item.isVeg ? '#15803d' : '#b91c1c',
+            borderColor: item.isVeg ? '#16A34A' : '#DC2626',
+            borderRadius: 3,
             justifyContent: 'center',
             alignItems: 'center',
-            padding: 2,
+            backgroundColor: '#FFFFFF',
           }}>
             <View style={{
-              width: 6,
-              height: 6,
-              borderRadius: tokens.radius.full,
-              backgroundColor: item.isVeg ? '#15803d' : '#b91c1c',
+              width: item.isVeg ? 7 : 0,
+              height: item.isVeg ? 7 : 0,
+              borderRadius: item.isVeg ? 3.5 : 0,
+              backgroundColor: item.isVeg ? '#16A34A' : 'transparent',
+              borderLeftWidth: item.isVeg ? 0 : 4,
+              borderRightWidth: item.isVeg ? 0 : 4,
+              borderBottomWidth: item.isVeg ? 0 : 7,
+              borderLeftColor: 'transparent',
+              borderRightColor: 'transparent',
+              borderBottomColor: item.isVeg ? 'transparent' : '#DC2626',
             }} />
           </View>
-          {item.isVeg ? (
-            <Text variant="caption" style={{ color: '#15803d', fontWeight: '600' }}>VEG</Text>
-          ) : (
-            <Text variant="caption" style={{ color: '#b91c1c', fontWeight: '600' }}>NON-VEG</Text>
-          )}
+
+          <Text variant="caption" style={{
+            color: item.isVeg ? '#16A34A' : '#DC2626',
+            fontWeight: '800',
+            fontSize: 10.5,
+            letterSpacing: 0.5,
+          }}>
+            {item.isVeg ? 'VEG' : 'NON-VEG'}
+          </Text>
+
+          {item.name.toLowerCase().includes('biriyani') || item.name.toLowerCase().includes('biryani') ? (
+            <View style={{
+              backgroundColor: '#FEF3C7',
+              paddingHorizontal: 6,
+              paddingVertical: 1,
+              borderRadius: 4,
+            }}>
+              <Text style={{ color: '#D97706', fontSize: 9.5, fontWeight: '800' }}>★ BESTSELLER</Text>
+            </View>
+          ) : null}
         </View>
 
-        <Text variant="heading3" color={primary} style={{ fontWeight: '700', marginTop: 2 }}>
+        {/* Dish Name */}
+        <Text variant="heading3" color={primary} style={{
+          fontWeight: '800',
+          fontSize: 16,
+          letterSpacing: -0.2,
+          marginTop: 2,
+        }}>
           {item.name}
         </Text>
 
-        <Text variant="label" color={primary} style={{ fontWeight: '800' }}>
+        {/* Price */}
+        <Text style={{
+          color: '#14532D',
+          fontWeight: '900',
+          fontSize: 15,
+          letterSpacing: 0.2,
+        }}>
           ₹{formatMoney(item.basePrice)}
         </Text>
 
+        {/* Description */}
         {item.description ? (
           <Text
             variant="caption"
             color={tokens.color.textSecondary}
             numberOfLines={2}
-            style={{ marginTop: 2, lineHeight: 16 }}
+            style={{
+              marginTop: 2,
+              lineHeight: 17,
+              fontSize: 12.5,
+              color: '#6B7280',
+            }}
           >
             {item.description}
           </Text>
@@ -115,7 +156,7 @@ export function MenuItemRow({ item, quantity = 0, onAdd, onIncrement, onDecremen
         {disabled ? (
           <View style={{ flexDirection: 'row', marginTop: 4 }}>
             <Badge
-              label="Unavailable"
+              label="Currently Unavailable"
               tone="warning"
               accessibilityLabel="Item unavailable"
             />
@@ -124,43 +165,44 @@ export function MenuItemRow({ item, quantity = 0, onAdd, onIncrement, onDecremen
       </View>
 
       {/* Styled Image & Overlap ADD button on Right */}
-      <View style={{ width: 90, height: 100, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ width: 110, height: 120, alignItems: 'center', position: 'relative' }}>
         <Image
           source={{ uri: imageUrl }}
           style={{
-            width: 80,
-            height: 80,
-            borderRadius: tokens.radius.md,
+            width: 105,
+            height: 95,
+            borderRadius: 16,
             backgroundColor: '#F5EFE6',
           }}
           resizeMode="cover"
         />
+
         {!disabled ? (
           quantity > 0 ? (
             <View style={{
               position: 'absolute',
-              bottom: -10,
+              bottom: 4,
               flexDirection: 'row',
-              backgroundColor: '#FFFFFF',
-              borderWidth: 1,
-              borderColor: tokens.color.accent, // Dark Green
-              borderRadius: tokens.radius.sm,
-              width: 76,
-              height: 32,
+              backgroundColor: '#14532D', // Active Dark Green capsule
+              borderWidth: 1.5,
+              borderColor: '#FCD34D',
+              borderRadius: 10,
+              width: 86,
+              height: 34,
               justifyContent: 'space-between',
               alignItems: 'center',
               shadowColor: '#14532D',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-              elevation: 4,
+              shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: 0.25,
+              shadowRadius: 5,
+              elevation: 5,
             }}>
               <Pressable onPress={onDecrement} style={{ paddingHorizontal: 10, paddingVertical: 4 }}>
-                <Text style={{ color: tokens.color.accent, fontWeight: '900', fontSize: 16 }}>-</Text>
+                <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 16 }}>−</Text>
               </Pressable>
-              <Text style={{ color: tokens.color.accent, fontWeight: '900', fontSize: 14 }}>{quantity}</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 14 }}>{quantity}</Text>
               <Pressable onPress={onIncrement} style={{ paddingHorizontal: 10, paddingVertical: 4 }}>
-                <Text style={{ color: tokens.color.accent, fontWeight: '900', fontSize: 16 }}>+</Text>
+                <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 16 }}>+</Text>
               </Pressable>
             </View>
           ) : (
@@ -168,24 +210,29 @@ export function MenuItemRow({ item, quantity = 0, onAdd, onIncrement, onDecremen
               onPress={onAdd}
               style={({ pressed }) => ({
                 position: 'absolute',
-                bottom: -10,
+                bottom: 4,
                 backgroundColor: pressed ? '#F5EFE0' : '#FFFFFF',
-                borderWidth: 1,
-                borderColor: tokens.color.accent, // Dark Green border
-                borderRadius: tokens.radius.sm,
-                width: 76,
-                height: 32,
+                borderWidth: 1.5,
+                borderColor: '#14532D', // Brand dark green border
+                borderRadius: 10,
+                width: 86,
+                height: 34,
                 justifyContent: 'center',
                 alignItems: 'center',
                 shadowColor: '#14532D',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 4,
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.18,
+                shadowRadius: 5,
                 elevation: 4,
               })}
             >
-              <Text variant="label" color={tokens.color.accent} style={{ fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }}>
-                ADD
+              <Text variant="label" style={{
+                color: '#14532D',
+                fontWeight: '900',
+                fontSize: 13.5,
+                letterSpacing: 0.5,
+              }}>
+                ADD +
               </Text>
             </Pressable>
           )

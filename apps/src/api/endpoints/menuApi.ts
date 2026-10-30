@@ -1,6 +1,33 @@
 import { baseApi } from '../baseApi';
 import type { FullMenu } from '../../features/menu/types';
 
+export interface SearchFoodItemDto {
+  menuItemId: string;
+  categoryId?: string;
+  name: string;
+  description?: string;
+  basePrice: number;
+  isVeg: boolean;
+  foodType?: string;
+  isAvailable: boolean;
+  imageUrl?: string;
+  packageSize?: string;
+  preparationTime?: string;
+  gstPct?: number;
+  avgRating?: number;
+  avg_rating?: number;
+  reviewCount?: number;
+  restaurantId?: string;
+  restaurantName?: string;
+}
+
+export type SearchFoodItemsArg = {
+  query?: string;
+  isVeg?: boolean;
+  maxPrice?: number;
+  restaurantId?: string;
+};
+
 /**
  * P2-CUS-02 — Customer menu GET (UI-API Menu / API §4.1).
  */
@@ -54,7 +81,25 @@ export const menuApi = baseApi.injectEndpoints({
       ],
       keepUnusedDataFor: 150,
     }),
+    searchFoodItems: builder.query<SearchFoodItemDto[], SearchFoodItemsArg | void>({
+      query: (arg) => ({
+        url: '/api/v1/search/food-items',
+        params: {
+          ...(arg?.query ? { query: arg.query } : {}),
+          ...(arg?.isVeg !== undefined ? { isVeg: arg.isVeg } : {}),
+          ...(arg?.maxPrice ? { maxPrice: arg.maxPrice } : {}),
+          ...(arg?.restaurantId ? { restaurantId: arg.restaurantId } : {}),
+        },
+      }),
+      transformResponse: (response: any) => {
+        const raw = response?.data ?? response;
+        return Array.isArray(raw) ? raw : [];
+      },
+      providesTags: ['Menu'],
+      keepUnusedDataFor: 120,
+    }),
   }),
 });
 
-export const { useGetMenuQuery } = menuApi;
+export const { useGetMenuQuery, useSearchFoodItemsQuery } = menuApi;
+

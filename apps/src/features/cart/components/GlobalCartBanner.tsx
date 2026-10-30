@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, useWindowDimensions } from 'react-native';
 import { Text, useTheme } from 'foodie-shared-rn';
 import { useNavigation } from '@react-navigation/native';
 import { useGetCartQuery, useRemoveCartItemMutation, useUpdateCartItemQuantityMutation } from '../../../api/endpoints/cartApi';
@@ -10,6 +10,10 @@ import { MOCK_RESTAURANTS } from '../../restaurants/mockData';
 
 export function GlobalCartBanner() {
     const { tokens } = useTheme();
+    const { width: screenWidth } = useWindowDimensions();
+    const isSmallScreen = screenWidth < 380;
+    const isUltraSmallScreen = screenWidth < 350;
+
     const navigation = useNavigation<any>();
     const cartQuery = useGetCartQuery();
     const [updateQuantity] = useUpdateCartItemQuantityMutation();
@@ -42,12 +46,14 @@ export function GlobalCartBanner() {
     return (
         <Pressable
             onPress={() => navigation.navigate('Cart')}
+            accessibilityRole="button"
+            accessibilityLabel={`Cart banner: ${cartItemsCount} items, total ₹${formatMoney(cartSubtotal)}. Tap to view cart.`}
             style={({ pressed }) => ({
                 position: 'absolute',
-                bottom: tokens.spacing.lg + 10,
-                left: tokens.spacing.md,
-                right: tokens.spacing.md,
-                borderRadius: 24,
+                bottom: isSmallScreen ? tokens.spacing.md + 4 : tokens.spacing.lg + 8,
+                left: isSmallScreen ? 10 : tokens.spacing.md,
+                right: isSmallScreen ? 10 : tokens.spacing.md,
+                borderRadius: 22,
                 overflow: 'hidden',
                 shadowColor: '#14532D',
                 shadowOffset: { width: 0, height: 6 },
@@ -65,74 +71,94 @@ export function GlobalCartBanner() {
                     flexDirection: 'row',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    paddingHorizontal: tokens.spacing.lg,
-                    paddingVertical: tokens.spacing.md + 2,
+                    paddingHorizontal: isUltraSmallScreen ? 10 : isSmallScreen ? 12 : 16,
+                    paddingVertical: isSmallScreen ? 10 : 12,
                     borderWidth: 1.5,
                     borderColor: '#FCD34D',
-                    borderRadius: 24,
+                    borderRadius: 22,
                 }}
             >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, paddingRight: 8 }}>
-                    <View style={{
-                        backgroundColor: '#FCD34D',
-                        borderRadius: 12,
-                        paddingHorizontal: 10,
-                        paddingVertical: 5,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 2,
-                        elevation: 1,
-                    }}>
-                        <Text variant="label" style={{ color: '#134E4A', fontWeight: '900', fontSize: 13 }}>
-                            {cartItemsCount} {cartItemsCount === 1 ? 'ITEM' : 'ITEMS'}
-                        </Text>
-                    </View>
-                    <View style={{ flexShrink: 1 }}>
-                        <Text variant="bodySmall" color="#FFFFFF" style={{ fontWeight: '900', fontSize: 16 }}>
+                {/* Left section: Item count badge, Price (flexShrink: 0 and numberOfLines=1 guarantee it never wraps vertically), and Subtitle */}
+                <View style={{ flex: 1, minWidth: 0, marginRight: 8, justifyContent: 'center' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: isSmallScreen ? 6 : 8, flexWrap: 'nowrap' }}>
+                        <View style={{
+                            backgroundColor: '#FCD34D',
+                            borderRadius: 10,
+                            paddingHorizontal: isSmallScreen ? 7 : 9,
+                            paddingVertical: 3,
+                            flexShrink: 0,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 2,
+                            elevation: 1,
+                        }}>
+                            <Text variant="label" style={{ color: '#134E4A', fontWeight: '900', fontSize: isSmallScreen ? 11 : 12 }}>
+                                {cartItemsCount} {cartItemsCount === 1 ? 'ITEM' : 'ITEMS'}
+                            </Text>
+                        </View>
+                        <Text
+                            variant="bodySmall"
+                            color="#FFFFFF"
+                            style={{
+                                fontWeight: '900',
+                                fontSize: isUltraSmallScreen ? 14 : isSmallScreen ? 15 : 17,
+                                flexShrink: 0,
+                            }}
+                            numberOfLines={1}
+                        >
                             ₹{formatMoney(cartSubtotal)}
                         </Text>
-                        <Text variant="caption" style={{ color: '#E8F5E9', fontWeight: '800', fontSize: 12, marginTop: 1 }} numberOfLines={1}>
-                            {subtitleText}
-                        </Text>
                     </View>
+                    <Text
+                        variant="caption"
+                        style={{
+                            color: '#E8F5E9',
+                            fontWeight: '600',
+                            fontSize: isSmallScreen ? 10 : 11,
+                            marginTop: 2,
+                        }}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                    >
+                        {subtitleText}
+                    </Text>
                 </View>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                {/* Right section: Remove button + View Cart */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: isUltraSmallScreen ? 4 : isSmallScreen ? 6 : 10, flexShrink: 0 }}>
                     <Pressable
                         onPress={(e) => {
                             e.stopPropagation();
                             handleRemove();
                         }}
+                        hitSlop={6}
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove last item"
                         style={({ pressed }) => ({
                             flexDirection: 'row',
                             alignItems: 'center',
-                            gap: 4,
+                            gap: 3,
                             opacity: pressed ? 0.7 : 1,
                             backgroundColor: 'rgba(255,255,255,0.15)',
-                            paddingHorizontal: 8,
-                            paddingVertical: 6,
-                            borderRadius: 16,
+                            paddingHorizontal: isSmallScreen ? 6 : 8,
+                            paddingVertical: isSmallScreen ? 4 : 5,
+                            borderRadius: 14,
                             borderWidth: 1,
                             borderColor: 'rgba(255,255,255,0.3)',
                         })}
                     >
-                        <Feather name="minus" size={14} color="#FFF" />
-                        <Text variant="label" style={{ color: '#FFF', fontWeight: '800', fontSize: 11 }}>
+                        <Feather name="minus" size={isSmallScreen ? 12 : 14} color="#FFF" />
+                        <Text variant="label" style={{ color: '#FFF', fontWeight: '800', fontSize: isSmallScreen ? 10 : 11 }}>
                             Remove
                         </Text>
                     </Pressable>
 
-                    <View style={{ flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-                        <Text variant="caption" style={{ color: '#A7F3D0', fontWeight: '700', fontSize: 10, letterSpacing: 0.5, marginBottom: 2 }}>
-                            {restaurantName}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                        <Text variant="label" style={{ color: '#FCD34D', fontWeight: '900', fontSize: isSmallScreen ? 13 : 14, letterSpacing: 0.3 }}>
+                            View Cart
                         </Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                            <Text variant="label" style={{ color: '#FCD34D', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 }}>
-                                View Cart
-                            </Text>
-                            <Feather name="arrow-right" size={16} color="#FCD34D" />
-                        </View>
+                        <Feather name="arrow-right" size={isSmallScreen ? 14 : 16} color="#FCD34D" />
                     </View>
                 </View>
             </LinearGradient>

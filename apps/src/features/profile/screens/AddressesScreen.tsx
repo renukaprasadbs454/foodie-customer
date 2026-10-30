@@ -75,7 +75,70 @@ export function AddressesScreen({ navigation, route }: Props) {
     longitudeDelta: 0.01,
   });
   const [fetchingLocation, setFetchingLocation] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
   const mapRef = useRef<MapView>(null);
+  const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const reverseGeocodeLocation = async (lat: number, lng: number) => {
+    try {
+      setGeocoding(true);
+      const geocode = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      if (geocode && geocode.length > 0) {
+        const addr = geocode[0];
+        if (addr.city) setCity(addr.city);
+        if (addr.postalCode) setPincode(addr.postalCode);
+        const streetPart = [addr.streetNumber, addr.street].filter(Boolean).join(' ');
+        if (streetPart) {
+          setLine1(streetPart);
+        } else if (addr.name) {
+          setLine1(addr.name);
+        }
+        const areaPart = [addr.district, addr.subregion, addr.region].filter(Boolean).join(', ');
+        if (areaPart) {
+          setLine2(areaPart);
+        } else if (addr.formattedAddress) {
+          setLine2(addr.formattedAddress);
+        }
+      }
+    } catch (err) {
+      console.warn('Reverse geocode error:', err);
+    } finally {
+      setGeocoding(false);
+    }
+  };
+
+  const onLocationPinChanged = (lat: number, lng: number, shouldGeocode = true) => {
+    setLatitude(lat.toString());
+    setLongitude(lng.toString());
+    setMapRegion(prev => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+    }));
+
+    if (shouldGeocode) {
+      if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+      geocodeTimerRef.current = setTimeout(() => {
+        void reverseGeocodeLocation(lat, lng);
+      }, 400);
+    }
+  };
+
+  const handleZoom = (direction: 'in' | 'out') => {
+    setMapRegion(prev => {
+      const factor = direction === 'in' ? 0.5 : 2;
+      const newLatDelta = Math.max(0.0008, Math.min(prev.latitudeDelta * factor, 0.4));
+      const newLngDelta = Math.max(0.0008, Math.min(prev.longitudeDelta * factor, 0.4));
+      const newRegion = {
+        ...prev,
+        latitudeDelta: newLatDelta,
+        longitudeDelta: newLngDelta,
+      };
+      mapRef.current?.animateToRegion(newRegion, 250);
+      return newRegion;
+    });
+  };
 
   const handleError = useApiErrorHandler({
     onToast: (error) => setToast({ message: error.message, variant: 'error' }),
@@ -383,36 +446,180 @@ export function AddressesScreen({ navigation, route }: Props) {
         <Modal
           visible={formVisible}
           onRequestClose={() => setFormVisible(false)}
+          dismissOnBackdropPress={false}
           title={editingId ? "Edit Delivery Address" : "Add Delivery Address"}
           accessibilityLabel="Delivery address dialog"
         >
-          <ScrollView style={{ maxHeight: 600 }}>
+          <ScrollView
+            style={{ maxHeight: 600 }}
+            scrollEnabled={scrollEnabled}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={{ gap: tokens.spacing.md }}>
-              <View style={{ height: 160, borderRadius: 12, overflow: 'hidden', borderColor: '#F59E0B', borderWidth: 1, backgroundColor: '#E5E7EB' }}>
+              {/* Interactive Map with Zoom, Draggable Pin, GPS center, and touch isolation */}
+              <View
+                onTouchStart={() => setScrollEnabled(false)}
+                onTouchEnd={() => setScrollEnabled(true)}
+                onTouchCancel={() => setScrollEnabled(true)}
+                style={{
+                  height: 200,
+                  borderRadius: 14,
+                  overflow: 'hidden',
+                  borderColor: '#14532D',
+                  borderWidth: 1.5,
+                  backgroundColor: '#E5E7EB',
+                  position: 'relative',
+                }}
+              >
                 <MapView
                   ref={mapRef}
                   provider={PROVIDER_GOOGLE}
                   style={{ flex: 1 }}
                   region={mapRegion}
+                  zoomEnabled={true}
+                  scrollEnabled={true}
+                  zoomControlEnabled={true}
+                  zoomTapEnabled={true}
+                  pitchEnabled={false}
+                  rotateEnabled={false}
+                  onPress={(e) => {
+                    if (e.nativeEvent?.coordinate) {
+                      onLocationPinChanged(e.nativeEvent.coordinate.latitude, e.nativeEvent.coordinate.longitude, true);
+                    }
+                  }}
                   onRegionChangeComplete={(r) => {
                     if (r && r.latitude && r.longitude) {
                       setMapRegion(r);
-                      setLatitude(r.latitude.toString());
-                      setLongitude(r.longitude.toString());
+                      onLocationPinChanged(r.latitude, r.longitude, true);
                     }
                   }}
                 >
                   {mapRegion?.latitude && mapRegion?.longitude ? (
-                    <Marker coordinate={{ latitude: mapRegion.latitude, longitude: mapRegion.longitude }} pinColor="#14532D" />
+                    <Marker
+                      coordinate={{
+                        latitude: Number(latitude) || mapRegion.latitude,
+                        longitude: Number(longitude) || mapRegion.longitude,
+                      }}
+                      draggable={true}
+                      onDragEnd={(e) => {
+                        if (e.nativeEvent?.coordinate) {
+                          onLocationPinChanged(e.nativeEvent.coordinate.latitude, e.nativeEvent.coordinate.longitude, true);
+                        }
+                      }}
+                      pinColor="#14532D"
+                      title="Delivery Location"
+                      description="Drag pin to fine-tune address"
+                    />
                   ) : null}
                 </MapView>
+
+                {/* Floating Map Controls: GPS Current Location, Zoom In, Zoom Out */}
+                <View style={{ position: 'absolute', top: 8, right: 8, gap: 6, zIndex: 10 }}>
+                  <Pressable
+                    onPress={() => void fetchExactLocation()}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel="Use current location"
+                    style={({ pressed }) => ({
+                      width: 34,
+                      height: 34,
+                      borderRadius: 17,
+                      backgroundColor: pressed ? '#E5E7EB' : '#FFFFFF',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.25,
+                      shadowRadius: 3,
+                      elevation: 4,
+                    })}
+                  >
+                    <Text style={{ fontSize: 16 }}>🎯</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => handleZoom('in')}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel="Zoom in map"
+                    style={({ pressed }) => ({
+                      width: 34,
+                      height: 34,
+                      borderRadius: 8,
+                      backgroundColor: pressed ? '#E5E7EB' : '#FFFFFF',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.25,
+                      shadowRadius: 3,
+                      elevation: 4,
+                    })}
+                  >
+                    <Text style={{ fontSize: 20, fontWeight: '900', color: '#14532D', marginTop: -1 }}>+</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => handleZoom('out')}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel="Zoom out map"
+                    style={({ pressed }) => ({
+                      width: 34,
+                      height: 34,
+                      borderRadius: 8,
+                      backgroundColor: pressed ? '#E5E7EB' : '#FFFFFF',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.25,
+                      shadowRadius: 3,
+                      elevation: 4,
+                    })}
+                  >
+                    <Text style={{ fontSize: 22, fontWeight: '900', color: '#14532D', marginTop: -3 }}>−</Text>
+                  </Pressable>
+                </View>
+
+                {/* Pin Location Reverse-Geocoding Status Indicator */}
+                {geocoding && (
+                  <View style={{
+                    position: 'absolute',
+                    bottom: 8,
+                    alignSelf: 'center',
+                    backgroundColor: 'rgba(20, 83, 45, 0.92)',
+                    paddingHorizontal: 12,
+                    paddingVertical: 5,
+                    borderRadius: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 4,
+                    elevation: 3,
+                  }}>
+                    <ActivityIndicator size="small" color="#FCD34D" />
+                    <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>
+                      Updating address from pin...
+                    </Text>
+                  </View>
+                )}
+
                 {fetchingLocation && (
                   <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
-                    <ActivityIndicator size="large" color="#F59E0B" />
-                    <Text style={{ color: '#F59E0B', fontWeight: '800', marginTop: 8 }}>Pinpointing location...</Text>
+                    <ActivityIndicator size="large" color="#FCD34D" />
+                    <Text style={{ color: '#FCD34D', fontWeight: '800', marginTop: 8 }}>Pinpointing location...</Text>
                   </View>
                 )}
               </View>
+
+              <Text style={{ fontSize: 11, color: '#6B7280', textAlign: 'center', marginTop: -4 }}>
+                📍 Drag pin or tap map to update address • Use + / − or pinch to zoom
+              </Text>
 
 
 

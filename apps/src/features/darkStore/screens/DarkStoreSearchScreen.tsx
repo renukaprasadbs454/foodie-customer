@@ -166,24 +166,25 @@ export function DarkStoreSearchScreen({ navigation }: any) {
                             borderRadius: 24,
                         }}
                     >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, paddingRight: 8 }}>
                             <View style={{
                                 backgroundColor: '#FCD34D',
-                                borderRadius: 12,
-                                paddingHorizontal: 10,
-                                paddingVertical: 5,
+                                borderRadius: 10,
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                flexShrink: 0,
                                 shadowColor: '#000',
                                 shadowOffset: { width: 0, height: 2 },
                                 shadowOpacity: 0.1,
                                 shadowRadius: 2,
                                 elevation: 1,
                             }}>
-                                <Text style={{ color: '#134E4A', fontWeight: '900', fontSize: 13 }}>
+                                <Text style={{ color: '#134E4A', fontWeight: '900', fontSize: 12 }}>
                                     {cartCount} {cartCount === 1 ? 'ITEM' : 'ITEMS'}
                                 </Text>
                             </View>
-                            <View style={{ flexShrink: 1 }}>
-                                <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 16 }}>
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                                <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 16 }} numberOfLines={1}>
                                     ₹{cartTotal.toFixed(2)}
                                 </Text>
                             </View>

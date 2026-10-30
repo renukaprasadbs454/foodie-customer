@@ -75,6 +75,8 @@ export function useRestaurantFeed(args: FeedArgs) {
     {
       cuisineType: args.cuisineType,
       search: args.search,
+      lat: args.userLatitude,
+      lng: args.userLongitude,
     },
     {
       skip: !shouldFetchNearbyFallback,
@@ -99,8 +101,18 @@ export function useRestaurantFeed(args: FeedArgs) {
         const nLng = Number(r.longitude);
         return !isNaN(nLat) && !isNaN(nLng) && (nLat !== 0 || nLng !== 0);
       });
-      if (args.cuisineType) {
-        list = list.filter(item => checkRestaurantMatch(item, args.cuisineType || ''));
+      // The backend /api/v1/restaurants endpoint filters by cuisineType including all menu items (e.g. Chicken Biriyani for Biriyani)
+      // and restaurant details. Do not re-filter on the client without menu data.
+      if (isExpandedFromNearby && args.userLatitude !== undefined && args.userLongitude !== undefined) {
+        const uLat = args.userLatitude;
+        const uLng = args.userLongitude;
+        list = list.filter((r) => {
+          const lat = typeof r.latitude === 'number' ? r.latitude : parseFloat(String(r.latitude ?? 0));
+          const lng = typeof r.longitude === 'number' ? r.longitude : parseFloat(String(r.longitude ?? 0));
+          if (!lat || !lng) return false;
+          const dist = getDistanceKm(uLat, uLng, lat, lng);
+          return dist <= 25.0; // Strictly only restaurants from nearby zones, not all restaurants
+        });
       }
     } else {
       list = [];
