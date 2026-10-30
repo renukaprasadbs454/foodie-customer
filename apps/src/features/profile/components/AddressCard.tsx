@@ -26,55 +26,64 @@ export function AddressCard({
     <Pressable
       onPress={onSelect}
       style={({ pressed }) => ({
-        padding: tokens.spacing.lg,
-        borderRadius: tokens.radius.lg,
-        borderWidth: 1,
-        borderColor: address.isDefault ? tokens.color.accent : tokens.color.border,
-        backgroundColor: tokens.color.surface,
-        gap: tokens.spacing.sm,
-        shadowColor: '#14532D',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1.2,
+        borderColor: address.isDefault ? '#F59E0B' : 'rgba(255, 255, 255, 0.08)',
+        backgroundColor: '#131F18',
+        gap: 8,
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
+        shadowOpacity: 0.15,
         shadowRadius: 6,
         elevation: 2,
-        opacity: pressed ? 0.8 : 1,
+        opacity: pressed ? 0.85 : 1,
       })}
       accessibilityRole="button"
       accessibilityLabel={`Address ${address.label ?? address.line1}`}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text variant="label" style={{ fontWeight: '800', color: tokens.color.textPrimary }}>
+        <Text variant="label" style={{ fontWeight: '800', color: '#FFFFFF', fontSize: 15 }}>
           {address.label?.trim() || 'Custom Location'}
         </Text>
         {address.isDefault ? (
-          <Badge label="Default Address" tone="accent" accessibilityLabel="Default Address" />
+          <View style={{
+            backgroundColor: 'rgba(252, 211, 77, 0.15)',
+            borderColor: '#F59E0B',
+            borderWidth: 1,
+            borderRadius: 6,
+            paddingHorizontal: 8,
+            paddingVertical: 2.5,
+          }}>
+            <Text style={{ color: '#FCD34D', fontSize: 10, fontWeight: '800' }}>DEFAULT</Text>
+          </View>
         ) : null}
       </View>
 
-      <Text variant="bodySmall" color={tokens.color.textPrimary} style={{ lineHeight: 18, fontWeight: '500' }}>
+      <Text variant="bodySmall" style={{ lineHeight: 18, fontWeight: '500', color: '#E5E7EB' }}>
         {address.line1}
         {address.line2 ? `,\n${address.line2}` : ''}
       </Text>
 
-      <Text variant="caption" color={tokens.color.textSecondary} style={{ fontWeight: '500' }}>
+      <Text variant="caption" style={{ fontWeight: '500', color: '#9CA3AF' }}>
         📍 {address.city} · {address.pincode}
       </Text>
 
-      <View style={{ flexDirection: 'row', gap: tokens.spacing.sm, marginTop: tokens.spacing.xs, alignItems: 'center' }}>
+      <View style={{ flexDirection: 'row', gap: 10, marginTop: 4, alignItems: 'center' }}>
         {onEdit ? (
           <Pressable
             disabled={removing}
             onPress={onEdit}
             style={({ pressed }) => ({
-              backgroundColor: pressed ? '#F3F4F6' : 'transparent',
-              borderRadius: tokens.radius.md,
+              backgroundColor: pressed ? '#1E2922' : 'transparent',
+              borderRadius: 8,
               borderWidth: 1,
-              borderColor: '#D1D5DB',
-              paddingHorizontal: tokens.spacing.md,
-              paddingVertical: 8,
+              borderColor: '#374151',
+              paddingHorizontal: 12,
+              paddingVertical: 6,
             })}
           >
-            <Text variant="caption" style={{ color: '#4B5563', fontWeight: '600' }}>
+            <Text variant="caption" style={{ color: '#D1D5DB', fontWeight: '700' }}>
               Edit
             </Text>
           </Pressable>
@@ -84,15 +93,15 @@ export function AddressCard({
           disabled={removing}
           onPress={onRemove}
           style={({ pressed }) => ({
-            backgroundColor: pressed ? '#FFF1F2' : 'transparent',
-            borderRadius: tokens.radius.md,
+            backgroundColor: pressed ? '#2E1014' : 'transparent',
+            borderRadius: 8,
             borderWidth: 1,
-            borderColor: '#FECDD3',
-            paddingHorizontal: tokens.spacing.md,
-            paddingVertical: 8,
+            borderColor: 'rgba(239, 68, 68, 0.35)',
+            paddingHorizontal: 12,
+            paddingVertical: 6,
           })}
         >
-          <Text variant="caption" style={{ color: '#EF4444', fontWeight: '600' }}>
+          <Text variant="caption" style={{ color: '#EF4444', fontWeight: '700' }}>
             {removing ? 'Removing...' : 'Delete'}
           </Text>
         </Pressable>

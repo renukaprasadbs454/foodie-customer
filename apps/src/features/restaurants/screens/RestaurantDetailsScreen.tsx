@@ -21,26 +21,13 @@ import { ENV } from '../../../constants/env';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'RestaurantDetails'>;
 
-const FALLBACK_FOOD_IMAGES = [
-  'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=600', // Burger & Fries
-  'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=600', // Pizza
-  'https://images.unsplash.com/photo-1546833999-b9f581a1996d?q=80&w=600', // Bowls / Curries
-  'https://images.unsplash.com/photo-1578985545062-69928b1d9587?q=80&w=600', // Specialty Dessert
-  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=600', // Salad
-];
-
-function getRestaurantImage(name: string, remoteUrl?: string | null): string {
-  if (remoteUrl) {
+function resolveRestaurantImage(remoteUrl?: string | null): string | null {
+  if (remoteUrl && remoteUrl.trim().length > 0) {
     if (remoteUrl.startsWith('http')) return remoteUrl;
     if (remoteUrl.startsWith('/api')) return `${ENV.apiBaseUrl}${remoteUrl}`;
     return remoteUrl;
   }
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % FALLBACK_FOOD_IMAGES.length;
-  return FALLBACK_FOOD_IMAGES[index]!;
+  return null;
 }
 
 export function RestaurantDetailsScreen({ navigation, route }: Props) {
@@ -121,15 +108,12 @@ export function RestaurantDetailsScreen({ navigation, route }: Props) {
       ? safeRestaurant.avgRating.toFixed(1)
       : null;
 
-  const imageUrl = getRestaurantImage(
-    safeRestaurant.name,
-    safeRestaurant.imageUrl,
-  );
-
+  const imageUrl = resolveRestaurantImage(safeRestaurant.imageUrl);
+  const isClosed = safeRestaurant.isOpen === false;
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: tokens.color.background }}
+      style={{ flex: 1, backgroundColor: isClosed ? '#F3F4F6' : tokens.color.background }}
       contentContainerStyle={{
         paddingBottom: 48,
       }}
@@ -144,14 +128,51 @@ export function RestaurantDetailsScreen({ navigation, route }: Props) {
       }
     >
       {/* Banner Cover Image */}
-      <View style={{ height: 220, width: '100%', backgroundColor: '#F0ECE4' }}>
-        <Image
-          source={{ uri: imageUrl }}
-          style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
-        />
+      <View style={{ height: 220, width: '100%', backgroundColor: isClosed ? '#374151' : '#14532D', position: 'relative' }}>
+        {imageUrl ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={{ width: '100%', height: '100%', opacity: isClosed ? 0.35 : 1 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ fontSize: 44 }}>🍽️</Text>
+            <Text style={{ color: '#FCD34D', fontWeight: '800', fontSize: 16, marginTop: 6 }}>
+              {safeRestaurant.name}
+            </Text>
+          </View>
+        )}
         {/* Subtle shadow overlay at bottom */}
-        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, backgroundColor: 'rgba(25,23,20,0.3)' }} />
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, backgroundColor: 'rgba(25,23,20,0.35)' }} />
+
+        {isClosed && (
+          <View style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(17, 24, 39, 0.75)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+          }}>
+            <View style={{
+              backgroundColor: '#111827',
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: '#4B5563',
+              alignItems: 'center',
+            }}>
+              <Text style={{ color: '#F9FAFB', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }}>
+                ⚫ CURRENTLY OFFLINE / CLOSED
+              </Text>
+              <Text style={{ color: '#9CA3AF', fontSize: 11, marginTop: 3 }}>
+                This restaurant is not accepting orders at this time
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Floating Info Section */}
@@ -218,7 +239,7 @@ export function RestaurantDetailsScreen({ navigation, route }: Props) {
 
         {/* View Menu Primary Brand Button */}
         <Button
-          label="Browse Full Menu & Order"
+          label={isClosed ? "Browse Menu (Currently Offline)" : "Browse Full Menu & Order"}
           accessibilityLabel="View menu"
           onPress={() => {
             trackAnalyticsEvent('view_menu_tapped', { restaurantId });
@@ -227,8 +248,8 @@ export function RestaurantDetailsScreen({ navigation, route }: Props) {
           style={{
             height: 54,
             borderRadius: tokens.radius.lg,
-            backgroundColor: tokens.color.accent, // Dark Green
-            shadowColor: tokens.color.accent,
+            backgroundColor: isClosed ? '#374151' : tokens.color.accent,
+            shadowColor: isClosed ? '#000000' : tokens.color.accent,
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.15,
             shadowRadius: 8,

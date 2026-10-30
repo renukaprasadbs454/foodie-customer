@@ -1,7 +1,9 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { CartScreen } from '../features/cart/screens/CartScreen';
 import { CheckoutScreen } from '../features/checkout/screens/CheckoutScreen';
 import { PaymentScreen } from '../features/payment/screens/PaymentScreen';
@@ -230,45 +232,61 @@ function ProfileStackNavigator() {
  * Main tabs — System Design §5.1 Customer / P2-CUS-01…07.
  */
 export function MainNavigator() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#14532D', // Primary Dark Green for active tab
-        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarActiveTintColor: '#FCD34D', // Gold active text
+        tabBarInactiveTintColor: '#9CA3AF', // Muted inactive text
         tabBarStyle: {
-          borderTopWidth: 1.5,
-          borderTopColor: '#E5E7EB',
-          backgroundColor: '#FFFFFF',
-          height: 80,
-          paddingBottom: 16,
-          paddingTop: 12,
-          shadowColor: '#14532D',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.05,
-          shadowRadius: 10,
-          elevation: 8,
+          borderTopWidth: 1.2,
+          borderTopColor: 'rgba(252, 211, 77, 0.25)',
+          backgroundColor: '#022414', // Dark emerald matching top hero
+          height: 62 + Math.max(insets.bottom, 8),
+          paddingBottom: Math.max(insets.bottom, 8),
+          paddingTop: 6,
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.35,
+          shadowRadius: 8,
+          elevation: 10,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '700',
+          fontSize: 11,
+          fontWeight: '800',
+          marginTop: 2,
+          letterSpacing: 0.2,
         },
         tabBarIcon: ({ focused }) => {
-          let emoji = '🏠';
-          if (route.name === 'BrowseTab') emoji = '🏠';
-          else if (route.name === 'OrdersTab') emoji = '📋';
-          else if (route.name === 'DarkStoreTab') emoji = '🛍️';
-          else if (route.name === 'ProfileTab') emoji = '👤';
+          let iconName: keyof typeof Ionicons.glyphMap = 'home';
+          if (route.name === 'BrowseTab') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'DarkStoreTab') {
+            iconName = focused ? 'flash' : 'flash-outline';
+          } else if (route.name === 'OrdersTab') {
+            iconName = focused ? 'receipt' : 'receipt-outline';
+          } else if (route.name === 'ProfileTab') {
+            iconName = focused ? 'person' : 'person-outline';
+          }
 
           return (
-            <Text
+            <View
               style={{
-                fontSize: 20,
-                opacity: focused ? 1 : 0.65,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: focused ? 'rgba(252, 211, 77, 0.16)' : 'transparent',
+                borderRadius: 20,
+                paddingHorizontal: 14,
+                paddingVertical: 3,
               }}
             >
-              {emoji}
-            </Text>
+              <Ionicons
+                name={iconName}
+                size={21}
+                color={focused ? '#FCD34D' : '#9CA3AF'}
+              />
+            </View>
           );
         },
       })}

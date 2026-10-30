@@ -20,7 +20,10 @@ export type BrowseStackParamList = {
     search?: string;
     cuisineType?: string;
     sort?: 'name' | 'avgRating' | 'createdAt';
-  };
+    categoryId?: string;
+    categoryName?: string;
+    keywords?: string[];
+  } | undefined;
   Search: { initialQuery?: string } | undefined;
   RestaurantDetails: { restaurantId: string };
   Menu: { restaurantId: string };

@@ -315,8 +315,8 @@ export function AddressesScreen({ navigation, route }: Props) {
   const addresses = addressesQuery.data ?? [];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
-      <View style={{ flex: 1, backgroundColor: tokens.color.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#012B18' }} edges={['top', 'left', 'right']}>
+      <View style={{ flex: 1, backgroundColor: '#0A120E' }}>
         <FlatList
           style={{ flex: 1 }}
           data={
@@ -329,6 +329,7 @@ export function AddressesScreen({ navigation, route }: Props) {
           }}
           refreshControl={
             <RefreshControl
+              tintColor="#FCD34D"
               refreshing={addressesQuery.isFetching}
               onRefresh={() => {
                 void addressesQuery.refetch();
@@ -337,28 +338,32 @@ export function AddressesScreen({ navigation, route }: Props) {
           }
           ListHeaderComponent={
             <View style={{
-              paddingTop: 12,
-              paddingBottom: 20,
+              paddingTop: 14,
+              paddingBottom: 22,
               paddingHorizontal: 20,
-              backgroundColor: '#14532D',
-              borderBottomLeftRadius: 32,
-              borderBottomRightRadius: 32,
-              shadowColor: '#14532D',
+              backgroundColor: '#012B18',
+              borderBottomLeftRadius: 28,
+              borderBottomRightRadius: 28,
+              borderBottomWidth: 1.5,
+              borderColor: 'rgba(252, 211, 77, 0.25)',
+              shadowColor: '#000',
               shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.15,
+              shadowOpacity: 0.35,
               shadowRadius: 10,
-              elevation: 5,
+              elevation: 8,
               marginBottom: 16,
             }}>
               <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 24, letterSpacing: -0.5 }}>
                 Delivery Addresses
               </Text>
+              <Text style={{ color: '#A7F3D0', fontSize: 13, marginTop: 4, fontWeight: '500' }}>
+                Manage your saved home, work, and instant delivery locations
+              </Text>
               {!isConnected ? (
-                <Text variant="caption" color="#A7F3D0" style={{ marginTop: 4 }}>
+                <Text variant="caption" color="#FCD34D" style={{ marginTop: 6 }}>
                   Offline — showing cached addresses. Changes are blocked.
                 </Text>
               ) : null}
-
 
               {addressesQuery.isLoading && addresses.length === 0 ? (
                 <AddressListSkeleton />
@@ -367,14 +372,27 @@ export function AddressesScreen({ navigation, route }: Props) {
           }
           ListEmptyComponent={
             addressesQuery.isLoading && addresses.length === 0 ? null : (
-              <View style={{ paddingHorizontal: tokens.spacing.md }}>
-                <EmptyState
-                  title="No addresses yet"
-                  description="Add a delivery address for checkout."
-                  accessibilityLabel="Addresses empty"
-                  actionLabel="Add New Address"
-                  onAction={openAddForm}
-                />
+              <View style={{ paddingHorizontal: tokens.spacing.md, alignItems: 'center', marginTop: 40 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800', marginBottom: 6 }}>
+                  No addresses saved yet
+                </Text>
+                <Text style={{ color: '#9CA3AF', fontSize: 14, textAlign: 'center', marginBottom: 20 }}>
+                  Add a delivery address to order delicious food directly to your doorstep.
+                </Text>
+                <Pressable
+                  onPress={openAddForm}
+                  style={({ pressed }) => ({
+                    backgroundColor: '#0B3820',
+                    borderColor: '#FCD34D',
+                    borderWidth: 1.5,
+                    paddingHorizontal: 24,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    opacity: pressed ? 0.85 : 1,
+                  })}
+                >
+                  <Text style={{ color: '#FCD34D', fontWeight: '800', fontSize: 15 }}>+ Add New Address</Text>
+                </Pressable>
               </View>
             )
           }
@@ -384,20 +402,27 @@ export function AddressesScreen({ navigation, route }: Props) {
                 accessibilityLabel="Add address"
                 onPress={openAddForm}
                 style={({ pressed }) => ({
-                  backgroundColor: '#14532D',
+                  backgroundColor: '#0B3820',
                   borderColor: '#FCD34D',
                   borderWidth: 1.5,
-                  borderRadius: 12,
+                  borderRadius: 14,
                   paddingHorizontal: 16,
-                  paddingVertical: 14,
+                  paddingVertical: 15,
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 8,
-                  opacity: pressed ? 0.9 : 1,
+                  opacity: pressed ? 0.85 : 1,
+                  shadowColor: '#FCD34D',
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 6,
+                  elevation: 4,
                 })}
               >
-                <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 16 }}>+ Add New Address</Text>
+                <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 16, letterSpacing: 0.3 }}>
+                  + Add New Address
+                </Text>
               </Pressable>
             </View>
           }
@@ -449,6 +474,13 @@ export function AddressesScreen({ navigation, route }: Props) {
           dismissOnBackdropPress={false}
           title={editingId ? "Edit Delivery Address" : "Add Delivery Address"}
           accessibilityLabel="Delivery address dialog"
+          contentStyle={{
+            backgroundColor: '#0D1B13',
+            borderColor: 'rgba(252, 211, 77, 0.4)',
+            borderWidth: 1.5,
+            borderRadius: 24,
+            padding: 18,
+          }}
         >
           <ScrollView
             style={{ maxHeight: 600 }}
@@ -466,9 +498,9 @@ export function AddressesScreen({ navigation, route }: Props) {
                   height: 200,
                   borderRadius: 14,
                   overflow: 'hidden',
-                  borderColor: '#14532D',
+                  borderColor: '#FCD34D',
                   borderWidth: 1.5,
-                  backgroundColor: '#E5E7EB',
+                  backgroundColor: '#1E293B',
                   position: 'relative',
                 }}
               >
@@ -507,7 +539,7 @@ export function AddressesScreen({ navigation, route }: Props) {
                           onLocationPinChanged(e.nativeEvent.coordinate.latitude, e.nativeEvent.coordinate.longitude, true);
                         }
                       }}
-                      pinColor="#14532D"
+                      pinColor="#FCD34D"
                       title="Delivery Location"
                       description="Drag pin to fine-tune address"
                     />
@@ -522,17 +554,19 @@ export function AddressesScreen({ navigation, route }: Props) {
                     accessibilityRole="button"
                     accessibilityLabel="Use current location"
                     style={({ pressed }) => ({
-                      width: 34,
-                      height: 34,
-                      borderRadius: 17,
-                      backgroundColor: pressed ? '#E5E7EB' : '#FFFFFF',
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: pressed ? '#0F2E1E' : '#062013',
+                      borderColor: '#FCD34D',
+                      borderWidth: 1.2,
                       alignItems: 'center',
                       justifyContent: 'center',
                       shadowColor: '#000',
                       shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.25,
+                      shadowOpacity: 0.35,
                       shadowRadius: 3,
-                      elevation: 4,
+                      elevation: 5,
                     })}
                   >
                     <Text style={{ fontSize: 16 }}>🎯</Text>
@@ -544,20 +578,22 @@ export function AddressesScreen({ navigation, route }: Props) {
                     accessibilityRole="button"
                     accessibilityLabel="Zoom in map"
                     style={({ pressed }) => ({
-                      width: 34,
-                      height: 34,
-                      borderRadius: 8,
-                      backgroundColor: pressed ? '#E5E7EB' : '#FFFFFF',
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      backgroundColor: pressed ? '#0F2E1E' : '#062013',
+                      borderColor: '#FCD34D',
+                      borderWidth: 1.2,
                       alignItems: 'center',
                       justifyContent: 'center',
                       shadowColor: '#000',
                       shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.25,
+                      shadowOpacity: 0.35,
                       shadowRadius: 3,
-                      elevation: 4,
+                      elevation: 5,
                     })}
                   >
-                    <Text style={{ fontSize: 20, fontWeight: '900', color: '#14532D', marginTop: -1 }}>+</Text>
+                    <Text style={{ fontSize: 20, fontWeight: '900', color: '#FCD34D', marginTop: -1 }}>+</Text>
                   </Pressable>
 
                   <Pressable
@@ -566,20 +602,22 @@ export function AddressesScreen({ navigation, route }: Props) {
                     accessibilityRole="button"
                     accessibilityLabel="Zoom out map"
                     style={({ pressed }) => ({
-                      width: 34,
-                      height: 34,
-                      borderRadius: 8,
-                      backgroundColor: pressed ? '#E5E7EB' : '#FFFFFF',
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      backgroundColor: pressed ? '#0F2E1E' : '#062013',
+                      borderColor: '#FCD34D',
+                      borderWidth: 1.2,
                       alignItems: 'center',
                       justifyContent: 'center',
                       shadowColor: '#000',
                       shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.25,
+                      shadowOpacity: 0.35,
                       shadowRadius: 3,
-                      elevation: 4,
+                      elevation: 5,
                     })}
                   >
-                    <Text style={{ fontSize: 22, fontWeight: '900', color: '#14532D', marginTop: -3 }}>−</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '900', color: '#FCD34D', marginTop: -3 }}>−</Text>
                   </Pressable>
                 </View>
 
@@ -589,7 +627,9 @@ export function AddressesScreen({ navigation, route }: Props) {
                     position: 'absolute',
                     bottom: 8,
                     alignSelf: 'center',
-                    backgroundColor: 'rgba(20, 83, 45, 0.92)',
+                    backgroundColor: 'rgba(2, 36, 20, 0.95)',
+                    borderColor: 'rgba(252, 211, 77, 0.4)',
+                    borderWidth: 1,
                     paddingHorizontal: 12,
                     paddingVertical: 5,
                     borderRadius: 16,
@@ -598,30 +638,28 @@ export function AddressesScreen({ navigation, route }: Props) {
                     gap: 6,
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.2,
+                    shadowOpacity: 0.3,
                     shadowRadius: 4,
-                    elevation: 3,
+                    elevation: 4,
                   }}>
                     <ActivityIndicator size="small" color="#FCD34D" />
-                    <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>
+                    <Text style={{ color: '#FCD34D', fontSize: 11, fontWeight: '800' }}>
                       Updating address from pin...
                     </Text>
                   </View>
                 )}
 
                 {fetchingLocation && (
-                  <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center' }}>
                     <ActivityIndicator size="large" color="#FCD34D" />
                     <Text style={{ color: '#FCD34D', fontWeight: '800', marginTop: 8 }}>Pinpointing location...</Text>
                   </View>
                 )}
               </View>
 
-              <Text style={{ fontSize: 11, color: '#6B7280', textAlign: 'center', marginTop: -4 }}>
+              <Text style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center', marginTop: -4 }}>
                 📍 Drag pin or tap map to update address • Use + / − or pinch to zoom
               </Text>
-
-
 
               <View style={{ flexDirection: 'row', gap: tokens.spacing.md }}>
                 {['Home', 'Work', 'Other'].map(l => (
@@ -629,13 +667,16 @@ export function AddressesScreen({ navigation, route }: Props) {
                     key={l}
                     onPress={() => setLabel(l)}
                     style={{
-                      flex: 1, padding: 10, borderRadius: 8, borderWidth: 1,
-                      borderColor: label === l ? '#14532D' : tokens.color.border,
-                      backgroundColor: label === l ? '#14532D' : tokens.color.surface,
-                      alignItems: 'center'
+                      flex: 1,
+                      padding: 10,
+                      borderRadius: 10,
+                      borderWidth: 1.5,
+                      borderColor: label === l ? '#FCD34D' : 'rgba(255, 255, 255, 0.12)',
+                      backgroundColor: label === l ? '#0B3820' : '#14231A',
+                      alignItems: 'center',
                     }}
                   >
-                    <Text style={{ color: label === l ? '#FFFFFF' : tokens.color.textSecondary, fontWeight: '800' }}>{l}</Text>
+                    <Text style={{ color: label === l ? '#FCD34D' : '#9CA3AF', fontWeight: '800', fontSize: 14 }}>{l}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -645,12 +686,26 @@ export function AddressesScreen({ navigation, route }: Props) {
                 value={line1}
                 onChangeText={setLine1}
                 accessibilityLabel="Address line 1"
+                placeholderTextColor="#6B7280"
+                inputStyle={{
+                  backgroundColor: '#14231A',
+                  borderColor: 'rgba(252, 211, 77, 0.3)',
+                  color: '#FFFFFF',
+                  borderRadius: 10,
+                }}
               />
               <TextInput
                 label="Landmark / Area (Optional)"
                 value={line2}
                 onChangeText={setLine2}
                 accessibilityLabel="Address line 2"
+                placeholderTextColor="#6B7280"
+                inputStyle={{
+                  backgroundColor: '#14231A',
+                  borderColor: 'rgba(252, 211, 77, 0.3)',
+                  color: '#FFFFFF',
+                  borderRadius: 10,
+                }}
               />
               <View style={{ flexDirection: 'row', gap: tokens.spacing.md }}>
                 <View style={{ flex: 1 }}>
@@ -659,6 +714,13 @@ export function AddressesScreen({ navigation, route }: Props) {
                     value={city}
                     onChangeText={setCity}
                     accessibilityLabel="City"
+                    placeholderTextColor="#6B7280"
+                    inputStyle={{
+                      backgroundColor: '#14231A',
+                      borderColor: 'rgba(252, 211, 77, 0.3)',
+                      color: '#FFFFFF',
+                      borderRadius: 10,
+                    }}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -669,18 +731,47 @@ export function AddressesScreen({ navigation, route }: Props) {
                     keyboardType="number-pad"
                     maxLength={6}
                     accessibilityLabel="Pincode"
+                    placeholderTextColor="#6B7280"
+                    inputStyle={{
+                      backgroundColor: '#14231A',
+                      borderColor: 'rgba(252, 211, 77, 0.3)',
+                      color: '#FFFFFF',
+                      borderRadius: 10,
+                    }}
                   />
                 </View>
               </View>
 
-              <Button
-                label={editingId ? "Save Changes" : "Save Address and Proceed"}
-                accessibilityLabel="Save address"
-                loading={addState.isLoading || updateState.isLoading}
+              <Pressable
                 onPress={() => {
                   void onSave();
                 }}
-              />
+                disabled={addState.isLoading || updateState.isLoading}
+                accessibilityRole="button"
+                accessibilityLabel="Save address"
+                style={({ pressed }) => ({
+                  backgroundColor: '#F59E0B',
+                  borderRadius: 12,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: (addState.isLoading || updateState.isLoading) ? 0.7 : pressed ? 0.9 : 1,
+                  shadowColor: '#F59E0B',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 6,
+                  elevation: 5,
+                  marginTop: 6,
+                })}
+              >
+                {addState.isLoading || updateState.isLoading ? (
+                  <ActivityIndicator size="small" color="#012B18" />
+                ) : (
+                  <Text style={{ color: '#012B18', fontWeight: '900', fontSize: 16, letterSpacing: 0.3 }}>
+                    {editingId ? "Save Changes" : "Save Address and Proceed"}
+                  </Text>
+                )}
+              </Pressable>
             </View>
           </ScrollView>
         </Modal>

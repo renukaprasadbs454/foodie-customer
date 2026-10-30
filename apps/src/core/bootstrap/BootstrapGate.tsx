@@ -1,5 +1,7 @@
 import React, { useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import * as Font from 'expo-font';
+import { Feather } from '@expo/vector-icons';
 import { useConnectivity } from 'foodie-shared-rn';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { setConnectivity } from '../../store/connectivitySlice';
@@ -30,7 +32,18 @@ export function BootstrapGate({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         await Promise.race([
-          runBootstrap(dispatch),
+          Promise.allSettled([
+            runBootstrap(dispatch),
+            (async () => {
+              try {
+                if (Feather?.font) {
+                  await Font.loadAsync(Feather.font);
+                }
+              } catch {
+                // Ignore font load errors
+              }
+            })(),
+          ]),
           new Promise((resolve) => setTimeout(resolve, 2500)),
         ]);
       } catch {

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, SectionList, View, ScrollView, StatusBar, ImageBackground } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -44,22 +44,21 @@ export function MenuScreen({ navigation, route }: Props) {
   const [updateItemQuantity] = useUpdateCartItemQuantityMutation();
   const [removeCartItem] = useRemoveCartItemMutation();
 
-  const restaurantQuery = useGetRestaurantQuery(restaurantId || '', { skip: !validId || isMock });
-  const menuQuery = useGetMenuQuery(restaurantId || '', { skip: !validId || isMock });
-  const realRestaurant = restaurantQuery.data;
+  const restaurantQuery = useGetRestaurantQuery(restaurantId || '', { skip: !validId });
+  const menuQuery = useGetMenuQuery(restaurantId || '', { skip: !validId });
+  const restaurantData = restaurantQuery.data;
   const realMenu = menuQuery.data;
 
   useFocusEffect(
     React.useCallback(() => {
-      if (!isMock && validId) {
+      if (validId) {
         void restaurantQuery.refetch();
         void menuQuery.refetch();
       }
-    }, [isMock, validId, restaurantQuery.refetch, menuQuery.refetch])
+    }, [validId, restaurantQuery.refetch, menuQuery.refetch])
   );
 
-  const mockRestaurant = isMock ? MOCK_RESTAURANTS.find(r => r.id === restaurantId) : null;
-  const restaurantData = isMock ? mockRestaurant : realRestaurant;
+  const isClosed = restaurantData?.isOpen === false;
 
   const [distanceInfo, setDistanceInfo] = useState<string>('Estimating...');
   useEffect(() => {
@@ -231,7 +230,7 @@ export function MenuScreen({ navigation, route }: Props) {
     );
   }
 
-  const rawCategories = isMock ? (MOCK_MENUS[restaurantId]?.categories ?? []) : (realMenu?.categories ?? []);
+  const rawCategories = realMenu?.categories ?? [];
   const menuData = rawCategories.map((c: any) => ({
     categoryId: c.categoryId,
     name: c.name || c.categoryName || 'Menu',
@@ -270,6 +269,10 @@ export function MenuScreen({ navigation, route }: Props) {
       data: c.items,
     }));
   }, [filteredData]);
+
+  const avgRatingNum = Number(restaurantData?.avgRating);
+  const hasRealRating = !isNaN(avgRatingNum) && avgRatingNum > 0;
+  const ratingText = hasRealRating ? avgRatingNum.toFixed(1) : null;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
@@ -311,10 +314,14 @@ export function MenuScreen({ navigation, route }: Props) {
                 >
                   <Text variant="heading1" style={{ color: '#FCD34D', fontWeight: '900', fontSize: 32, textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>{restaurantData?.name || 'Restaurant Menu'}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', marginTop: 4 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FCD34D', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3 }}>
-                      <Text style={{ color: '#134E4A', fontSize: 13, fontWeight: '900' }}>★ {restaurantData?.avgRating?.toFixed(1) || '4.5'}</Text>
-                    </View>
-                    <Text variant="label" style={{ color: '#FFFFFF', fontWeight: '800' }}>•</Text>
+                    {ratingText && (
+                      <>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FCD34D', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3 }}>
+                          <Text style={{ color: '#134E4A', fontSize: 13, fontWeight: '900' }}>★ {ratingText}</Text>
+                        </View>
+                        <Text variant="label" style={{ color: '#FFFFFF', fontWeight: '800' }}>•</Text>
+                      </>
+                    )}
                     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.2)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 }}>
                       <Text variant="caption" style={{ color: '#FFFFFF', fontWeight: '800' }}>⏱️ {distanceInfo}</Text>
                     </View>
@@ -325,23 +332,51 @@ export function MenuScreen({ navigation, route }: Props) {
                   </View>
                 </LinearGradient>
               </ImageBackground>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: tokens.spacing.sm, paddingVertical: tokens.spacing.sm }}>
-                <Pressable onPress={() => setActiveFilter('all')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'all' ? '#14532D' : '#E5E7EB', borderWidth: 1, borderColor: activeFilter === 'all' ? '#14532D' : '#D1D5DB' }}>
-                  <Text variant="label" style={{ color: activeFilter === 'all' ? '#F59E0B' : '#4B5563', fontWeight: activeFilter === 'all' ? '800' : '600' }}>🍽️ All</Text>
-                </Pressable>
-                <Pressable onPress={() => setActiveFilter('veg')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'veg' ? '#14532D' : '#FFFFFF', borderWidth: 1, borderColor: activeFilter === 'veg' ? '#14532D' : '#D1D5DB' }}>
-                  <Text variant="label" style={{ color: activeFilter === 'veg' ? '#F59E0B' : '#059669', fontWeight: activeFilter === 'veg' ? '800' : '600' }}>🟢 Veg Only</Text>
-                </Pressable>
-                <Pressable onPress={() => setActiveFilter('non-veg')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'non-veg' ? '#14532D' : '#FFFFFF', borderWidth: 1, borderColor: activeFilter === 'non-veg' ? '#14532D' : '#D1D5DB' }}>
-                  <Text variant="label" style={{ color: activeFilter === 'non-veg' ? '#F59E0B' : '#DC2626', fontWeight: activeFilter === 'non-veg' ? '800' : '600' }}>🔴 Non-Veg</Text>
-                </Pressable>
-                <Pressable onPress={() => setActiveFilter('egg')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'egg' ? '#14532D' : '#FFFFFF', borderWidth: 1, borderColor: activeFilter === 'egg' ? '#14532D' : '#D1D5DB' }}>
-                  <Text variant="label" style={{ color: activeFilter === 'egg' ? '#F59E0B' : '#4B5563', fontWeight: activeFilter === 'egg' ? '800' : '600' }}>🍳 Egg Special</Text>
-                </Pressable>
-                <Pressable onPress={() => setActiveFilter('recommended')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'recommended' ? '#14532D' : '#FFFFFF', borderWidth: 1, borderColor: activeFilter === 'recommended' ? '#14532D' : '#D1D5DB' }}>
-                  <Text variant="label" style={{ color: activeFilter === 'recommended' ? '#F59E0B' : '#4B5563', fontWeight: activeFilter === 'recommended' ? '800' : '600' }}>🔥 Highly Reordered</Text>
-                </Pressable>
-              </ScrollView>
+
+              {/* Black and White Offline / Closed Banner */}
+              {isClosed && (
+                <View style={{
+                  backgroundColor: '#111827',
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: '#374151',
+                  padding: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  marginTop: tokens.spacing.xs,
+                }}>
+                  <Text style={{ fontSize: 20 }}>⚫</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#F9FAFB', fontWeight: '900', fontSize: 13, letterSpacing: 0.3 }}>
+                      RESTAURANT CURRENTLY OFFLINE / CLOSED
+                    </Text>
+                    <Text style={{ color: '#9CA3AF', fontSize: 11.5, marginTop: 2 }}>
+                      This restaurant is not taking orders right now. You can browse the items below.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {sections.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: tokens.spacing.sm, paddingVertical: tokens.spacing.sm }}>
+                  <Pressable onPress={() => setActiveFilter('all')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'all' ? '#14532D' : '#E5E7EB', borderWidth: 1, borderColor: activeFilter === 'all' ? '#14532D' : '#D1D5DB' }}>
+                    <Text variant="label" style={{ color: activeFilter === 'all' ? '#F59E0B' : '#4B5563', fontWeight: activeFilter === 'all' ? '800' : '600' }}>🍽️ All</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setActiveFilter('veg')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'veg' ? '#14532D' : '#FFFFFF', borderWidth: 1, borderColor: activeFilter === 'veg' ? '#14532D' : '#D1D5DB' }}>
+                    <Text variant="label" style={{ color: activeFilter === 'veg' ? '#F59E0B' : '#059669', fontWeight: activeFilter === 'veg' ? '800' : '600' }}>🟢 Veg Only</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setActiveFilter('non-veg')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'non-veg' ? '#14532D' : '#FFFFFF', borderWidth: 1, borderColor: activeFilter === 'non-veg' ? '#14532D' : '#D1D5DB' }}>
+                    <Text variant="label" style={{ color: activeFilter === 'non-veg' ? '#F59E0B' : '#DC2626', fontWeight: activeFilter === 'non-veg' ? '800' : '600' }}>🔴 Non-Veg</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setActiveFilter('egg')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'egg' ? '#14532D' : '#FFFFFF', borderWidth: 1, borderColor: activeFilter === 'egg' ? '#14532D' : '#D1D5DB' }}>
+                    <Text variant="label" style={{ color: activeFilter === 'egg' ? '#F59E0B' : '#4B5563', fontWeight: activeFilter === 'egg' ? '800' : '600' }}>🍳 Egg Special</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setActiveFilter('recommended')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'recommended' ? '#14532D' : '#FFFFFF', borderWidth: 1, borderColor: activeFilter === 'recommended' ? '#14532D' : '#D1D5DB' }}>
+                    <Text variant="label" style={{ color: activeFilter === 'recommended' ? '#F59E0B' : '#4B5563', fontWeight: activeFilter === 'recommended' ? '800' : '600' }}>🔥 Highly Reordered</Text>
+                  </Pressable>
+                </ScrollView>
+              )}
             </View>
           }
           renderSectionHeader={({ section: { title } }) => (
@@ -358,15 +393,18 @@ export function MenuScreen({ navigation, route }: Props) {
                 onAdd={() => handleAddOrVariant(item)}
                 onIncrement={() => handleAddOrVariant(item)}
                 onDecrement={() => handleDecrement(item)}
+                isRestaurantClosed={isClosed}
               />
             );
           }}
           ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: tokens.color.border, marginVertical: tokens.spacing.sm }} />}
           ListEmptyComponent={
             <EmptyState
-              title="No items"
-              description="No menu items for this filter."
+              title="No Menu Items"
+              description="This restaurant has not added any menu items yet."
               accessibilityLabel="Menu filter empty state"
+              actionLabel="Back to Restaurants"
+              onAction={() => navigation.goBack()}
             />
           }
         />
