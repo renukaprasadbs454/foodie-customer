@@ -247,12 +247,24 @@ export function HomeScreen({ navigation }: Props) {
 
   // Removed redundant syncChatFromStorage manually
 
+  const [isZoneServiceable, setIsZoneServiceable] = useState(false);
+
   const zoneQuery = useDetectZoneQuery(
     { lat: userCoords?.latitude ?? 0, lng: userCoords?.longitude ?? 0 },
-    { skip: !userCoords?.latitude || !userCoords?.longitude, refetchOnFocus: true }
+    {
+      skip: !userCoords?.latitude || !userCoords?.longitude,
+      refetchOnFocus: true,
+      pollingInterval: isZoneServiceable ? 0 : 6000,
+    }
   );
   const detectedZone = zoneQuery.data;
-  const isAreaServiceable = detectedZone ? Boolean(detectedZone.serviceable && detectedZone.zoneId) : true;
+  const isAreaServiceable = Boolean(detectedZone?.serviceable && detectedZone?.zoneId);
+
+  useEffect(() => {
+    if (detectedZone) {
+      setIsZoneServiceable(Boolean(detectedZone.serviceable && detectedZone.zoneId));
+    }
+  }, [detectedZone]);
 
   const feed = useRestaurantFeed({
     cuisineType,
@@ -275,8 +287,19 @@ export function HomeScreen({ navigation }: Props) {
         return { ...r, distanceKm: dist };
       })
       .sort((a, b) => a.distanceKm - b.distanceKm)
-      .slice(0, 4);
+      .slice(0, 20);
   }, [allNearbyQuery.data, userCoords]);
+
+  // Once approved by Super Admin, display zone restaurants or nearby operating restaurants
+  const displayedRestaurants = useMemo(() => {
+    if (!isAreaServiceable) {
+      return [];
+    }
+    if (feed.items && feed.items.length > 0) {
+      return feed.items;
+    }
+    return nearbyRestaurants;
+  }, [isAreaServiceable, feed.items, nearbyRestaurants]);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -346,17 +369,23 @@ export function HomeScreen({ navigation }: Props) {
   }, [isLocating, userCoords, savedAddresses, locationSource]);
 
   // 4. Automatically submit unserviceable area request to Super Admin dashboard
-  // when user gives location access and there are no restaurants in their area.
+  // ONLY when the detected zone is confirmed unserviceable by the backend.
+  // Once the admin approves (detectedZone?.serviceable === true), NEVER re-submit!
   const [unserviceableLogged, setUnserviceableLogged] = useState(false);
 
   useEffect(() => {
     if (!userCoords || isLocating) return;
-    if (feed.isLoading || feed.isFetching) return;
+    if (zoneQuery.isLoading || zoneQuery.isFetching) return;
+
+    // If already confirmed serviceable by admin / backend, do NOT submit
+    if (detectedZone?.serviceable) {
+      setUnserviceableLogged(false);
+      return;
+    }
 
     const isUnserviceableZone = Boolean(detectedZone && !detectedZone.serviceable);
-    const noRestaurantsInArea = feed.items.length === 0 && !cuisineType;
 
-    if (isUnserviceableZone || noRestaurantsInArea) {
+    if (isUnserviceableZone) {
       void submitCustomerUnserviceableAreaRequest({
         customerName: currentUserName,
         email: currentUserEmail,
@@ -377,15 +406,13 @@ export function HomeScreen({ navigation }: Props) {
   }, [
     userCoords,
     isLocating,
-    feed.isLoading,
-    feed.isFetching,
-    feed.items.length,
+    zoneQuery.isLoading,
+    zoneQuery.isFetching,
     detectedZone,
     currentAddress,
     currentUserName,
     currentUserEmail,
     currentUserPhone,
-    cuisineType,
   ]);
 
   const applyCuisine = () => {
@@ -725,7 +752,7 @@ export function HomeScreen({ navigation }: Props) {
         )}
 
         {/* Expansion approved banner */}
-        {feed.isExpandedFromNearby && (
+        {isAreaServiceable && displayedRestaurants.length > 0 && (
           <View style={{
             backgroundColor: '#ECFDF5',
             borderColor: '#10B981',
@@ -739,10 +766,10 @@ export function HomeScreen({ navigation }: Props) {
             <Text style={{ fontSize: 22, marginRight: 10 }}>🎉</Text>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 13, fontWeight: '800', color: '#065F46' }}>
-                Area Expansion Approved by Admin!
+                Area Coverage Approved by Super Admin!
               </Text>
               <Text style={{ fontSize: 11, color: '#047857', marginTop: 2 }}>
-                Delivering from nearby zone restaurants with real-time distance tracking.
+                Delivering from nearby zone restaurants with live distance & ETA tracking.
               </Text>
             </View>
           </View>
@@ -770,7 +797,7 @@ export function HomeScreen({ navigation }: Props) {
           <RestaurantListSkeleton />
         ) : (
           <FlatList
-            data={feed.items}
+            data={displayedRestaurants}
             keyExtractor={(item) => item.id}
             numColumns={2}
             columnWrapperStyle={{ paddingHorizontal: tokens.spacing.md - 4 }}
@@ -810,7 +837,7 @@ export function HomeScreen({ navigation }: Props) {
                   description="Pull to retry. Check your connection."
                   accessibilityLabel="Restaurant feed error"
                 />
-              ) : (detectedZone && !detectedZone.serviceable) || (feed.items.length === 0 && !cuisineType && !!userCoords) ? (
+              ) : (!isAreaServiceable && !!userCoords) || (detectedZone && !detectedZone.serviceable) ? (
                 <View style={{
                   backgroundColor: '#FFFBEB',
                   borderColor: '#F59E0B',
@@ -885,6 +912,7 @@ export function HomeScreen({ navigation }: Props) {
                       onPress={() => {
                         void zoneQuery.refetch();
                         void feed.refetch();
+                        void allNearbyQuery.refetch();
                       }}
                       style={({ pressed }) => ({
                         marginTop: 10,

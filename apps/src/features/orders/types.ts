@@ -113,8 +113,6 @@ const PRE_PREPARING: ReadonlySet<string> = new Set([
   'PLACED',
   'CONFIRMED',
   'ACCEPTED',
-  'PREPARING',
-  'READY_FOR_PICKUP',
 ]);
 
 export function isTerminalOrderStatus(status: string | undefined): boolean {

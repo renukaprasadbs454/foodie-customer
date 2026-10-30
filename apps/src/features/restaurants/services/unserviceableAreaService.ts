@@ -46,6 +46,8 @@ function getUnserviceableEndpoints(): string[] {
   endpoints.push(`http://${hostIp}:8082/api/v1/admin/location/unserviceable-requests`);
 
   // 4. Local Admin Next.js BFF endpoints (port 3000)
+  endpoints.push('http://localhost:3100/api/bff/admin/location/unserviceable-requests');
+  endpoints.push(`http://${hostIp}:3100/api/bff/admin/location/unserviceable-requests`);
   endpoints.push('http://localhost:3000/api/bff/admin/location/unserviceable-requests');
   endpoints.push(`http://${hostIp}:3000/api/bff/admin/location/unserviceable-requests`);
 
@@ -97,13 +99,6 @@ export async function submitCustomerUnserviceableAreaRequest(
       }
     } catch {
       // Fallback to fetch if needed
-    }
-  }
-
-  // Double check specific coordinates if still coordinates
-  if (/^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(rawAddress) || !rawAddress) {
-    if (Math.abs(lat - 13.175) < 0.03 && Math.abs(lng - 77.559) < 0.03) {
-      rawAddress = 'Sri Banashankri Layout, Yelahanka taluku';
     }
   }
 
