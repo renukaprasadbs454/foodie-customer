@@ -93,7 +93,7 @@ export function RestaurantCard({
         ) : (
           <LinearGradient
             colors={isClosed ? ['#F3F4F6', '#E5E7EB'] : ['#064E3B', '#14532D']}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
           >
             <View style={styles.placeholderCenter}>
               <Text style={{ fontSize: columnMode ? 28 : 36, opacity: isClosed ? 0.35 : 1 }}>🍽️</Text>
@@ -281,7 +281,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   closedOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
