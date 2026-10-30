@@ -42,6 +42,20 @@ import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import { GlobalCartBanner } from '../../cart/components/GlobalCartBanner';
 import { useGlobalLocation } from '../../../core/GlobalLocation';
 import type { RestaurantSort } from '../types';
+import {
+  evaluateSmartSupportReply,
+  type AiActionButton,
+  syncSupportChatMessages,
+  connectToAgentAndCreateEnquiry,
+  pollLiveAdminMessages,
+  sendLiveCustomerMessageToAdmin,
+} from '../../profile/supportAiEngine';
+import {
+  useGetMyConversationsQuery,
+  useSendMessageMutation,
+  useResolveConversationMutation,
+} from '../../../api/endpoints/supportApi';
+import { submitCustomerUnserviceableAreaRequest } from '../services/unserviceableAreaService';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Home'>;
 
@@ -97,15 +111,30 @@ export function HomeScreen({ navigation }: Props) {
   const currentSavedAddress = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
   const addressLabel = currentSavedAddress?.label || 'Other';
 
-  const profileQuery = useGetMyProfileQuery();
+  // Fetch profile for dynamic customer name & contact details with live sync
+  const profileQuery = useGetMyProfileQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true });
   const currentUserName = profileQuery.data?.fullName || 'Customer User';
+  const currentUserEmail = profileQuery.data?.email || '';
+  const currentUserPhone = profileQuery.data?.phoneNumber || '';
 
   // Zone Detection
+  const [isZoneServiceable, setIsZoneServiceable] = useState(false);
   const zoneQuery = useDetectZoneQuery(
     { lat: userCoords?.latitude ?? 0, lng: userCoords?.longitude ?? 0 },
-    { skip: !userCoords?.latitude || !userCoords?.longitude, refetchOnFocus: true }
+    {
+      skip: !userCoords?.latitude || !userCoords?.longitude,
+      refetchOnFocus: true,
+      pollingInterval: isZoneServiceable ? 0 : 6000,
+    }
   );
   const detectedZone = zoneQuery.data;
+  const isAreaServiceable = Boolean(detectedZone?.serviceable && detectedZone?.zoneId);
+
+  useEffect(() => {
+    if (detectedZone) {
+      setIsZoneServiceable(Boolean(detectedZone.serviceable && detectedZone.zoneId));
+    }
+  }, [detectedZone]);
 
   // Real Restaurant Feed: do NOT pass sort='topPosition' to backend so it fetches ALL available restaurants in the zone
   const feed = useRestaurantFeed({
@@ -113,6 +142,7 @@ export function HomeScreen({ navigation }: Props) {
     userLatitude: userCoords?.latitude,
     userLongitude: userCoords?.longitude,
     zoneId: detectedZone?.zoneId ?? undefined,
+    isServiceable: isAreaServiceable,
   });
 
   // Query all nearby restaurants as pool / fallback
@@ -159,10 +189,6 @@ export function HomeScreen({ navigation }: Props) {
   );
   const unreadCount = notificationsQuery.data?.length ?? 0;
 
-  // Support State
-  const [helpModalVisible, setHelpModalVisible] = useState(false);
-  const [chatMessage, setChatMessage] = useState('');
-
   // Active Order
   const { data: myOrders } = useGetMyOrdersQuery(
     { page: 0, size: 5 },
@@ -172,6 +198,155 @@ export function HomeScreen({ navigation }: Props) {
     (o) => o.status !== 'CANCELLED' && o.status !== 'DELIVERED' && o.status !== 'COMPLETED'
   );
   const activeOrderId = activeOrder?.orderId;
+
+  // Support / Complaint Chat State
+  const [helpModalVisible, setHelpModalVisible] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [activeEnquiryId, setActiveEnquiryId] = useState<string | null>(null);
+  const [isAgentConnected, setIsAgentConnected] = useState(false);
+  const [showAgentOption, setShowAgentOption] = useState(false);
+  const [chatHistory, setChatHistory] = useState<Array<{
+    id: string;
+    text: string;
+    from: 'admin' | 'user' | 'bot';
+    time: string;
+    buttons?: AiActionButton[];
+  }>>([]);
+
+  const [resolveConv] = useResolveConversationMutation();
+
+  useEffect(() => {
+    if (!isAgentConnected || !activeEnquiryId) return;
+
+    const token = setInterval(async () => {
+      try {
+        const { messages: msgs, status } = await pollLiveAdminMessages(activeEnquiryId);
+
+        if (msgs && msgs.length > 0) {
+          setChatHistory((prev) => {
+            let changed = false;
+            const newHist = [...prev];
+            msgs.forEach((m: any) => {
+              const mappedFrom = m.sender === 'admin' ? 'admin' : (m.senderName === 'Foodie AI Support' ? 'bot' : 'user');
+              const exists = newHist.find(
+                (x) => x.id === m.id || (x.text === m.message && x.from === mappedFrom)
+              );
+
+              if (!exists) {
+                newHist.push({
+                  id: m.id,
+                  text: m.message,
+                  from: mappedFrom as 'admin' | 'bot' | 'user',
+                  time: m.timestamp,
+                });
+                changed = true;
+              }
+            });
+            return changed ? newHist : prev;
+          });
+        }
+
+        if (status === 'RESOLVED') {
+          setIsAgentConnected(false);
+          setActiveEnquiryId(null);
+          setChatHistory([
+            {
+              id: `sys-resolved-${Date.now()}`,
+              text: '✅ Your past query was marked as RESOLVED. Is there anything else I can help you with?',
+              from: 'bot',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            },
+          ]);
+        }
+      } catch (e) {}
+    }, 2500);
+
+    return () => clearInterval(token);
+  }, [isAgentConnected, activeEnquiryId]);
+
+  const handleUserSubmitMessage = async (rawText: string) => {
+    const userText = rawText.trim();
+    if (!userText) return;
+    setChatMessage('');
+
+    const textLower = userText.toLowerCase();
+
+    // 1) Agent Connection Flow
+    if (textLower === 'i want to connect to a live support agent.' || (showAgentOption && textLower.includes('agent'))) {
+      try {
+        const { userMsg, systemConfirmationMsg, enquiryRecord } = await connectToAgentAndCreateEnquiry(
+          userText,
+          currentUserName,
+          currentUserEmail,
+          currentUserPhone,
+          activeOrderId || undefined,
+          activeEnquiryId || undefined
+        );
+        setActiveEnquiryId(enquiryRecord.id);
+        setIsAgentConnected(true);
+        setShowAgentOption(false);
+        setChatHistory((prev) => [
+          ...prev,
+          { id: userMsg.id, text: userMsg.message, from: 'user', time: userMsg.timestamp },
+          { id: systemConfirmationMsg.id, text: systemConfirmationMsg.message, from: 'admin', time: systemConfirmationMsg.timestamp },
+        ]);
+      } catch (e) {
+        setToast({ message: 'Failed to connect to agent.', variant: 'error' });
+      }
+      return;
+    }
+
+    // 1b) Live Agent is Already Connected! Send directly to Admin
+    if (isAgentConnected && activeEnquiryId) {
+      try {
+        const liveMsg = await sendLiveCustomerMessageToAdmin(
+          activeEnquiryId,
+          userText,
+          currentUserName,
+          activeOrderId || undefined,
+          currentUserEmail,
+          currentUserPhone
+        );
+        setChatHistory((prev) => [
+          ...prev,
+          { id: liveMsg.id, text: liveMsg.message, from: 'user', time: liveMsg.timestamp },
+        ]);
+      } catch (e) {
+        setToast({ message: 'Failed to send message to agent.', variant: 'error' });
+      }
+      return;
+    }
+
+    // 2) Normal AI Chat Processing Flow
+    try {
+      const { userMsg, aiMsg, aiResult } = await syncSupportChatMessages(
+        userText,
+        activeEnquiryId || undefined,
+        currentUserName,
+        activeOrderId || undefined
+      );
+
+      setChatHistory((prev) => [
+        ...prev,
+        { id: userMsg.id, text: userMsg.message, from: 'user', time: userMsg.timestamp },
+        { id: aiMsg.id, text: aiMsg.message, from: 'bot', time: aiMsg.timestamp, buttons: aiResult.actionButtons },
+      ]);
+
+      if (aiResult.suggestAgent) {
+        setShowAgentOption(true);
+      }
+
+      if (aiResult.canResolve) {
+        if (activeEnquiryId) {
+          void resolveConv(activeEnquiryId).unwrap().catch(() => {});
+          setActiveEnquiryId(null);
+        }
+        setIsAgentConnected(false);
+      }
+    } catch (e) {
+      setToast({ message: 'Failed to process AI chat.', variant: 'error' });
+    }
+  };
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -264,6 +439,51 @@ export function HomeScreen({ navigation }: Props) {
 
     return list;
   }, [rawFoodItems, topRestaurantIds, isVegOnly, selectedCategoryId]);
+
+  // 4. Automatically submit unserviceable area request to Super Admin dashboard
+  // ONLY when the detected zone is confirmed unserviceable by the backend.
+  // Once the admin approves (detectedZone?.serviceable === true), NEVER re-submit!
+  const [unserviceableLogged, setUnserviceableLogged] = useState(false);
+
+  useEffect(() => {
+    if (!userCoords || isLocating) return;
+    if (zoneQuery.isLoading || zoneQuery.isFetching) return;
+
+    // If already confirmed serviceable by admin / backend, do NOT submit
+    if (detectedZone?.serviceable) {
+      setUnserviceableLogged(false);
+      return;
+    }
+
+    const isUnserviceableZone = Boolean(detectedZone && !detectedZone.serviceable);
+
+    if (isUnserviceableZone) {
+      void submitCustomerUnserviceableAreaRequest({
+        customerName: currentUserName,
+        email: currentUserEmail,
+        phone: currentUserPhone,
+        address: currentAddress || `${userCoords.latitude.toFixed(4)}, ${userCoords.longitude.toFixed(4)}`,
+        coords: userCoords,
+        cityName: detectedZone?.cityName,
+        zoneId: detectedZone?.zoneId,
+        zoneName: detectedZone?.zoneName,
+      }).then((res: any) => {
+        if (res?.success) {
+          setUnserviceableLogged(true);
+        }
+      });
+    }
+  }, [
+    userCoords,
+    isLocating,
+    zoneQuery.isLoading,
+    zoneQuery.isFetching,
+    detectedZone,
+    currentAddress,
+    currentUserName,
+    currentUserEmail,
+    currentUserPhone,
+  ]);
 
   // Explore All Restaurants in the Zone:
   // When 'topRestaurants' filter is active: display ONLY top restaurants.
@@ -488,6 +708,47 @@ export function HomeScreen({ navigation }: Props) {
       </View>
 
       <View style={{ paddingHorizontal: 16, gap: 14, marginTop: 14 }}>
+        {/* Account Suspended Warning Banner */}
+        {Boolean(profileQuery.data?.isSuspended || profileQuery.data?.accountStatus === 'SUSPENDED') && (
+          <View style={{
+            backgroundColor: '#FEF2F2',
+            borderWidth: 1.5,
+            borderColor: '#EF4444',
+            borderRadius: 16,
+            padding: 14,
+            shadowColor: '#DC2626',
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 0.12,
+            shadowRadius: 8,
+            elevation: 3,
+            marginTop: 4,
+            marginBottom: 4,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ fontSize: 16, marginRight: 6 }}>🚫</Text>
+                <Text style={{ color: '#991B1B', fontWeight: '800', fontSize: 15 }}>
+                  Account Suspended
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => (navigation as any).navigate('Profile' as any)}
+                style={{
+                  backgroundColor: '#DC2626',
+                  paddingHorizontal: 12,
+                  paddingVertical: 5,
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 11 }}>View Profile ➔</Text>
+              </Pressable>
+            </View>
+            <Text style={{ color: '#7F1D1D', fontSize: 13, lineHeight: 18 }}>
+              {profileQuery.data?.suspensionReason ? `Reason: ${profileQuery.data.suspensionReason}. ` : ''}Your account has been suspended by administration. Ordering is temporarily disabled.
+            </Text>
+          </View>
+        )}
+
         {/* 2. Horizontal Category Pills with Real "FROM ₹XX" Price Badges */}
         <ScrollView
           horizontal
@@ -700,6 +961,30 @@ export function HomeScreen({ navigation }: Props) {
           </Pressable>
         </ScrollView>
 
+        {/* Expansion approved banner */}
+        {isAreaServiceable && displayedRestaurants.length > 0 && feed.isExpandedFromNearby && (
+          <View style={{
+            backgroundColor: '#ECFDF5',
+            borderColor: '#10B981',
+            borderWidth: 1.5,
+            borderRadius: 12,
+            padding: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 4,
+          }}>
+            <Text style={{ fontSize: 22, marginRight: 10 }}>🎉</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: '#065F46' }}>
+                Area Coverage Approved by Super Admin!
+              </Text>
+              <Text style={{ fontSize: 11, color: '#047857', marginTop: 2 }}>
+                Delivering from nearby zone restaurants with live distance & ETA tracking.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* 5. Section Heading: "Explore all restaurants" / "Featured Restaurants" (Exactly like Image 2) */}
         <View style={styles.exploreSectionHeader}>
           <Text style={styles.exploreMainTitle}>
@@ -752,6 +1037,114 @@ export function HomeScreen({ navigation }: Props) {
                   description="Pull to retry. Check your connection."
                   accessibilityLabel="Restaurant feed error"
                 />
+              ) : (!isAreaServiceable && !!userCoords) || (detectedZone && !detectedZone.serviceable) ? (
+                <View style={{
+                  backgroundColor: '#FFFBEB',
+                  borderColor: '#F59E0B',
+                  borderWidth: 1.5,
+                  borderRadius: 16,
+                  padding: 24,
+                  marginHorizontal: tokens.spacing.md,
+                  alignItems: 'center',
+                  marginTop: 16,
+                  shadowColor: '#B45309',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 8,
+                  elevation: 2,
+                }}>
+                  <Text style={{ fontSize: 36, marginBottom: 8 }}>📍</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: '#92400E', textAlign: 'center', marginBottom: 6 }}>
+                    No Restaurants Available In Your Area
+                  </Text>
+                  <Text style={{ fontSize: 14, color: '#B45309', textAlign: 'center', marginBottom: 16, lineHeight: 20 }}>
+                    We do not deliver to this location yet. Your area details have been automatically forwarded to our Super Admin team to onboard nearby restaurants!
+                  </Text>
+
+                  {/* Super Admin Automatic Notification Status Card */}
+                  <View style={{
+                    backgroundColor: '#ECFDF5',
+                    borderColor: '#10B981',
+                    borderWidth: 1.5,
+                    borderRadius: 12,
+                    padding: 14,
+                    width: '100%',
+                    marginBottom: 16,
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                      <Text style={{ fontSize: 16, marginRight: 8 }}>✅</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: '#065F46' }}>
+                        Logged in Super Admin Dashboard
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#047857', lineHeight: 18 }}>
+                      • Requester: <Text style={{ fontWeight: '700' }}>{currentUserName}</Text> ({currentUserPhone})
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#047857', lineHeight: 18 }} numberOfLines={2}>
+                      • Requested Area: <Text style={{ fontWeight: '700' }}>{currentAddress || `${userCoords?.latitude.toFixed(4)}, ${userCoords?.longitude.toFixed(4)}`}</Text>
+                    </Text>
+                    <Text style={{ fontSize: 11, color: '#059669', marginTop: 6, fontWeight: '600' }}>
+                      Status: PENDING EXPANSION REVIEW (Super Admin Notified)
+                    </Text>
+                  </View>
+
+                  {/* Status Note: Restaurants remain hidden until admin extends or approves */}
+                  <View style={{
+                    backgroundColor: '#FEF3C7',
+                    borderColor: '#F59E0B',
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    padding: 14,
+                    width: '100%',
+                    marginBottom: 16,
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 16, marginRight: 8 }}>⏳</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: '#92400E' }}>
+                        Awaiting Zone Extension / Approval
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#78350F', lineHeight: 18 }}>
+                      Restaurants are currently not displayed for this unserviceable area. Once the Super Admin extends the operating zone or approves coverage, nearby restaurants will immediately become available.
+                    </Text>
+
+                    <Pressable
+                      onPress={() => {
+                        void zoneQuery.refetch();
+                        void feed.refetch();
+                        void allNearbyQuery.refetch();
+                      }}
+                      style={({ pressed }) => ({
+                        marginTop: 10,
+                        backgroundColor: '#D97706',
+                        paddingVertical: 8,
+                        paddingHorizontal: 14,
+                        borderRadius: 8,
+                        alignSelf: 'flex-start',
+                        opacity: pressed ? 0.8 : 1,
+                      })}
+                    >
+                      <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
+                        🔄 Check If Approved
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  <Pressable
+                    onPress={() => navigation.navigate('Addresses', { selectMode: true })}
+                    style={({ pressed }) => ({
+                      backgroundColor: '#14532D',
+                      paddingHorizontal: 20,
+                      paddingVertical: 12,
+                      borderRadius: 24,
+                      opacity: pressed ? 0.85 : 1,
+                    })}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 14 }}>
+                      Change Delivery Address 📍
+                    </Text>
+                  </Pressable>
+                </View>
               ) : (
                 <EmptyState
                   title="No restaurants found"

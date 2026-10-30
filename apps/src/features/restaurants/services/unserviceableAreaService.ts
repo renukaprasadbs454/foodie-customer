@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { ENV } from '../../../constants/env';
+import { reverseGeocodeCoords } from '../../../core/GlobalLocation';
 
 export interface CustomerUnserviceablePayload {
   customerName?: string;
@@ -45,6 +46,8 @@ function getUnserviceableEndpoints(): string[] {
   endpoints.push(`http://${hostIp}:8082/api/v1/admin/location/unserviceable-requests`);
 
   // 4. Local Admin Next.js BFF endpoints (port 3000)
+  endpoints.push('http://localhost:3100/api/bff/admin/location/unserviceable-requests');
+  endpoints.push(`http://${hostIp}:3100/api/bff/admin/location/unserviceable-requests`);
   endpoints.push('http://localhost:3000/api/bff/admin/location/unserviceable-requests');
   endpoints.push(`http://${hostIp}:3000/api/bff/admin/location/unserviceable-requests`);
 
@@ -77,9 +80,12 @@ export async function submitCustomerUnserviceableAreaRequest(
   const displayName = (data.customerName || 'Customer User').trim();
   let rawAddress = (data.address || '').trim();
 
-  // If address is missing, a saved label (Home/Office), or raw coordinates, resolve exact live location
+  // If address is missing, a saved label (Home • ...), generic text, or coordinates, resolve exact live location
   const isGenericOrStale =
     !rawAddress ||
+    rawAddress.toLowerCase().includes('locating') ||
+    rawAddress.toLowerCase().includes('current location') ||
+    rawAddress.toLowerCase().includes('delivery address') ||
     rawAddress.startsWith('Home •') ||
     rawAddress.startsWith('Office •') ||
     rawAddress.startsWith('Other •') ||
@@ -87,36 +93,12 @@ export async function submitCustomerUnserviceableAreaRequest(
 
   if (isGenericOrStale) {
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2500);
-      const resp = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-        {
-          headers: { 'User-Agent': 'FoodieCustomerApp/1.0' },
-          signal: controller.signal,
-        }
-      );
-      clearTimeout(timer);
-      if (resp.ok) {
-        const json = await resp.json();
-        const addr = json?.address;
-        if (addr) {
-          const area =
-            addr.suburb ||
-            addr.neighbourhood ||
-            addr.road ||
-            addr.village ||
-            addr.town ||
-            addr.residential;
-          const city = addr.city || addr.town || addr.county || addr.state;
-          const formatted = [area, city].filter(Boolean).join(', ');
-          if (formatted) {
-            rawAddress = formatted;
-          }
-        }
+      const geo = await reverseGeocodeCoords(lat, lng);
+      if (geo && geo.trim() && !geo.toLowerCase().includes('locating')) {
+        rawAddress = geo.trim();
       }
     } catch {
-      // Best-effort reverse geocode
+      // Fallback to fetch if needed
     }
   }
 

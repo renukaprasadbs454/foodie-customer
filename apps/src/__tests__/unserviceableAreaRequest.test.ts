@@ -1,3 +1,11 @@
+jest.mock('expo-location', () => ({
+  Accuracy: { Balanced: 3, High: 4 },
+  reverseGeocodeAsync: jest.fn(() => Promise.resolve([{ street: 'Main Rd', district: 'Bengaluru', city: 'Bengaluru' }])),
+  getCurrentPositionAsync: jest.fn(() => Promise.resolve({ coords: { latitude: 12.9716, longitude: 77.5946 } })),
+  getLastKnownPositionAsync: jest.fn(() => Promise.resolve(null)),
+  requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+}));
+
 jest.mock('react-native', () => ({
   Platform: { OS: 'ios' },
 }));

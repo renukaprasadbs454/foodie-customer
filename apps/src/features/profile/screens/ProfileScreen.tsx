@@ -50,7 +50,9 @@ export function ProfileScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { tokens } = useTheme();
   const { isConnected } = useConnectivity();
-  const profileQuery = useGetMyProfileQuery();
+  const profileQuery = useGetMyProfileQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true });
+  const isSuspended = Boolean(profileQuery.data?.isSuspended || profileQuery.data?.accountStatus === 'SUSPENDED');
+  const suspensionReason = profileQuery.data?.suspensionReason;
   const [uploadImage, uploadState] = useUploadProfileImageMutation();
   const [updateProfile, updateState] = useUpdateMyProfileMutation();
   const dispatch = useAppDispatch();
@@ -316,6 +318,87 @@ export function ProfileScreen({ navigation }: Props) {
             </View>
           ) : (
             <View style={{ marginTop: 12 }}>
+              {/* Account Suspended Alert Card */}
+              {isSuspended && (
+                <View style={{
+                  backgroundColor: '#FEF2F2',
+                  borderColor: '#EF4444',
+                  borderWidth: 1.5,
+                  borderRadius: 16,
+                  padding: 18,
+                  marginBottom: 20,
+                  shadowColor: '#EF4444',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 10,
+                  elevation: 4,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <View style={{
+                      backgroundColor: '#DC2626',
+                      borderRadius: 20,
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      marginRight: 8,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}>
+                      <Feather name="alert-octagon" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                      <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 12, letterSpacing: 0.5 }}>
+                        ACCOUNT SUSPENDED
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={{ color: '#991B1B', fontWeight: '800', fontSize: 16, marginBottom: 4 }}>
+                    Your account has been suspended by administration
+                  </Text>
+                  <Text style={{ color: '#7F1D1D', fontSize: 13, lineHeight: 18, marginBottom: 12 }}>
+                    Reason: <Text style={{ fontWeight: '700' }}>{suspensionReason || 'Security policy review'}</Text>
+                  </Text>
+                  <Text style={{ color: '#6B7280', fontSize: 12, lineHeight: 16, marginBottom: 14 }}>
+                    Placing new orders and checkout are currently disabled on your profile. If you believe this is an error or would like to submit an appeal, please contact support.
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <Pressable
+                      onPress={() => setIsSupportModalVisible(true)}
+                      style={{
+                        backgroundColor: '#DC2626',
+                        paddingVertical: 10,
+                        paddingHorizontal: 16,
+                        borderRadius: 10,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flex: 1,
+                      }}
+                    >
+                      <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>
+                        Contact Support / Appeal
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        void profileQuery.refetch();
+                        setToast({ message: 'Refreshing account status...', variant: 'info' });
+                      }}
+                      style={{
+                        backgroundColor: '#FFFFFF',
+                        borderWidth: 1,
+                        borderColor: '#D1D5DB',
+                        paddingVertical: 10,
+                        paddingHorizontal: 16,
+                        borderRadius: 10,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text style={{ color: '#374151', fontWeight: '700', fontSize: 13 }}>
+                        ↻ Refresh
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
               {/* Grouped Info Item Details */}
               <Text style={{ fontSize: 13, textTransform: 'uppercase', color: '#14532D', fontWeight: '800', letterSpacing: 0.8, marginLeft: 16, marginBottom: 8 }}>
                 Account Information
@@ -396,6 +479,43 @@ export function ProfileScreen({ navigation }: Props) {
                   <Text style={{ fontSize: 16, color: '#6B7280', fontWeight: '600', flex: 1 }}>Mobile (Locked)</Text>
                   <Text style={{ fontSize: 16, color: '#6B7280', fontWeight: '700' }}>{phoneVal}</Text>
                 </View>
+
+                {/* Account Status row */}
+                <View style={{ height: 1, backgroundColor: '#F3F4F6', marginLeft: 48 }} />
+                <View style={{ paddingHorizontal: 16, paddingVertical: 18, flexDirection: 'row', alignItems: 'center' }}>
+                  <Feather name={isSuspended ? "alert-triangle" : "shield"} size={20} color={isSuspended ? "#DC2626" : "#16A34A"} style={{ marginRight: 12 }} />
+                  <Text style={{ fontSize: 16, color: '#6B7280', fontWeight: '600', flex: 1 }}>Account Status</Text>
+                  <View style={{
+                    backgroundColor: isSuspended ? '#FEE2E2' : '#DCFCE7',
+                    paddingHorizontal: 12,
+                    paddingVertical: 5,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isSuspended ? '#F87171' : '#86EFAC',
+                  }}>
+                    <Text style={{
+                      fontSize: 13,
+                      fontWeight: '800',
+                      color: isSuspended ? '#DC2626' : '#16A34A',
+                      letterSpacing: 0.5,
+                    }}>
+                      {isSuspended ? '● SUSPENDED' : '● ACTIVE'}
+                    </Text>
+                  </View>
+                </View>
+                {isSuspended && suspensionReason && (
+                  <>
+                    <View style={{ height: 1, backgroundColor: '#F3F4F6', marginLeft: 48 }} />
+                    <View style={{ paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'column' }}>
+                      <Text style={{ fontSize: 12, color: '#9CA3AF', fontWeight: '700', textTransform: 'uppercase', marginBottom: 4 }}>
+                        Suspension Reason
+                      </Text>
+                      <Text style={{ fontSize: 14, color: '#DC2626', fontWeight: '600', lineHeight: 20 }}>
+                        {suspensionReason}
+                      </Text>
+                    </View>
+                  </>
+                )}
               </View>
 
               {/* Grouped Links */}
