@@ -22,48 +22,44 @@ export function NotificationListItem({ notification, onPress }: Props) {
       style={({ pressed }) => ({
         padding: 16,
         borderRadius: 16,
-        backgroundColor: unread ? '#FDFDFD' : '#F9FAFB',
+        backgroundColor: '#131F18',
         flexDirection: 'row',
         alignItems: 'flex-start',
         gap: 12,
-        shadowColor: '#14532D',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: pressed ? 0.05 : 0.08,
-        shadowRadius: 8,
-        elevation: unread ? 4 : 1,
-        borderWidth: 1,
-        borderColor: unread ? 'rgba(245,158,11,0.3)' : '#F3F4F6',
+        opacity: pressed ? 0.9 : 1,
+        borderWidth: 1.5,
+        borderColor: unread ? '#FCD34D' : 'rgba(252, 211, 77, 0.15)',
       })}
     >
       <View style={{
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: unread ? '#FEF3C7' : '#E5E7EB',
+        backgroundColor: unread ? 'rgba(252, 211, 77, 0.2)' : 'rgba(255, 255, 255, 0.05)',
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 2,
-        borderColor: unread ? '#F59E0B' : '#D1D5DB'
+        borderWidth: 1.5,
+        borderColor: unread ? '#FCD34D' : 'rgba(252, 211, 77, 0.2)'
       }}>
         <Text style={{ fontSize: 20 }}>{notification.title.includes('Order') ? '🛵' : '🔔'}</Text>
       </View>
 
       <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ color: '#111827', fontSize: 16, fontWeight: unread ? '800' : '600' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: unread ? '800' : '600' }}>
             {notification.title}
           </Text>
           {unread ? (
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#F59E0B' }} />
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FCD34D' }} />
           ) : null}
         </View>
-        <Text style={{ color: '#4B5563', fontSize: 14, lineHeight: 20 }}>
+        <Text style={{ color: '#9CA3AF', fontSize: 14, lineHeight: 20 }}>
           {notification.body.includes('is now PICKED_UP.')
             ? notification.body.replace('is now PICKED_UP.', 'collected. It will reach you soon!')
             : notification.body}
         </Text>
         {notification.sentAt ? (
-          <Text style={{ color: '#9CA3AF', fontSize: 12, marginTop: 4, fontWeight: '500' }}>
+          <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 4, fontWeight: '500' }}>
             {new Date(notification.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
         ) : null}

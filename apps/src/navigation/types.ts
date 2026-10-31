@@ -43,6 +43,8 @@ export type BrowseStackParamList = {
 
   // Moved from separate stack so it can be pushed from Home header
   Notifications: undefined;
+  Profile: undefined;
+  Wallet: undefined;
 };
 
 export type OrdersStackParamList = {
@@ -63,6 +65,10 @@ export type NotificationsStackParamList = {
   Notifications: undefined;
 };
 
+export type HelpStackParamList = {
+  Help: undefined;
+};
+
 export type ProfileStackParamList = {
   Profile: undefined;
   Addresses: { selectMode?: boolean } | undefined;
@@ -74,7 +80,8 @@ export type MainTabParamList = {
   BrowseTab: NavigatorScreenParams<BrowseStackParamList> | undefined;
   OrdersTab: NavigatorScreenParams<OrdersStackParamList> | undefined;
   DarkStoreTab: NavigatorScreenParams<BrowseStackParamList> | undefined;
-  ProfileTab: NavigatorScreenParams<ProfileStackParamList> | undefined;
+  HelpTab: NavigatorScreenParams<HelpStackParamList> | undefined;
+  ProfileTab?: NavigatorScreenParams<ProfileStackParamList> | undefined;
 };
 
 export type RootStackParamList = {

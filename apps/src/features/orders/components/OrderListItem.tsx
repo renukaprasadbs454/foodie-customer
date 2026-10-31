@@ -118,18 +118,18 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
       accessibilityLabel={`Order ${order.orderNumber}, ${order.status}`}
       style={({ pressed }) => ({
         padding: 16,
-        borderRadius: 16,
-        borderWidth: 1.5,
+        borderRadius: 18,
+        borderWidth: 1.2,
         borderColor: isDelivered
-          ? '#E5E7EB'
+          ? 'rgba(255, 255, 255, 0.08)'
           : isCancelled
           ? (isApproved ? '#93C5FD' : isRefunded ? '#86EFAC' : '#FCA5A5')
           : '#FCD34D',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#131F18',
         elevation: 3,
-        shadowColor: '#14532D',
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: pressed ? 1 : 3 },
-        shadowOpacity: pressed ? 0.05 : 0.08,
+        shadowOpacity: pressed ? 0.15 : 0.25,
         shadowRadius: 6,
         gap: 12,
         opacity: pressed ? 0.95 : 1,
@@ -137,17 +137,17 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
     >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ gap: 2, flex: 1, marginRight: 12 }}>
-          <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>
+          <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
             Reference #{order.orderNumber}
           </Text>
-          <Text style={{ fontSize: 12, color: '#14532D', fontWeight: '700', marginTop: 2 }}>
+          <Text style={{ fontSize: 12, color: '#FCD34D', fontWeight: '700', marginTop: 2 }}>
             📅 {order.placedAt ? new Date(order.placedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : 'Recent Order'}
           </Text>
           <Text style={{
             fontSize: 12,
             color: isCancelled
-              ? (isCod ? '#DC2626' : (isApproved ? '#1D4ED8' : isRefunded ? '#15803D' : '#D97706'))
-              : '#6B7280',
+              ? (isCod ? '#DC2626' : (isApproved ? '#93C5FD' : isRefunded ? '#86EFAC' : '#FCD34D'))
+              : '#9CA3AF',
             fontWeight: isCancelled ? '700' : '500',
           }}>
             {isCancelled
@@ -308,37 +308,35 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
 
       {isCompleted && (
         <View style={{ marginTop: 4 }}>
-          <View style={{ height: 1.5, backgroundColor: '#F3F4F6', marginBottom: 12 }} />
+          <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginBottom: 12 }} />
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
             <Pressable
               onPress={onRate}
               style={({ pressed }) => ({
-                backgroundColor: pressed ? '#FEF3C7' : '#FFFFFF',
+                backgroundColor: pressed ? 'rgba(252, 211, 77, 0.2)' : 'rgba(252, 211, 77, 0.1)',
                 paddingHorizontal: 16,
                 paddingVertical: 10,
                 borderRadius: 20,
-                borderWidth: 1.5,
+                borderWidth: 1.2,
                 borderColor: '#FCD34D',
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 4,
               })}
             >
-              <Text style={{ color: '#D97706', fontWeight: '900', fontSize: 13 }}>⭐ Rate Order</Text>
+              <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 13 }}>⭐ Rate Order</Text>
             </Pressable>
 
             <Pressable
               onPress={onReorder}
               style={({ pressed }) => ({
-                backgroundColor: pressed ? '#0F3E22' : '#14532D',
-                paddingHorizontal: 16,
+                backgroundColor: pressed ? '#EAB308' : '#FCD34D',
+                paddingHorizontal: 18,
                 paddingVertical: 10,
                 borderRadius: 20,
-                borderWidth: 1,
-                borderColor: '#FCD34D',
               })}
             >
-              <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 13 }}>Reorder</Text>
+              <Text style={{ color: '#022414', fontWeight: '900', fontSize: 13 }}>Reorder</Text>
             </Pressable>
           </View>
         </View>

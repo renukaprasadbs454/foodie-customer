@@ -148,9 +148,35 @@ export function HomeScreen({ navigation }: Props) {
 
   useEffect(() => {
     if (detectedZone) {
-      setIsZoneServiceable(Boolean(detectedZone.serviceable && detectedZone.zoneId));
+      const serviceable = Boolean(detectedZone.serviceable && detectedZone.zoneId);
+      setIsZoneServiceable(serviceable);
+
+      // If out of zone, automatically transmit request to admin panel
+      if (!serviceable && userCoords?.latitude && userCoords?.longitude) {
+        void submitCustomerUnserviceableAreaRequest({
+          customerName: currentUserName,
+          email: currentUserEmail,
+          phone: currentUserPhone,
+          address: currentAddress,
+          coords: {
+            latitude: userCoords.latitude,
+            longitude: userCoords.longitude,
+          },
+          cityName: detectedZone.cityName,
+          zoneId: detectedZone.zoneId,
+          zoneName: detectedZone.zoneName,
+        });
+      }
     }
-  }, [detectedZone]);
+  }, [
+    detectedZone,
+    userCoords?.latitude,
+    userCoords?.longitude,
+    currentAddress,
+    currentUserName,
+    currentUserEmail,
+    currentUserPhone,
+  ]);
 
   // Real Restaurant Feed
   const feed = useRestaurantFeed({
@@ -458,20 +484,28 @@ export function HomeScreen({ navigation }: Props) {
 
         <View style={styles.headerRightActions}>
           <Pressable
-            onPress={() => (navigation as any).navigate('Profile', { screen: 'Wallet' })}
+            onPress={() => navigation.navigate('Notifications')}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
             style={({ pressed }) => [
-              styles.walletPill,
-              { opacity: pressed ? 0.85 : 1 },
+              styles.notificationButton,
+              { opacity: pressed ? 0.8 : 1 },
             ]}
           >
-            <Text style={{ fontSize: 14 }}>👛</Text>
-            {walletBalance > 0 && (
-              <Text style={styles.walletBalanceText}>₹{Math.round(walletBalance)}</Text>
+            <Feather name="bell" size={18} color="#FCD34D" />
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
             )}
           </Pressable>
 
           <Pressable
-            onPress={() => (navigation as any).navigate('Profile')}
+            onPress={() => navigation.navigate('Profile')}
+            accessibilityRole="button"
+            accessibilityLabel="My Profile"
             style={({ pressed }) => [
               styles.avatarCircle,
               { opacity: pressed ? 0.85 : 1 },
@@ -483,6 +517,34 @@ export function HomeScreen({ navigation }: Props) {
           </Pressable>
         </View>
       </View>
+      {/* Out-of-Zone Notification Banner */}
+      {detectedZone && !isAreaServiceable && (
+        <View style={styles.outOfZoneCard}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ fontSize: 18 }}>📍</Text>
+            <Text style={styles.outOfZoneTitle}>
+              Not Serviceable to Your Location
+            </Text>
+          </View>
+          <Text style={styles.outOfZoneDesc}>
+            We are currently not serviceable to your location. Change your delivery address to explore active restaurants.
+          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+            <Pressable
+              onPress={() => navigation.navigate('Addresses', { selectMode: true })}
+              style={({ pressed }) => [
+                styles.changeAddressActionBtn,
+                { opacity: pressed ? 0.8 : 1 },
+              ]}
+            >
+              <Text style={styles.changeAddressActionBtnText}>Change Delivery Address ›</Text>
+            </Pressable>
+            <View style={styles.adminNotifiedBadge}>
+              <Text style={styles.adminNotifiedBadgeText}>✓ Request sent to admin</Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Row 2: Search Bar + VEG MODE Switch */}
       <View style={styles.searchAndVegRow}>
@@ -859,12 +921,33 @@ export function HomeScreen({ navigation }: Props) {
       </View>
 
       {displayedRestaurants.length === 0 ? (
-        <View style={{ paddingHorizontal: 16, paddingVertical: 24 }}>
-          <EmptyState
-            title="No restaurants found"
-            description="Broaden filters or try search."
-            accessibilityLabel="Restaurant feed empty"
-          />
+        <View style={{ paddingHorizontal: 16, paddingVertical: 24, alignItems: 'center' }}>
+          {detectedZone && !isAreaServiceable ? (
+            <View style={styles.unserviceableEmptyBox}>
+              <Text style={{ fontSize: 44, marginBottom: 8 }}>📍</Text>
+              <Text style={styles.unserviceableEmptyTitle}>
+                Not Serviceable to Your Location
+              </Text>
+              <Text style={styles.unserviceableEmptyDesc}>
+                We do not currently deliver to this area. Your request has been automatically sent to our administration team for coverage expansion. Please change your delivery address to order now.
+              </Text>
+              <Pressable
+                onPress={() => navigation.navigate('Addresses', { selectMode: true })}
+                style={({ pressed }) => [
+                  styles.changeAddressLargeBtn,
+                  { opacity: pressed ? 0.85 : 1 },
+                ]}
+              >
+                <Text style={styles.changeAddressLargeBtnText}>Change Delivery Address</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <EmptyState
+              title="No restaurants found"
+              description="Broaden filters or try search."
+              accessibilityLabel="Restaurant feed empty"
+            />
+          )}
         </View>
       ) : null}
     </View>
@@ -1020,26 +1103,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  walletPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  notificationButton: {
+    width: 36,
+    height: 36,
     borderRadius: 18,
-    gap: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     borderWidth: 1.5,
     borderColor: '#F59E0B',
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 3,
     elevation: 2,
   },
-  walletBalanceText: {
-    color: '#FCD34D',
+  notificationBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    backgroundColor: '#EF4444',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#012B18',
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
     fontWeight: '900',
-    fontSize: 12,
   },
   avatarCircle: {
     width: 36,
@@ -1448,5 +1544,84 @@ const styles = StyleSheet.create({
   },
   cardOffline: {
     opacity: 0.75,
+  },
+  outOfZoneCard: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 6,
+    padding: 14,
+    backgroundColor: 'rgba(220, 38, 38, 0.18)',
+    borderRadius: 14,
+    borderWidth: 1.2,
+    borderColor: '#EF4444',
+  },
+  outOfZoneTitle: {
+    color: '#FCD34D',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  outOfZoneDesc: {
+    color: '#FEF2F2',
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 17,
+    marginTop: 4,
+  },
+  changeAddressActionBtn: {
+    backgroundColor: '#FCD34D',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  changeAddressActionBtnText: {
+    color: '#022414',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  adminNotifiedBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  adminNotifiedBadgeText: {
+    color: '#86EFAC',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  unserviceableEmptyBox: {
+    width: '100%',
+    padding: 24,
+    backgroundColor: '#131F18',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    alignItems: 'center',
+    gap: 8,
+  },
+  unserviceableEmptyTitle: {
+    color: '#FCD34D',
+    fontSize: 18,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  unserviceableEmptyDesc: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  changeAddressLargeBtn: {
+    backgroundColor: '#FCD34D',
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 6,
+  },
+  changeAddressLargeBtnText: {
+    color: '#022414',
+    fontSize: 14,
+    fontWeight: '900',
   },
 });

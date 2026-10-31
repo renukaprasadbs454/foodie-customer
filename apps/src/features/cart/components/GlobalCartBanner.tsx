@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, View, useWindowDimensions } from 'react-native';
 import { Text, useTheme } from 'foodie-shared-rn';
 import { useNavigation } from '@react-navigation/native';
 import { useGetCartQuery, useRemoveCartItemMutation, useUpdateCartItemQuantityMutation } from '../../../api/endpoints/cartApi';
@@ -8,7 +8,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { MOCK_RESTAURANTS } from '../../restaurants/mockData';
 
-export function GlobalCartBanner() {
+export interface GlobalCartBannerProps {
+    hasTabBar?: boolean;
+    bottomOffset?: number;
+}
+
+export function GlobalCartBanner({ hasTabBar = true, bottomOffset }: GlobalCartBannerProps = {}) {
     const { tokens } = useTheme();
     const { width: screenWidth } = useWindowDimensions();
     const isSmallScreen = screenWidth < 380;
@@ -43,6 +48,12 @@ export function GlobalCartBanner() {
         }
     };
 
+    const calculatedBottom = bottomOffset !== undefined
+        ? bottomOffset
+        : hasTabBar
+            ? (Platform.OS === 'ios' ? 96 : 82)
+            : (isSmallScreen ? tokens.spacing.md + 4 : tokens.spacing.lg + 8);
+
     return (
         <Pressable
             onPress={() => navigation.navigate('Cart')}
@@ -50,7 +61,7 @@ export function GlobalCartBanner() {
             accessibilityLabel={`Cart banner: ${cartItemsCount} items, total ₹${formatMoney(cartSubtotal)}. Tap to view cart.`}
             style={({ pressed }) => ({
                 position: 'absolute',
-                bottom: isSmallScreen ? tokens.spacing.md + 4 : tokens.spacing.lg + 8,
+                bottom: calculatedBottom,
                 left: isSmallScreen ? 10 : tokens.spacing.md,
                 right: isSmallScreen ? 10 : tokens.spacing.md,
                 borderRadius: 22,

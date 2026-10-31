@@ -218,14 +218,14 @@ export function CustomerSupportModal({
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: '#F8FAFC' }}
+        style={{ flex: 1, backgroundColor: '#0A120E' }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         {/* Header */}
         <View
           style={{
-            backgroundColor: '#14532D',
+            backgroundColor: '#012B18',
             paddingTop: Platform.OS === 'ios' ? 50 : 20,
             paddingBottom: 16,
             paddingHorizontal: 20,
@@ -233,10 +233,8 @@ export function CustomerSupportModal({
             alignItems: 'center',
             justifyContent: 'space-between',
             elevation: 4,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.15,
-            shadowRadius: 4,
+            borderBottomWidth: 1,
+            borderBottomColor: 'rgba(252, 211, 77, 0.25)',
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
@@ -249,11 +247,11 @@ export function CustomerSupportModal({
                 }}
                 style={{ padding: 4, marginRight: 12 }}
               >
-                <Feather name="arrow-left" size={24} color="#FFFFFF" />
+                <Feather name="arrow-left" size={24} color="#FCD34D" />
               </Pressable>
             ) : null}
             <View>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#FFFFFF' }}>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#FCD34D' }}>
                 {activeEnquiry
                   ? `Chat: ${activeEnquiry.id}`
                   : 'Foodie Support Desk'}
@@ -272,35 +270,37 @@ export function CustomerSupportModal({
               width: 32,
               height: 32,
               borderRadius: 16,
-              backgroundColor: 'rgba(255,255,255,0.2)',
+              backgroundColor: 'rgba(252, 211, 77, 0.2)',
               justifyContent: 'center',
               alignItems: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(252, 211, 77, 0.3)',
             }}
           >
-            <Feather name="x" size={20} color="#FFFFFF" />
+            <Feather name="x" size={20} color="#FCD34D" />
           </Pressable>
         </View>
 
         {/* BODY 1: Active Live 2-Way Chat View */}
         {activeEnquiry ? (
-          <View style={{ flex: 1, backgroundColor: '#F1F5F9' }}>
+          <View style={{ flex: 1, backgroundColor: '#0A120E' }}>
             {/* Enquiry Details Card */}
             <View
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: '#131F18',
                 paddingHorizontal: 16,
                 paddingVertical: 12,
                 borderBottomWidth: 1,
-                borderBottomColor: '#E2E8F0',
+                borderBottomColor: 'rgba(252, 211, 77, 0.2)',
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
               }}
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E293B' }}>{activeEnquiry.subject}</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>{activeEnquiry.subject}</Text>
                 {activeEnquiry.orderId ? (
-                  <Text style={{ fontSize: 12, color: '#047857', fontWeight: '600', marginTop: 2 }}>
+                  <Text style={{ fontSize: 12, color: '#FCD34D', fontWeight: '600', marginTop: 2 }}>
                     Order Ref: #{activeEnquiry.orderId}
                   </Text>
                 ) : null}
@@ -312,10 +312,10 @@ export function CustomerSupportModal({
                   borderRadius: 12,
                   backgroundColor:
                     activeEnquiry.status === 'RESOLVED'
-                      ? '#DEF7EC'
+                      ? 'rgba(16, 185, 129, 0.2)'
                       : (activeEnquiry.status === 'WAITING_FOR_AGENT' || activeEnquiry.status === 'ASSIGNED')
-                        ? '#FEF3C7'
-                        : '#E0E7FF',
+                        ? 'rgba(252, 211, 77, 0.2)'
+                        : 'rgba(59, 130, 246, 0.2)',
                 }}
               >
                 <Text
@@ -324,10 +324,10 @@ export function CustomerSupportModal({
                     fontWeight: '800',
                     color:
                       activeEnquiry.status === 'RESOLVED'
-                        ? '#03543F'
+                        ? '#10B981'
                         : (activeEnquiry.status === 'WAITING_FOR_AGENT' || activeEnquiry.status === 'ASSIGNED')
-                          ? '#92400E'
-                          : '#3730A3',
+                          ? '#FCD34D'
+                          : '#60A5FA',
                   }}
                 >
                   {activeEnquiry.status.replace(/_/g, ' ')}
@@ -369,41 +369,36 @@ export function CustomerSupportModal({
                             width: 18,
                             height: 18,
                             borderRadius: 9,
-                            backgroundColor: '#14532D',
+                            backgroundColor: '#FCD34D',
                             justifyContent: 'center',
                             alignItems: 'center',
                           }}
                         >
-                          <Feather name="shield" size={10} color="#FFFFFF" />
+                          <Feather name="shield" size={10} color="#012B18" />
                         </View>
                       ) : null}
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: isAdmin ? '#14532D' : '#64748B' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: isAdmin ? '#FCD34D' : '#9CA3AF' }}>
                         {msg.senderName || 'Agent'}
                       </Text>
-                      <Text style={{ fontSize: 10, color: '#94A3B8' }}>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                      <Text style={{ fontSize: 10, color: '#6B7280' }}>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
                     </View>
 
                     <View
                       style={{
-                        backgroundColor: isAdmin ? '#FFFFFF' : '#14532D',
+                        backgroundColor: isAdmin ? '#131F18' : '#053E23',
                         paddingHorizontal: 14,
                         paddingVertical: 10,
                         borderRadius: 16,
                         borderTopLeftRadius: isAdmin ? 4 : 16,
                         borderTopRightRadius: isAdmin ? 16 : 4,
-                        borderWidth: isAdmin ? 1 : 0,
-                        borderColor: '#E2E8F0',
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.05,
-                        shadowRadius: 2,
-                        elevation: 1,
+                        borderWidth: 1,
+                        borderColor: isAdmin ? 'rgba(252, 211, 77, 0.2)' : '#FCD34D',
                       }}
                     >
                       <Text
                         style={{
                           fontSize: 14,
-                          color: isAdmin ? '#1E293B' : '#FFFFFF',
+                          color: '#FFFFFF',
                           lineHeight: 20,
                         }}
                       >
@@ -420,12 +415,12 @@ export function CustomerSupportModal({
                   onPress={handleConnectWithAgent}
                   style={{
                     alignSelf: 'stretch',
-                    backgroundColor: '#F3E8FF',
+                    backgroundColor: 'rgba(252, 211, 77, 0.15)',
                     paddingVertical: 12,
                     paddingHorizontal: 16,
                     borderRadius: 12,
                     borderWidth: 1,
-                    borderColor: '#D8B4FE',
+                    borderColor: '#FCD34D',
                     marginTop: 8,
                     marginBottom: 16,
                     flexDirection: 'row',
@@ -434,8 +429,8 @@ export function CustomerSupportModal({
                     gap: 8,
                   }}
                 >
-                  <Feather name="headphones" size={18} color="#9333EA" />
-                  <Text style={{ color: '#9333EA', fontWeight: '800', fontSize: 13 }}>
+                  <Feather name="headphones" size={18} color="#FCD34D" />
+                  <Text style={{ color: '#FCD34D', fontWeight: '800', fontSize: 13 }}>
                     Connect to Live Support Agent
                   </Text>
                 </Pressable>
@@ -445,11 +440,11 @@ export function CustomerSupportModal({
             {/* Reply Input Bar */}
             <View
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: '#012B18',
                 paddingHorizontal: 12,
                 paddingVertical: 10,
                 borderTopWidth: 1,
-                borderTopColor: '#E2E8F0',
+                borderTopColor: 'rgba(252, 211, 77, 0.2)',
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 8,
@@ -458,18 +453,18 @@ export function CustomerSupportModal({
               <RNTextInput
                 style={{
                   flex: 1,
-                  backgroundColor: '#F8FAFC',
+                  backgroundColor: '#131F18',
                   borderWidth: 1,
-                  borderColor: '#CBD5E1',
+                  borderColor: 'rgba(252, 211, 77, 0.25)',
                   borderRadius: 20,
                   paddingHorizontal: 16,
                   paddingVertical: Platform.OS === 'ios' ? 10 : 8,
                   fontSize: 14,
-                  color: '#0F172A',
+                  color: '#FFFFFF',
                   maxHeight: 100,
                 }}
                 placeholder="Type your message to support..."
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor="#6B7280"
                 value={chatInput}
                 onChangeText={setChatInput}
                 multiline
@@ -481,39 +476,41 @@ export function CustomerSupportModal({
                   width: 42,
                   height: 42,
                   borderRadius: 21,
-                  backgroundColor: chatInput.trim() ? '#14532D' : '#94A3B8',
+                  backgroundColor: chatInput.trim() ? '#FCD34D' : '#131F18',
                   justifyContent: 'center',
                   alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: chatInput.trim() ? '#FCD34D' : 'rgba(252, 211, 77, 0.2)',
                 }}
               >
                 {isSending ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color="#012B18" />
                 ) : (
-                  <Feather name="send" size={18} color="#FFFFFF" style={{ marginLeft: 2 }} />
+                  <Feather name="send" size={18} color={chatInput.trim() ? '#012B18' : '#6B7280'} style={{ marginLeft: 2 }} />
                 )}
               </Pressable>
             </View>
           </View>
         ) : isCreatingNew ? (
           /* BODY 2: Local AI Chatbot Form (Replacing Old Form) */
-          <View style={{ flex: 1, backgroundColor: '#F1F5F9' }}>
+          <View style={{ flex: 1, backgroundColor: '#0A120E' }}>
             <View
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: '#131F18',
                 paddingHorizontal: 16,
                 paddingVertical: 12,
                 borderBottomWidth: 1,
-                borderBottomColor: '#E2E8F0',
+                borderBottomColor: 'rgba(252, 211, 77, 0.2)',
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
               }}
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E293B' }}>Select a predefined query or type below</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Select a predefined query or type below</Text>
               </View>
-              <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: '#E0E7FF' }}>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: '#3730A3' }}>AI ACTIVE</Text>
+              <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(252, 211, 77, 0.2)' }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#FCD34D' }}>AI ACTIVE</Text>
               </View>
             </View>
 
@@ -524,13 +521,13 @@ export function CustomerSupportModal({
               style={{ flex: 1 }}
             >
               {/* Quick Help Card at the top */}
-              <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2, borderWidth: 1, borderColor: '#F1F5F9' }}>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: '#1E293B', marginBottom: 8 }}>Hi! Welcome to Foodie Support 👋</Text>
-                <Text style={{ fontSize: 13, color: '#475569', marginBottom: 20 }}>
-                  Recent Order: {activeOrderId ? <><Text style={{ color: '#16A34A', fontWeight: '800' }}>#{activeOrderId}</Text> • Preparing for Delivery 🚴</> : <Text style={{ color: '#64748B' }}>No active orders</Text>}
+              <View style={{ backgroundColor: '#131F18', borderRadius: 16, padding: 20, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.2)' }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 }}>Hi! Welcome to Foodie Support 👋</Text>
+                <Text style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 20 }}>
+                  Recent Order: {activeOrderId ? <><Text style={{ color: '#FCD34D', fontWeight: '800' }}>#{activeOrderId}</Text> • Preparing for Delivery 🚴</> : <Text style={{ color: '#6B7280' }}>No active orders</Text>}
                 </Text>
 
-                <Text style={{ fontSize: 13, fontWeight: '800', color: '#334155', letterSpacing: 0.5, marginBottom: 12 }}>QUICK HELP OPTIONS</Text>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: '#FCD34D', letterSpacing: 0.5, marginBottom: 12 }}>QUICK HELP OPTIONS</Text>
 
                 {[
                   { icon: '📍', text: 'Where is my order?' },
@@ -538,12 +535,12 @@ export function CustomerSupportModal({
                   { icon: '❌', text: 'I want to cancel my order' },
                   { icon: '🏷️', text: 'Offers & Promo Codes' }
                 ].map((opt, i) => (
-                  <Pressable key={i} onPress={() => handleSendLocalReply(opt.text)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, backgroundColor: pressed ? '#F8FAFC' : '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12 })}>
+                  <Pressable key={i} onPress={() => handleSendLocalReply(opt.text)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, backgroundColor: pressed ? 'rgba(252, 211, 77, 0.1)' : '#053E23', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.25)', marginBottom: 12 })}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                       <Text style={{ fontSize: 18 }}>{opt.icon}</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E293B' }}>{opt.text}</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>{opt.text}</Text>
                     </View>
-                    <Feather name="chevron-right" size={16} color="#047857" />
+                    <Feather name="chevron-right" size={16} color="#FCD34D" />
                   </Pressable>
                 ))}
               </View>
@@ -555,21 +552,21 @@ export function CustomerSupportModal({
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, alignSelf: isAdmin ? 'flex-start' : 'flex-end', gap: 8 }}>
                       {isAdmin ? (
                         <>
-                          <View style={{ backgroundColor: '#0284C7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#FFFFFF' }}>{msg.senderName}</Text>
+                          <View style={{ backgroundColor: 'rgba(252, 211, 77, 0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.3)' }}>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#FCD34D' }}>{msg.senderName}</Text>
                           </View>
-                          <Text style={{ fontSize: 10, color: '#94A3B8' }}>
+                          <Text style={{ fontSize: 10, color: '#6B7280' }}>
                             {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </Text>
                         </>
                       ) : (
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#64748B' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#9CA3AF' }}>
                           {msg.senderName}
                         </Text>
                       )}
                     </View>
-                    <View style={{ backgroundColor: isAdmin ? '#F8FAFC' : '#14532D', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderTopLeftRadius: isAdmin ? 4 : 16, borderTopRightRadius: isAdmin ? 16 : 4, borderWidth: isAdmin ? 1 : 0, borderColor: '#E2E8F0' }}>
-                      <Text style={{ fontSize: 14, color: isAdmin ? '#1E293B' : '#FFFFFF', lineHeight: 20 }}>
+                    <View style={{ backgroundColor: isAdmin ? '#131F18' : '#053E23', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderTopLeftRadius: isAdmin ? 4 : 16, borderTopRightRadius: isAdmin ? 16 : 4, borderWidth: 1, borderColor: isAdmin ? 'rgba(252, 211, 77, 0.2)' : '#FCD34D' }}>
+                      <Text style={{ fontSize: 14, color: '#FFFFFF', lineHeight: 20 }}>
                         {msg.message}
                       </Text>
                     </View>
@@ -582,16 +579,16 @@ export function CustomerSupportModal({
                             key={i}
                             onPress={() => handleSendLocalReply(btn.actionText)}
                             style={({ pressed }) => ({
-                              backgroundColor: pressed ? '#F8FAFC' : '#FFFFFF',
+                              backgroundColor: pressed ? 'rgba(252, 211, 77, 0.2)' : '#131F18',
                               paddingVertical: 12,
                               paddingHorizontal: 16,
                               borderRadius: 24,
                               borderWidth: 1.5,
-                              borderColor: '#14532D',
+                              borderColor: '#FCD34D',
                               alignSelf: 'flex-start',
                             })}
                           >
-                            <Text style={{ fontSize: 14, color: '#14532D', fontWeight: '800' }}>{btn.label}</Text>
+                            <Text style={{ fontSize: 14, color: '#FCD34D', fontWeight: '800' }}>{btn.label}</Text>
                           </Pressable>
                         ))}
                       </View>
@@ -605,12 +602,12 @@ export function CustomerSupportModal({
                   onPress={handleConnectWithAgent}
                   style={{
                     alignSelf: 'stretch',
-                    backgroundColor: '#FFFBEB',
+                    backgroundColor: 'rgba(252, 211, 77, 0.15)',
                     paddingVertical: 12,
                     paddingHorizontal: 16,
                     borderRadius: 12,
                     borderWidth: 1,
-                    borderColor: '#FDE68A',
+                    borderColor: '#FCD34D',
                     marginTop: 8,
                     marginBottom: 16,
                     flexDirection: 'row',
@@ -619,8 +616,8 @@ export function CustomerSupportModal({
                     gap: 8,
                   }}
                 >
-                  <Feather name="headphones" size={18} color="#D97706" />
-                  <Text style={{ color: '#D97706', fontWeight: '800', fontSize: 13 }}>
+                  <Feather name="headphones" size={18} color="#FCD34D" />
+                  <Text style={{ color: '#FCD34D', fontWeight: '800', fontSize: 13 }}>
                     Connect to Live Support Agent
                   </Text>
                 </Pressable>
@@ -628,11 +625,11 @@ export function CustomerSupportModal({
             </ScrollView>
 
             {/* Reply Input Bar for Local Chat */}
-            <View style={{ backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#E2E8F0', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ backgroundColor: '#012B18', paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: 'rgba(252, 211, 77, 0.2)', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <RNTextInput
-                style={{ flex: 1, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 20, paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 10 : 8, fontSize: 14, color: '#0F172A', maxHeight: 100 }}
+                style={{ flex: 1, backgroundColor: '#131F18', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.25)', borderRadius: 20, paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 10 : 8, fontSize: 14, color: '#FFFFFF', maxHeight: 100 }}
                 placeholder="Type your query..."
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor="#6B7280"
                 value={chatInput}
                 onChangeText={setChatInput}
                 multiline
@@ -640,9 +637,9 @@ export function CustomerSupportModal({
               <Pressable
                 onPress={() => handleSendLocalReply(chatInput)}
                 disabled={isSending || !chatInput.trim()}
-                style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: chatInput.trim() ? '#14532D' : '#94A3B8', justifyContent: 'center', alignItems: 'center' }}
+                style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: chatInput.trim() ? '#FCD34D' : '#131F18', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: chatInput.trim() ? '#FCD34D' : 'rgba(252, 211, 77, 0.2)' }}
               >
-                {isSending ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Feather name="send" size={18} color="#FFFFFF" style={{ marginLeft: 2 }} />}
+                {isSending ? <ActivityIndicator size="small" color="#012B18" /> : <Feather name="send" size={18} color={chatInput.trim() ? '#012B18' : '#6B7280'} style={{ marginLeft: 2 }} />}
               </Pressable>
             </View>
           </View>
@@ -653,7 +650,7 @@ export function CustomerSupportModal({
             <Pressable
               onPress={() => setIsCreatingNew(true)}
               style={{
-                backgroundColor: '#14532D',
+                backgroundColor: '#131F18',
                 borderRadius: 16,
                 paddingHorizontal: 20,
                 paddingVertical: 16,
@@ -661,16 +658,13 @@ export function CustomerSupportModal({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 marginBottom: 24,
-                shadowColor: '#14532D',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.15,
-                shadowRadius: 8,
-                elevation: 3,
+                borderWidth: 1.5,
+                borderColor: '#FCD34D',
               }}
             >
               <View style={{ flex: 1, marginRight: 12 }}>
                 <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Have a question or issue?</Text>
-                <Text style={{ fontSize: 13, color: '#A7F3D0', marginTop: 2 }}>
+                <Text style={{ fontSize: 13, color: '#FCD34D', marginTop: 2, fontWeight: '600' }}>
                   Start a live chat enquiry with Admin Support
                 </Text>
               </View>
@@ -684,7 +678,7 @@ export function CustomerSupportModal({
                   alignItems: 'center',
                 }}
               >
-                <Feather name="plus" size={22} color="#14532D" />
+                <Feather name="plus" size={22} color="#012B18" />
               </View>
             </Pressable>
 
@@ -692,7 +686,7 @@ export function CustomerSupportModal({
               style={{
                 fontSize: 13,
                 textTransform: 'uppercase',
-                color: '#14532D',
+                color: '#FCD34D',
                 fontWeight: '800',
                 letterSpacing: 0.8,
                 marginBottom: 12,
@@ -704,17 +698,17 @@ export function CustomerSupportModal({
             {!(activeConversations && activeConversations.length > 0) ? (
               <View
                 style={{
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: '#131F18',
                   borderRadius: 16,
                   padding: 32,
                   alignItems: 'center',
                   borderWidth: 1,
-                  borderColor: '#E2E8F0',
+                  borderColor: 'rgba(252, 211, 77, 0.2)',
                 }}
               >
-                <Feather name="message-square" size={40} color="#94A3B8" style={{ marginBottom: 12 }} />
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#334155' }}>No support enquiries yet</Text>
-                <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', marginTop: 4 }}>
+                <Feather name="message-square" size={40} color="#FCD34D" style={{ marginBottom: 12 }} />
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>No support enquiries yet</Text>
+                <Text style={{ fontSize: 13, color: '#9CA3AF', textAlign: 'center', marginTop: 4 }}>
                   Click "Start a live chat enquiry" above to connect with Foodie Admin Support.
                 </Text>
               </View>
@@ -732,48 +726,45 @@ export function CustomerSupportModal({
                       key={item.id}
                       onPress={() => setActiveEnquiryId(item.id)}
                       style={({ pressed }) => ({
-                        backgroundColor: pressed ? '#F8FAFC' : '#FFFFFF',
+                        backgroundColor: pressed ? 'rgba(252, 211, 77, 0.1)' : '#131F18',
                         borderRadius: 16,
                         padding: 16,
                         borderWidth: 1,
-                        borderColor: hasAdminReply ? '#86EFAC' : '#E2E8F0',
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.04,
-                        shadowRadius: 4,
-                        elevation: 2,
+                        borderColor: hasAdminReply ? '#FCD34D' : 'rgba(252, 211, 77, 0.2)',
                       })}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Text style={{ fontSize: 13, fontWeight: '800', color: '#14532D' }}>{item.id}</Text>
+                          <Text style={{ fontSize: 13, fontWeight: '800', color: '#FCD34D' }}>{item.id}</Text>
                           {hasAdminReply ? (
                             <View
                               style={{
-                                backgroundColor: '#DCFCE7',
+                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
                                 paddingHorizontal: 8,
                                 paddingVertical: 2,
                                 borderRadius: 10,
                                 flexDirection: 'row',
                                 alignItems: 'center',
                                 gap: 4,
+                                borderWidth: 1,
+                                borderColor: 'rgba(16, 185, 129, 0.3)',
                               }}
                             >
-                              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A' }} />
-                              <Text style={{ fontSize: 11, fontWeight: '800', color: '#15803D' }}>Admin Replied</Text>
+                              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' }} />
+                              <Text style={{ fontSize: 11, fontWeight: '800', color: '#10B981' }}>Admin Replied</Text>
                             </View>
                           ) : null}
                         </View>
-                        <Text style={{ fontSize: 11, color: '#94A3B8' }}>{new Date(item.updatedAt).toLocaleDateString()}</Text>
+                        <Text style={{ fontSize: 11, color: '#6B7280' }}>{new Date(item.updatedAt).toLocaleDateString()}</Text>
                       </View>
 
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A', marginTop: 8 }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF', marginTop: 8 }}>
                         {item.subject}
                       </Text>
 
                       <Text
                         numberOfLines={2}
-                        style={{ fontSize: 13, color: '#64748B', marginTop: 4, lineHeight: 18 }}
+                        style={{ fontSize: 13, color: '#9CA3AF', marginTop: 4, lineHeight: 18 }}
                       >
                         {lastMessage}
                       </Text>
@@ -786,10 +777,10 @@ export function CustomerSupportModal({
                           marginTop: 12,
                           paddingTop: 10,
                           borderTopWidth: 1,
-                          borderTopColor: '#F1F5F9',
+                          borderTopColor: 'rgba(252, 211, 77, 0.15)',
                         }}
                       >
-                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#047857' }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#FCD34D' }}>
                           Tap to open two-way chat ›
                         </Text>
                         <View
@@ -799,10 +790,10 @@ export function CustomerSupportModal({
                             borderRadius: 8,
                             backgroundColor:
                               item.status === 'RESOLVED'
-                                ? '#DEF7EC'
+                                ? 'rgba(16, 185, 129, 0.2)'
                                 : (item.status === 'WAITING_FOR_AGENT' || item.status === 'ASSIGNED')
-                                  ? '#FEF3C7'
-                                  : '#F3F4F6',
+                                  ? 'rgba(252, 211, 77, 0.2)'
+                                  : 'rgba(255, 255, 255, 0.08)',
                           }}
                         >
                           <Text
@@ -811,10 +802,10 @@ export function CustomerSupportModal({
                               fontWeight: '800',
                               color:
                                 item.status === 'RESOLVED'
-                                  ? '#03543F'
+                                  ? '#10B981'
                                   : (item.status === 'WAITING_FOR_AGENT' || item.status === 'ASSIGNED')
-                                    ? '#92400E'
-                                    : '#4B5563',
+                                    ? '#FCD34D'
+                                    : '#9CA3AF',
                             }}
                           >
                             {item.status.replace(/_/g, ' ')}

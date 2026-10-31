@@ -275,9 +275,9 @@ export function MenuScreen({ navigation, route }: Props) {
   const ratingText = hasRealRating ? avgRatingNum.toFixed(1) : null;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
-      <StatusBar backgroundColor="#14532D" barStyle="light-content" />
-      <View style={{ flex: 1, backgroundColor: tokens.color.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#012B18' }} edges={['top', 'left', 'right']}>
+      <StatusBar backgroundColor="#012B18" barStyle="light-content" />
+      <View style={{ flex: 1, backgroundColor: '#0A120E' }}>
         <SectionList
           style={{ flex: 1 }}
           sections={sections}
@@ -288,7 +288,7 @@ export function MenuScreen({ navigation, route }: Props) {
             <View style={{ gap: tokens.spacing.md }}>
               <ImageBackground
                 source={{ uri: (restaurantData as any)?.coverImageUrl ? ((restaurantData as any).coverImageUrl.startsWith('/api') ? `${ENV.apiBaseUrl}${(restaurantData as any).coverImageUrl}` : (restaurantData as any).coverImageUrl) : (restaurantData as any)?.imageUrl ? ((restaurantData as any).imageUrl.startsWith('/api') ? `${ENV.apiBaseUrl}${(restaurantData as any).imageUrl}` : (restaurantData as any).imageUrl) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=1000' }}
-                style={{ marginHorizontal: -tokens.spacing.lg, marginTop: 0, minHeight: 265, justifyContent: 'flex-end', backgroundColor: '#14532D' }}
+                style={{ marginHorizontal: -tokens.spacing.lg, marginTop: 0, minHeight: 265, justifyContent: 'flex-end', backgroundColor: '#012B18' }}
                 imageStyle={{ borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}
               >
                 <Pressable
@@ -309,24 +309,24 @@ export function MenuScreen({ navigation, route }: Props) {
                   <Feather name="chevron-left" size={24} color="#FCD34D" />
                 </Pressable>
                 <LinearGradient
-                  colors={['transparent', 'rgba(20, 83, 45, 0.95)']}
+                  colors={['transparent', 'rgba(1, 43, 24, 0.96)']}
                   style={{ paddingVertical: tokens.spacing.xl, paddingHorizontal: tokens.spacing.lg, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, gap: 8 }}
                 >
-                  <Text variant="heading1" style={{ color: '#FCD34D', fontWeight: '900', fontSize: 32, textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>{restaurantData?.name || 'Restaurant Menu'}</Text>
+                  <Text variant="heading1" style={{ color: '#FCD34D', fontWeight: '900', fontSize: 30, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>{restaurantData?.name || 'Restaurant Menu'}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', marginTop: 4 }}>
                     {ratingText && (
                       <>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FCD34D', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3 }}>
-                          <Text style={{ color: '#134E4A', fontSize: 13, fontWeight: '900' }}>★ {ratingText}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FCD34D', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 }}>
+                          <Text style={{ color: '#022414', fontSize: 13, fontWeight: '900' }}>★ {ratingText}</Text>
                         </View>
                         <Text variant="label" style={{ color: '#FFFFFF', fontWeight: '800' }}>•</Text>
                       </>
                     )}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.2)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 }}>
-                      <Text variant="caption" style={{ color: '#FFFFFF', fontWeight: '800' }}>⏱️ {distanceInfo}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.15)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 }}>
+                      <Text variant="caption" style={{ color: '#FEF3C7', fontWeight: '800' }}>⏱️ {distanceInfo}</Text>
                     </View>
                     <Text variant="label" style={{ color: '#FFFFFF', fontWeight: '800' }}>•</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.2)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.15)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 }}>
                       <Text variant="caption" style={{ color: '#FFFFFF', fontWeight: '800' }}>📍 {distanceInfo.includes('•') ? distanceInfo.split('•')[1]?.trim() : 'Location'}</Text>
                     </View>
                   </View>
@@ -360,28 +360,28 @@ export function MenuScreen({ navigation, route }: Props) {
 
               {sections.length > 0 && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: tokens.spacing.sm, paddingVertical: tokens.spacing.sm }}>
-                  <Pressable onPress={() => setActiveFilter('all')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'all' ? '#14532D' : '#E5E7EB', borderWidth: 1, borderColor: activeFilter === 'all' ? '#14532D' : '#D1D5DB' }}>
-                    <Text variant="label" style={{ color: activeFilter === 'all' ? '#F59E0B' : '#4B5563', fontWeight: activeFilter === 'all' ? '800' : '600' }}>🍽️ All</Text>
+                  <Pressable onPress={() => setActiveFilter('all')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'all' ? '#053E23' : '#131F18', borderWidth: 1.5, borderColor: activeFilter === 'all' ? '#FCD34D' : 'rgba(255, 255, 255, 0.12)' }}>
+                    <Text variant="label" style={{ color: activeFilter === 'all' ? '#FCD34D' : '#9CA3AF', fontWeight: activeFilter === 'all' ? '900' : '600' }}>🍽️ All</Text>
                   </Pressable>
-                  <Pressable onPress={() => setActiveFilter('veg')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'veg' ? '#14532D' : '#FFFFFF', borderWidth: 1, borderColor: activeFilter === 'veg' ? '#14532D' : '#D1D5DB' }}>
-                    <Text variant="label" style={{ color: activeFilter === 'veg' ? '#F59E0B' : '#059669', fontWeight: activeFilter === 'veg' ? '800' : '600' }}>🟢 Veg Only</Text>
+                  <Pressable onPress={() => setActiveFilter('veg')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'veg' ? '#053E23' : '#131F18', borderWidth: 1.5, borderColor: activeFilter === 'veg' ? '#FCD34D' : 'rgba(255, 255, 255, 0.12)' }}>
+                    <Text variant="label" style={{ color: activeFilter === 'veg' ? '#FCD34D' : '#10B981', fontWeight: activeFilter === 'veg' ? '900' : '600' }}>🟢 Veg Only</Text>
                   </Pressable>
-                  <Pressable onPress={() => setActiveFilter('non-veg')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'non-veg' ? '#14532D' : '#FFFFFF', borderWidth: 1, borderColor: activeFilter === 'non-veg' ? '#14532D' : '#D1D5DB' }}>
-                    <Text variant="label" style={{ color: activeFilter === 'non-veg' ? '#F59E0B' : '#DC2626', fontWeight: activeFilter === 'non-veg' ? '800' : '600' }}>🔴 Non-Veg</Text>
+                  <Pressable onPress={() => setActiveFilter('non-veg')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'non-veg' ? '#053E23' : '#131F18', borderWidth: 1.5, borderColor: activeFilter === 'non-veg' ? '#FCD34D' : 'rgba(255, 255, 255, 0.12)' }}>
+                    <Text variant="label" style={{ color: activeFilter === 'non-veg' ? '#FCD34D' : '#EF4444', fontWeight: activeFilter === 'non-veg' ? '900' : '600' }}>🔴 Non-Veg</Text>
                   </Pressable>
-                  <Pressable onPress={() => setActiveFilter('egg')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'egg' ? '#14532D' : '#FFFFFF', borderWidth: 1, borderColor: activeFilter === 'egg' ? '#14532D' : '#D1D5DB' }}>
-                    <Text variant="label" style={{ color: activeFilter === 'egg' ? '#F59E0B' : '#4B5563', fontWeight: activeFilter === 'egg' ? '800' : '600' }}>🍳 Egg Special</Text>
+                  <Pressable onPress={() => setActiveFilter('egg')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'egg' ? '#053E23' : '#131F18', borderWidth: 1.5, borderColor: activeFilter === 'egg' ? '#FCD34D' : 'rgba(255, 255, 255, 0.12)' }}>
+                    <Text variant="label" style={{ color: activeFilter === 'egg' ? '#FCD34D' : '#9CA3AF', fontWeight: activeFilter === 'egg' ? '900' : '600' }}>🍳 Egg Special</Text>
                   </Pressable>
-                  <Pressable onPress={() => setActiveFilter('recommended')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'recommended' ? '#14532D' : '#FFFFFF', borderWidth: 1, borderColor: activeFilter === 'recommended' ? '#14532D' : '#D1D5DB' }}>
-                    <Text variant="label" style={{ color: activeFilter === 'recommended' ? '#F59E0B' : '#4B5563', fontWeight: activeFilter === 'recommended' ? '800' : '600' }}>🔥 Highly Reordered</Text>
+                  <Pressable onPress={() => setActiveFilter('recommended')} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'recommended' ? '#053E23' : '#131F18', borderWidth: 1.5, borderColor: activeFilter === 'recommended' ? '#FCD34D' : 'rgba(255, 255, 255, 0.12)' }}>
+                    <Text variant="label" style={{ color: activeFilter === 'recommended' ? '#FCD34D' : '#9CA3AF', fontWeight: activeFilter === 'recommended' ? '900' : '600' }}>🔥 Highly Reordered</Text>
                   </Pressable>
                 </ScrollView>
               )}
             </View>
           }
           renderSectionHeader={({ section: { title } }) => (
-            <View style={{ backgroundColor: tokens.color.background, paddingTop: tokens.spacing.md, paddingBottom: tokens.spacing.xs, borderBottomWidth: 2, borderBottomColor: '#F59E0B', marginBottom: tokens.spacing.md, alignSelf: 'flex-start' }}>
-              <Text variant="heading2" color="#14532D" style={{ fontWeight: '900', letterSpacing: 0.5, fontSize: 20, textTransform: 'uppercase' }}>{title}</Text>
+            <View style={{ backgroundColor: '#0A120E', paddingTop: tokens.spacing.md, paddingBottom: tokens.spacing.xs, borderBottomWidth: 2, borderBottomColor: '#FCD34D', marginBottom: tokens.spacing.md, alignSelf: 'flex-start' }}>
+              <Text variant="heading2" color="#FCD34D" style={{ fontWeight: '900', letterSpacing: 0.5, fontSize: 18, textTransform: 'uppercase' }}>{title}</Text>
             </View>
           )}
           renderItem={({ item }) => {
@@ -397,7 +397,7 @@ export function MenuScreen({ navigation, route }: Props) {
               />
             );
           }}
-          ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: tokens.color.border, marginVertical: tokens.spacing.sm }} />}
+          ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginVertical: tokens.spacing.sm }} />}
           ListEmptyComponent={
             <EmptyState
               title="No Menu Items"
@@ -409,7 +409,7 @@ export function MenuScreen({ navigation, route }: Props) {
           }
         />
         {cartItemsCount > 0 && Number(cartSubtotal) > 0 ? (
-          <GlobalCartBanner />
+          <GlobalCartBanner hasTabBar={false} />
         ) : null}
       </View>
 

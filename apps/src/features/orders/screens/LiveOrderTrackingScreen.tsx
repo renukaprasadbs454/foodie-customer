@@ -429,14 +429,24 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
 
     return (
       <LinearGradient
-        colors={['#0F3E22', '#14532D', '#1B6A3A']}
-        style={{ padding: 24, paddingTop: 44, paddingBottom: 50, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }}
+        colors={['#012B18', '#053E23', '#0A4D2E']}
+        style={{ padding: 20, paddingTop: 36, paddingBottom: 44, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, borderBottomWidth: 1.2, borderBottomColor: 'rgba(252, 211, 77, 0.25)' }}
       >
-        <View style={{ backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, marginBottom: 12 }}>
-          <Text style={{ color: '#FCD34D', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 }}>ORDER STATUS UPDATE</Text>
+        <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Feather name="arrow-left" size={18} color="#FCD34D" />
+          </Pressable>
+          <View style={{ backgroundColor: 'rgba(252, 211, 77, 0.15)', paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.3)' }}>
+            <Text style={{ color: '#FCD34D', fontSize: 12, fontWeight: '800', letterSpacing: 0.5 }}>ORDER STATUS UPDATE</Text>
+          </View>
+          <View style={{ width: 36 }} />
         </View>
-        <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '900', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>{icon} {title}</Text>
-        <Text style={{ color: '#D1FAE5', fontSize: 14, fontWeight: '600', textAlign: 'center', marginTop: 6, paddingHorizontal: 16 }}>{subtitle}</Text>
+
+        <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '900', textAlign: 'center' }}>{icon} {title}</Text>
+        <Text style={{ color: '#9CA3AF', fontSize: 14, fontWeight: '600', textAlign: 'center', marginTop: 6, paddingHorizontal: 16 }}>{subtitle}</Text>
 
         {restaurant?.name && (
           <Text style={{ color: '#FCD34D', fontSize: 15, fontWeight: '800', marginTop: 10, letterSpacing: 0.5 }}>
@@ -445,8 +455,8 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
         )}
 
         {liveEta !== null && (
-          <View style={{ backgroundColor: 'rgba(252, 211, 77, 0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, marginTop: 14, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.3)', gap: 12 }}>
-            <Text style={{ color: '#FEF3C7', fontWeight: '800', fontSize: 15, letterSpacing: 0.5 }}>Estimated Delivery ETA: {liveEta} mins</Text>
+          <View style={{ backgroundColor: 'rgba(252, 211, 77, 0.15)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, marginTop: 14, flexDirection: 'row', alignItems: 'center', borderWidth: 1.2, borderColor: '#FCD34D', gap: 12 }}>
+            <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 15, letterSpacing: 0.5 }}>Estimated Delivery ETA: {liveEta} mins</Text>
             <Pressable
               onPress={refreshEta}
               accessibilityRole="button"
@@ -455,15 +465,11 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                 width: 32,
                 height: 32,
                 borderRadius: 16,
-                backgroundColor: 'rgba(252, 211, 77, 0.15)',
+                backgroundColor: 'rgba(252, 211, 77, 0.2)',
                 justifyContent: 'center',
                 alignItems: 'center',
                 borderWidth: 1,
-                borderColor: 'rgba(252, 211, 77, 0.4)',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 2,
+                borderColor: '#FCD34D',
               }, pressed && { opacity: 0.6, transform: [{ scale: 0.95 }] }]}
             >
               <Text style={{ fontSize: 14 }}>🔄</Text>
@@ -475,7 +481,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: tokens.color.background }}>
+    <View style={{ flex: 1, backgroundColor: '#0A120E' }}>
       <ScrollView
         contentContainerStyle={{
           paddingBottom: 48,
@@ -507,37 +513,33 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                 style={({ pressed }) => ({
                   marginHorizontal: 16,
                   marginTop: -20,
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: '#131F18',
                   borderRadius: 16,
                   padding: 16,
                   borderWidth: 1.5,
-                  borderColor: '#10B981',
+                  borderColor: '#FCD34D',
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 8,
                   elevation: 4,
                   opacity: pressed ? 0.9 : 1,
                   zIndex: 10,
                 })}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' }}>
-                    <Feather name="refresh-cw" size={20} color="#15803D" />
+                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(252, 211, 77, 0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Feather name="refresh-cw" size={20} color="#FCD34D" />
                   </View>
                   <View>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>
                       Refund Initiated
                     </Text>
-                    <Text style={{ fontSize: 12, color: '#15803D', fontWeight: '600' }}>
+                    <Text style={{ fontSize: 12, color: '#FCD34D', fontWeight: '600' }}>
                       Tap to view refund status & breakdown ›
                     </Text>
                   </View>
                 </View>
-                <Feather name="chevron-right" size={20} color="#15803D" />
+                <Feather name="chevron-right" size={20} color="#FCD34D" />
               </Pressable>
             )}
 
@@ -549,17 +551,15 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
               <View style={{ paddingHorizontal: tokens.spacing.md, marginTop: tokens.spacing.md }}>
                 <View style={{
                   padding: 32,
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: '#131F18',
                   borderRadius: 24,
                   alignItems: 'center',
-                  elevation: 5,
-                  shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8,
                   borderColor: '#FCD34D',
-                  borderWidth: 2
+                  borderWidth: 1.5
                 }}>
                   <Text style={{ fontSize: 48, marginBottom: 16 }}>🌟</Text>
-                  <Text style={{ fontSize: 20, color: '#14532D', fontWeight: '900', textAlign: 'center' }}>Enjoyed your meal?</Text>
-                  <Text style={{ fontSize: 15, color: '#6B7280', marginTop: 8, textAlign: 'center', marginBottom: 20 }}>Rate the restaurant and your delivery partner to help us improve!</Text>
+                  <Text style={{ fontSize: 20, color: '#FFFFFF', fontWeight: '900', textAlign: 'center' }}>Enjoyed your meal?</Text>
+                  <Text style={{ fontSize: 15, color: '#9CA3AF', marginTop: 8, textAlign: 'center', marginBottom: 20 }}>Rate the restaurant and your delivery partner to help us improve!</Text>
 
                   <Pressable
                     onPress={() => {
@@ -570,7 +570,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                       } as never);
                     }}
                     style={{
-                      backgroundColor: '#14532D',
+                      backgroundColor: '#FCD34D',
                       paddingHorizontal: 24,
                       paddingVertical: 14,
                       borderRadius: 24,
@@ -578,7 +578,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                       alignItems: 'center'
                     }}
                   >
-                    <Text style={{ color: '#FCD34D', fontWeight: 'bold', fontSize: 16 }}>Rate This Order</Text>
+                    <Text style={{ color: '#012B18', fontWeight: '900', fontSize: 16 }}>Rate This Order</Text>
                   </Pressable>
                 </View>
               </View>
@@ -587,18 +587,18 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                 {(order.status === 'PREPARING' || order.status === 'PLACED' || order.status === 'ACCEPTED') && (
                   <View style={{
                     padding: 16,
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: '#131F18',
                     borderRadius: 16,
                     flexDirection: 'row',
                     alignItems: 'center',
                     marginBottom: 16,
-                    elevation: 3,
-                    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 4,
+                    borderWidth: 1,
+                    borderColor: 'rgba(252, 211, 77, 0.2)',
                   }}>
-                    <ActivityIndicator size="small" color="#14532D" style={{ marginRight: 12 }} />
+                    <ActivityIndicator size="small" color="#FCD34D" style={{ marginRight: 12 }} />
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 15, color: '#14532D', fontWeight: '800' }}>Preparing your order...</Text>
-                      <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Assigning the best rider nearby.</Text>
+                      <Text style={{ fontSize: 15, color: '#FFFFFF', fontWeight: '800' }}>Preparing your order...</Text>
+                      <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>Assigning the best rider nearby.</Text>
                     </View>
                   </View>
                 )}
@@ -619,37 +619,34 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
               <View style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: '#FFFFFF',
+                backgroundColor: '#131F18',
                 padding: tokens.spacing.md,
                 borderRadius: 16,
                 marginTop: tokens.spacing.md,
                 marginHorizontal: tokens.spacing.md,
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.05,
-                shadowRadius: 3,
-                elevation: 2,
+                borderColor: 'rgba(252, 211, 77, 0.2)',
               }}>
                 <View style={{
                   width: 48,
                   height: 48,
                   borderRadius: 24,
-                  backgroundColor: '#EFF6FF',
+                  backgroundColor: 'rgba(252, 211, 77, 0.15)',
                   justifyContent: 'center',
                   alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: 'rgba(252, 211, 77, 0.3)',
                 }}>
                   <Text style={{ fontSize: 22 }}>🏠</Text>
                 </View>
                 <View style={{ flex: 1, marginLeft: tokens.spacing.md }}>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#16A34A', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#FCD34D', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     Delivering To ({selectedAddr.label || 'Home'})
                   </Text>
-                  <Text style={{ fontWeight: '700', fontSize: 14, color: '#1F2937', marginTop: 2 }} numberOfLines={1}>
+                  <Text style={{ fontWeight: '700', fontSize: 14, color: '#FFFFFF', marginTop: 2 }} numberOfLines={1}>
                     {[selectedAddr.line1, selectedAddr.line2].filter(Boolean).join(', ') || 'Your delivery address'}
                   </Text>
-                  <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 1 }} numberOfLines={1}>
+                  <Text style={{ color: '#9CA3AF', fontSize: 12, marginTop: 1 }} numberOfLines={1}>
                     {[selectedAddr.city, selectedAddr.pincode].filter(Boolean).join(' - ')}
                   </Text>
                 </View>
@@ -661,27 +658,29 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
               <View style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: '#FFFFFF',
+                backgroundColor: '#131F18',
                 padding: tokens.spacing.md,
                 borderRadius: 16,
                 marginTop: tokens.spacing.md,
                 marginHorizontal: tokens.spacing.md,
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
+                borderColor: 'rgba(252, 211, 77, 0.2)',
               }}>
                 <View style={{
                   width: 50,
                   height: 50,
                   borderRadius: 12,
-                  backgroundColor: '#F3F4F6',
+                  backgroundColor: 'rgba(252, 211, 77, 0.1)',
                   justifyContent: 'center',
                   alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: 'rgba(252, 211, 77, 0.2)',
                 }}>
                   <Text style={{ fontSize: 24 }}>🏬</Text>
                 </View>
                 <View style={{ flex: 1, marginLeft: tokens.spacing.md }}>
-                  <Text style={{ fontWeight: '600', fontSize: 16, color: '#1F2937' }}>{(order as any)?.restaurantName || restaurant?.name || 'Restaurant'}</Text>
-                  <Text style={{ color: '#6B7280', fontSize: 13, marginTop: 2 }}>
+                  <Text style={{ fontWeight: '700', fontSize: 16, color: '#FFFFFF' }}>{(order as any)?.restaurantName || restaurant?.name || 'Restaurant'}</Text>
+                  <Text style={{ color: '#9CA3AF', fontSize: 13, marginTop: 2 }}>
                     Preparing your food
                   </Text>
                 </View>
@@ -689,8 +688,8 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                   <Pressable
                     onPress={() => setChatVisible(true)}
                     style={{
-                      width: 40, height: 40, borderRadius: 20, backgroundColor: '#EFF6FF',
-                      justifyContent: 'center', alignItems: 'center'
+                      width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(252, 211, 77, 0.15)',
+                      justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#FCD34D'
                     }}
                   >
                     <Text style={{ fontSize: 18 }}>💬</Text>
@@ -704,8 +703,8 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                       });
                     }}
                     style={{
-                      width: 40, height: 40, borderRadius: 20, backgroundColor: '#DCFCE7',
-                      justifyContent: 'center', alignItems: 'center'
+                      width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(252, 211, 77, 0.15)',
+                      justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#FCD34D'
                     }}
                   >
                     <Text style={{ fontSize: 18 }}>📞</Text>
@@ -719,27 +718,29 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
               <View style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: '#FFFFFF',
+                backgroundColor: '#131F18',
                 padding: tokens.spacing.md,
                 borderRadius: 16,
                 marginTop: tokens.spacing.md,
                 marginHorizontal: tokens.spacing.md,
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
+                borderColor: 'rgba(252, 211, 77, 0.2)',
               }}>
                 <View style={{
                   width: 50,
                   height: 50,
                   borderRadius: 25,
-                  backgroundColor: '#F3F4F6',
+                  backgroundColor: 'rgba(252, 211, 77, 0.1)',
                   justifyContent: 'center',
                   alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: 'rgba(252, 211, 77, 0.2)',
                 }}>
                   <Text style={{ fontSize: 24 }}>👨🏽‍✈️</Text>
                 </View>
                 <View style={{ flex: 1, marginLeft: tokens.spacing.md }}>
-                  <Text style={{ fontWeight: '600', fontSize: 16, color: '#1F2937' }}>{deliveryPartner.fullName}</Text>
-                  <Text style={{ color: '#6B7280', fontSize: 13, marginTop: 2 }}>
+                  <Text style={{ fontWeight: '700', fontSize: 16, color: '#FFFFFF' }}>{deliveryPartner.fullName}</Text>
+                  <Text style={{ color: '#FCD34D', fontSize: 13, marginTop: 2, fontWeight: '600' }}>
                     ★ {deliveryPartner.signatureRating || '4.9'} • {deliveryPartner.vehicleNumber || 'Bike'}
                   </Text>
                 </View>
@@ -747,8 +748,8 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                   <Pressable
                     onPress={() => setChatVisible(true)}
                     style={{
-                      width: 40, height: 40, borderRadius: 20, backgroundColor: '#EFF6FF',
-                      justifyContent: 'center', alignItems: 'center'
+                      width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(252, 211, 77, 0.15)',
+                      justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#FCD34D'
                     }}
                   >
                     <Text style={{ fontSize: 18 }}>💬</Text>
@@ -761,8 +762,8 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                       });
                     }}
                     style={{
-                      width: 40, height: 40, borderRadius: 20, backgroundColor: '#DCFCE7',
-                      justifyContent: 'center', alignItems: 'center'
+                      width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(252, 211, 77, 0.15)',
+                      justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#FCD34D'
                     }}
                   >
                     <Text style={{ fontSize: 18 }}>📞</Text>
@@ -786,23 +787,30 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                     marginTop: tokens.spacing.lg,
                     alignItems: 'center',
                     paddingVertical: 14,
-                    borderTopWidth: 0.5,
-                    borderBottomWidth: 0.5,
-                    borderColor: '#E5E7EB',
-                    backgroundColor: '#FFFFFF',
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: 'rgba(239, 68, 68, 0.4)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
                   }}
                 >
-                  <Text style={{ color: '#EF4444', fontSize: 16, fontWeight: '500' }}>Cancel Order</Text>
+                  <Text style={{ color: '#EF4444', fontSize: 15, fontWeight: '700' }}>Cancel Order</Text>
                 </Pressable>
               ) : null}
 
-              <Button
-                label="My orders"
-                accessibilityLabel="My orders"
-                variant="secondary"
+              <Pressable
                 onPress={() => navigation.navigate('MyOrders')}
-                style={{ marginTop: tokens.spacing.md }}
-              />
+                style={{
+                  marginTop: tokens.spacing.md,
+                  backgroundColor: '#131F18',
+                  borderWidth: 1.5,
+                  borderColor: '#FCD34D',
+                  paddingVertical: 14,
+                  borderRadius: 16,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: '#FCD34D', fontWeight: '800', fontSize: 15 }}>View My Orders</Text>
+              </Pressable>
             </View>
           </>
         ) : null}

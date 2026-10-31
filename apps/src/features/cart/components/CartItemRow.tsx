@@ -28,15 +28,15 @@ export function CartItemRow({
       style={{
         padding: tokens.spacing.md,
         marginBottom: tokens.spacing.sm,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#131F18',
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: '#e4e4e7',
+        borderColor: 'rgba(255, 255, 255, 0.08)',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
+        shadowOpacity: 0.25,
         shadowRadius: 5,
-        elevation: 2,
+        elevation: 3,
         gap: tokens.spacing.xs,
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -50,7 +50,7 @@ export function CartItemRow({
             width: 14,
             height: 14,
             borderWidth: 1.5,
-            borderColor: isVeg ? '#15803d' : '#b91c1c',
+            borderColor: isVeg ? '#16A34A' : '#DC2626',
             justifyContent: 'center',
             alignItems: 'center',
             padding: 2,
@@ -59,22 +59,22 @@ export function CartItemRow({
               width: 6,
               height: 6,
               borderRadius: tokens.radius.full,
-              backgroundColor: isVeg ? '#15803d' : '#b91c1c',
+              backgroundColor: isVeg ? '#16A34A' : '#DC2626',
             }} />
           </View>
-          <Text variant="heading3" style={{ fontWeight: '800', color: '#27272a', fontSize: 16, flexShrink: 1, paddingRight: 8 }}>
+          <Text variant="heading3" style={{ fontWeight: '800', color: '#FFFFFF', fontSize: 16, flexShrink: 1, paddingRight: 8 }}>
             {name || 'Unknown Item'}
           </Text>
         </View>
 
         {item.variantId ? (
-          <Text variant="caption" color={tokens.color.textSecondary} style={{ fontWeight: '500', marginTop: 4 }}>
+          <Text variant="caption" style={{ color: '#FCD34D', fontWeight: '600', marginTop: 4 }}>
             Custom Variant
           </Text>
         ) : null}
 
         {item.notes ? (
-          <Text variant="caption" color={tokens.color.textSecondary} style={{ fontStyle: 'italic', marginTop: 2 }}>
+          <Text variant="caption" style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 2 }}>
             Notes: "{item.notes}"
           </Text>
         ) : null}
@@ -83,14 +83,14 @@ export function CartItemRow({
       <View style={{ alignItems: 'flex-end', gap: tokens.spacing.sm }}>
         {loading ? (
           <View style={{ width: 76, height: 32, justifyContent: 'center' }}>
-            <ActivityIndicator size="small" color={tokens.color.accent} />
+            <ActivityIndicator size="small" color="#FCD34D" />
           </View>
         ) : (
           <View style={{
             flexDirection: 'row',
-            backgroundColor: '#14532D10', // Very subtle green on light background
+            backgroundColor: '#022414',
             borderWidth: 1.5,
-            borderColor: '#14532D', // Dark Green
+            borderColor: '#FCD34D',
             borderRadius: 10,
             width: 90,
             height: 34,
@@ -99,16 +99,16 @@ export function CartItemRow({
             overflow: 'hidden'
           }}>
             <Pressable onPress={onDecrement} style={{ paddingHorizontal: 12, height: '100%', justifyContent: 'center' }}>
-              <Text style={{ color: '#14532D', fontWeight: '900', fontSize: 16 }}>-</Text>
+              <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 16 }}>−</Text>
             </Pressable>
-            <Text style={{ color: '#14532D', fontWeight: '900', fontSize: 15 }}>{item.quantity}</Text>
+            <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 15 }}>{item.quantity}</Text>
             <Pressable onPress={onIncrement} style={{ paddingHorizontal: 12, height: '100%', justifyContent: 'center' }}>
-              <Text style={{ color: '#14532D', fontWeight: '900', fontSize: 16 }}>+</Text>
+              <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 16 }}>+</Text>
             </Pressable>
           </View>
         )}
 
-        <Text variant="label" style={{ fontWeight: '900', color: '#18181b', fontSize: 15, marginTop: 4 }}>
+        <Text variant="label" style={{ fontWeight: '900', color: '#FCD34D', fontSize: 16, marginTop: 4 }}>
           ₹{formatMoney(item.lineTotal)}
         </Text>
       </View>

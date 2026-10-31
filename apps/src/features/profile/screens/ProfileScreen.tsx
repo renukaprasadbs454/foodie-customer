@@ -169,7 +169,7 @@ export function ProfileScreen({ navigation }: Props) {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: '#F2F2F7' }}
+      style={{ flex: 1, backgroundColor: '#0A120E' }}
       contentContainerStyle={{ minHeight: '100%', paddingBottom: 20 }}
       refreshControl={
         <RefreshControl
@@ -179,9 +179,9 @@ export function ProfileScreen({ navigation }: Props) {
         />
       }
     >
-      {/* Curved Dark Green brand banner top arch with smooth gradient */}
+      {/* Curved Dark Green brand banner top arch with smooth gradient matching HomeScreen */}
       <LinearGradient
-        colors={['#0F3E22', '#14532D', '#1B6A3A']}
+        colors={['#012B18', '#053E23', '#0A4D2E']}
         style={{
           position: 'absolute',
           top: 0,
@@ -400,34 +400,34 @@ export function ProfileScreen({ navigation }: Props) {
               )}
 
               {/* Grouped Info Item Details */}
-              <Text style={{ fontSize: 13, textTransform: 'uppercase', color: '#14532D', fontWeight: '800', letterSpacing: 0.8, marginLeft: 16, marginBottom: 8 }}>
+              <Text style={{ fontSize: 13, textTransform: 'uppercase', color: '#FCD34D', fontWeight: '900', letterSpacing: 0.8, marginLeft: 16, marginBottom: 8 }}>
                 Account Information
               </Text>
 
               <View style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: '#131F18',
                 borderRadius: 16,
                 marginBottom: 24,
                 overflow: 'hidden',
-                shadowColor: '#14532D',
+                shadowColor: '#000000',
                 shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.05,
+                shadowOpacity: 0.2,
                 shadowRadius: 8,
-                elevation: 2,
+                elevation: 3,
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
+                borderColor: 'rgba(255, 255, 255, 0.08)',
               }}>
                 {/* Full name editable row */}
                 <View style={{ paddingHorizontal: 16, paddingVertical: 18, flexDirection: 'row', alignItems: 'center' }}>
-                  <Feather name="user" size={20} color="#14532D" style={{ marginRight: 12 }} />
-                  <Text style={{ fontSize: 16, color: '#6B7280', fontWeight: '600', flex: 1 }}>Name</Text>
+                  <Feather name="user" size={20} color="#FCD34D" style={{ marginRight: 12 }} />
+                  <Text style={{ fontSize: 16, color: '#9CA3AF', fontWeight: '600', flex: 1 }}>Name</Text>
                   {isEditing ? (
                     <RNTextInput
                       value={nameVal}
                       onChangeText={setNameVal}
                       style={{
                         fontSize: 16,
-                        color: '#111827',
+                        color: '#FFFFFF',
                         fontWeight: '700',
                         textAlign: 'right',
                         borderBottomWidth: 1,
@@ -436,25 +436,26 @@ export function ProfileScreen({ navigation }: Props) {
                         minWidth: 150,
                       }}
                       placeholder="Name"
+                      placeholderTextColor="#9CA3AF"
                       accessibilityLabel="Edit Name input"
                     />
                   ) : (
-                    <Text style={{ fontSize: 16, color: '#111827', fontWeight: '700' }}>{fullNameVal}</Text>
+                    <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: '700' }}>{fullNameVal}</Text>
                   )}
                 </View>
-                <View style={{ height: 1, backgroundColor: '#F3F4F6', marginLeft: 48 }} />
+                <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginLeft: 48 }} />
 
                 {/* Email address editable row */}
                 <View style={{ paddingHorizontal: 16, paddingVertical: 18, flexDirection: 'row', alignItems: 'center' }}>
-                  <Feather name="mail" size={20} color="#14532D" style={{ marginRight: 12 }} />
-                  <Text style={{ fontSize: 16, color: '#6B7280', fontWeight: '600', flex: 1 }}>Email</Text>
+                  <Feather name="mail" size={20} color="#FCD34D" style={{ marginRight: 12 }} />
+                  <Text style={{ fontSize: 16, color: '#9CA3AF', fontWeight: '600', flex: 1 }}>Email</Text>
                   {isEditing ? (
                     <RNTextInput
                       value={emailVal}
                       onChangeText={setEmailVal}
                       style={{
                         fontSize: 16,
-                        color: '#111827',
+                        color: '#FFFFFF',
                         fontWeight: '700',
                         textAlign: 'right',
                         borderBottomWidth: 1,
@@ -463,40 +464,41 @@ export function ProfileScreen({ navigation }: Props) {
                         minWidth: 150,
                       }}
                       placeholder="Email"
+                      placeholderTextColor="#9CA3AF"
                       keyboardType="email-address"
                       autoCapitalize="none"
                       accessibilityLabel="Edit Email input"
                     />
                   ) : (
-                    <Text style={{ fontSize: 16, color: '#111827', fontWeight: '700' }}>{emailVal}</Text>
+                    <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: '700' }}>{emailVal}</Text>
                   )}
                 </View>
-                <View style={{ height: 1, backgroundColor: '#F3F4F6', marginLeft: 48 }} />
+                <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginLeft: 48 }} />
 
                 {/* READ-ONLY mobile number is NEVER editable */}
-                <View style={{ paddingHorizontal: 16, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', opacity: 0.7 }}>
-                  <Feather name="phone" size={20} color="#6B7280" style={{ marginRight: 12 }} />
-                  <Text style={{ fontSize: 16, color: '#6B7280', fontWeight: '600', flex: 1 }}>Mobile (Locked)</Text>
-                  <Text style={{ fontSize: 16, color: '#6B7280', fontWeight: '700' }}>{phoneVal}</Text>
+                <View style={{ paddingHorizontal: 16, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', opacity: 0.85 }}>
+                  <Feather name="phone" size={20} color="#9CA3AF" style={{ marginRight: 12 }} />
+                  <Text style={{ fontSize: 16, color: '#9CA3AF', fontWeight: '600', flex: 1 }}>Mobile (Locked)</Text>
+                  <Text style={{ fontSize: 16, color: '#E5E7EB', fontWeight: '700' }}>{phoneVal}</Text>
                 </View>
 
                 {/* Account Status row */}
-                <View style={{ height: 1, backgroundColor: '#F3F4F6', marginLeft: 48 }} />
+                <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginLeft: 48 }} />
                 <View style={{ paddingHorizontal: 16, paddingVertical: 18, flexDirection: 'row', alignItems: 'center' }}>
-                  <Feather name={isSuspended ? "alert-triangle" : "shield"} size={20} color={isSuspended ? "#DC2626" : "#16A34A"} style={{ marginRight: 12 }} />
-                  <Text style={{ fontSize: 16, color: '#6B7280', fontWeight: '600', flex: 1 }}>Account Status</Text>
+                  <Feather name={isSuspended ? "alert-triangle" : "shield"} size={20} color={isSuspended ? "#EF4444" : "#10B981"} style={{ marginRight: 12 }} />
+                  <Text style={{ fontSize: 16, color: '#9CA3AF', fontWeight: '600', flex: 1 }}>Account Status</Text>
                   <View style={{
-                    backgroundColor: isSuspended ? '#FEE2E2' : '#DCFCE7',
+                    backgroundColor: isSuspended ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
                     paddingHorizontal: 12,
                     paddingVertical: 5,
                     borderRadius: 12,
                     borderWidth: 1,
-                    borderColor: isSuspended ? '#F87171' : '#86EFAC',
+                    borderColor: isSuspended ? '#EF4444' : '#10B981',
                   }}>
                     <Text style={{
                       fontSize: 13,
                       fontWeight: '800',
-                      color: isSuspended ? '#DC2626' : '#16A34A',
+                      color: isSuspended ? '#EF4444' : '#10B981',
                       letterSpacing: 0.5,
                     }}>
                       {isSuspended ? '● SUSPENDED' : '● ACTIVE'}
@@ -505,12 +507,12 @@ export function ProfileScreen({ navigation }: Props) {
                 </View>
                 {isSuspended && suspensionReason && (
                   <>
-                    <View style={{ height: 1, backgroundColor: '#F3F4F6', marginLeft: 48 }} />
+                    <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginLeft: 48 }} />
                     <View style={{ paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'column' }}>
                       <Text style={{ fontSize: 12, color: '#9CA3AF', fontWeight: '700', textTransform: 'uppercase', marginBottom: 4 }}>
                         Suspension Reason
                       </Text>
-                      <Text style={{ fontSize: 14, color: '#DC2626', fontWeight: '600', lineHeight: 20 }}>
+                      <Text style={{ fontSize: 14, color: '#EF4444', fontWeight: '600', lineHeight: 20 }}>
                         {suspensionReason}
                       </Text>
                     </View>
@@ -519,22 +521,22 @@ export function ProfileScreen({ navigation }: Props) {
               </View>
 
               {/* Grouped Links */}
-              <Text style={{ fontSize: 13, textTransform: 'uppercase', color: '#14532D', fontWeight: '800', letterSpacing: 0.8, marginLeft: 16, marginBottom: 8 }}>
+              <Text style={{ fontSize: 13, textTransform: 'uppercase', color: '#FCD34D', fontWeight: '900', letterSpacing: 0.8, marginLeft: 16, marginBottom: 8 }}>
                 Preferences
               </Text>
 
               <View style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: '#131F18',
                 borderRadius: 16,
                 marginBottom: 24,
                 overflow: 'hidden',
-                shadowColor: '#14532D',
+                shadowColor: '#000000',
                 shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.05,
+                shadowOpacity: 0.2,
                 shadowRadius: 8,
-                elevation: 2,
+                elevation: 3,
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
+                borderColor: 'rgba(255, 255, 255, 0.08)',
               }}>
                 <Pressable
                   onPress={() => navigation.navigate('Addresses', {})}
@@ -543,14 +545,14 @@ export function ProfileScreen({ navigation }: Props) {
                     alignItems: 'center',
                     paddingHorizontal: 16,
                     paddingVertical: 18,
-                    backgroundColor: pressed ? '#F9FAFB' : '#FFFFFF',
+                    backgroundColor: pressed ? 'rgba(252, 211, 77, 0.08)' : '#131F18',
                   })}
                 >
-                  <Feather name="map-pin" size={20} color="#14532D" style={{ marginRight: 12 }} />
-                  <Text style={{ fontSize: 17, color: '#111827', fontWeight: '600', flex: 1 }}>Delivery Addresses</Text>
+                  <Feather name="map-pin" size={20} color="#FCD34D" style={{ marginRight: 12 }} />
+                  <Text style={{ fontSize: 17, color: '#FFFFFF', fontWeight: '600', flex: 1 }}>Delivery Addresses</Text>
                   <Text style={{ fontSize: 20, color: '#FCD34D', fontWeight: 'bold' }}>›</Text>
                 </Pressable>
-                <View style={{ height: 1, backgroundColor: '#F3F4F6', marginLeft: 48 }} />
+                <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginLeft: 48 }} />
 
                 <Pressable
                   onPress={() => navigation.navigate('Wallet')}
@@ -559,14 +561,14 @@ export function ProfileScreen({ navigation }: Props) {
                     alignItems: 'center',
                     paddingHorizontal: 16,
                     paddingVertical: 18,
-                    backgroundColor: pressed ? '#F9FAFB' : '#FFFFFF',
+                    backgroundColor: pressed ? 'rgba(252, 211, 77, 0.08)' : '#131F18',
                   })}
                 >
-                  <Feather name="credit-card" size={20} color="#14532D" style={{ marginRight: 12 }} />
-                  <Text style={{ fontSize: 17, color: '#111827', fontWeight: '600', flex: 1 }}>My Wallet</Text>
+                  <Feather name="credit-card" size={20} color="#FCD34D" style={{ marginRight: 12 }} />
+                  <Text style={{ fontSize: 17, color: '#FFFFFF', fontWeight: '600', flex: 1 }}>My Wallet</Text>
                   <Text style={{ fontSize: 20, color: '#FCD34D', fontWeight: 'bold' }}>›</Text>
                 </Pressable>
-                <View style={{ height: 1, backgroundColor: '#F3F4F6', marginLeft: 48 }} />
+                <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginLeft: 48 }} />
 
                 <Pressable
                   onPress={() => navigation.navigate('Settings')}
@@ -575,32 +577,32 @@ export function ProfileScreen({ navigation }: Props) {
                     alignItems: 'center',
                     paddingHorizontal: 16,
                     paddingVertical: 18,
-                    backgroundColor: pressed ? '#F9FAFB' : '#FFFFFF',
+                    backgroundColor: pressed ? 'rgba(252, 211, 77, 0.08)' : '#131F18',
                   })}
                 >
-                  <Feather name="settings" size={20} color="#14532D" style={{ marginRight: 12 }} />
-                  <Text style={{ fontSize: 17, color: '#111827', fontWeight: '600', flex: 1 }}>App Settings</Text>
+                  <Feather name="settings" size={20} color="#FCD34D" style={{ marginRight: 12 }} />
+                  <Text style={{ fontSize: 17, color: '#FFFFFF', fontWeight: '600', flex: 1 }}>App Settings</Text>
                   <Text style={{ fontSize: 20, color: '#FCD34D', fontWeight: 'bold' }}>›</Text>
                 </Pressable>
               </View>
 
               {/* Grouped Legal & Policies Links */}
-              <Text style={{ fontSize: 13, textTransform: 'uppercase', color: '#14532D', fontWeight: '800', letterSpacing: 0.8, marginLeft: 16, marginBottom: 8 }}>
+              <Text style={{ fontSize: 13, textTransform: 'uppercase', color: '#FCD34D', fontWeight: '900', letterSpacing: 0.8, marginLeft: 16, marginBottom: 8 }}>
                 Legal & Policies
               </Text>
 
               <View style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: '#131F18',
                 borderRadius: 16,
                 marginBottom: 24,
                 overflow: 'hidden',
-                shadowColor: '#14532D',
+                shadowColor: '#000000',
                 shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.05,
+                shadowOpacity: 0.2,
                 shadowRadius: 8,
-                elevation: 2,
+                elevation: 3,
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
+                borderColor: 'rgba(255, 255, 255, 0.08)',
               }}>
                 <Pressable
                   onPress={() => setIsTermsModalVisible(true)}
@@ -609,14 +611,14 @@ export function ProfileScreen({ navigation }: Props) {
                     alignItems: 'center',
                     paddingHorizontal: 16,
                     paddingVertical: 18,
-                    backgroundColor: pressed ? '#F9FAFB' : '#FFFFFF',
+                    backgroundColor: pressed ? 'rgba(252, 211, 77, 0.08)' : '#131F18',
                   })}
                 >
-                  <Feather name="file-text" size={20} color="#14532D" style={{ marginRight: 12 }} />
-                  <Text style={{ fontSize: 17, color: '#111827', fontWeight: '600', flex: 1 }}>Terms & Conditions</Text>
+                  <Feather name="file-text" size={20} color="#FCD34D" style={{ marginRight: 12 }} />
+                  <Text style={{ fontSize: 17, color: '#FFFFFF', fontWeight: '600', flex: 1 }}>Terms & Conditions</Text>
                   <Text style={{ fontSize: 20, color: '#FCD34D', fontWeight: 'bold' }}>›</Text>
                 </Pressable>
-                <View style={{ height: 1, backgroundColor: '#F3F4F6', marginLeft: 48 }} />
+                <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginLeft: 48 }} />
 
                 <Pressable
                   onPress={() => setIsPrivacyModalVisible(true)}
@@ -625,28 +627,28 @@ export function ProfileScreen({ navigation }: Props) {
                     alignItems: 'center',
                     paddingHorizontal: 16,
                     paddingVertical: 18,
-                    backgroundColor: pressed ? '#F9FAFB' : '#FFFFFF',
+                    backgroundColor: pressed ? 'rgba(252, 211, 77, 0.08)' : '#131F18',
                   })}
                 >
-                  <Feather name="shield" size={20} color="#14532D" style={{ marginRight: 12 }} />
-                  <Text style={{ fontSize: 17, color: '#111827', fontWeight: '600', flex: 1 }}>Privacy Policy</Text>
+                  <Feather name="shield" size={20} color="#FCD34D" style={{ marginRight: 12 }} />
+                  <Text style={{ fontSize: 17, color: '#FFFFFF', fontWeight: '600', flex: 1 }}>Privacy Policy</Text>
                   <Text style={{ fontSize: 20, color: '#FCD34D', fontWeight: 'bold' }}>›</Text>
                 </Pressable>
               </View>
 
               {/* Log Out */}
               <View style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: '#131F18',
                 borderRadius: 16,
                 marginBottom: 40,
                 overflow: 'hidden',
-                shadowColor: '#14532D',
+                shadowColor: '#000000',
                 shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.05,
+                shadowOpacity: 0.2,
                 shadowRadius: 8,
-                elevation: 2,
+                elevation: 3,
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
+                borderColor: 'rgba(220, 38, 38, 0.3)',
               }}>
                 <Pressable
                   onPress={handleLogout}
@@ -655,12 +657,12 @@ export function ProfileScreen({ navigation }: Props) {
                     alignItems: 'center',
                     paddingHorizontal: 16,
                     paddingVertical: 18,
-                    backgroundColor: pressed ? '#FEF2F2' : '#FFFFFF',
+                    backgroundColor: pressed ? 'rgba(220, 38, 38, 0.15)' : '#131F18',
                   })}
                 >
-                  <Feather name="log-out" size={20} color="#DC2626" style={{ marginRight: 12 }} />
-                  <Text style={{ fontSize: 17, color: '#DC2626', fontWeight: '700', flex: 1 }}>Log Out</Text>
-                  <Text style={{ fontSize: 20, color: '#DC2626', fontWeight: 'bold' }}>›</Text>
+                  <Feather name="log-out" size={20} color="#EF4444" style={{ marginRight: 12 }} />
+                  <Text style={{ fontSize: 17, color: '#EF4444', fontWeight: '700', flex: 1 }}>Log Out</Text>
+                  <Text style={{ fontSize: 20, color: '#EF4444', fontWeight: 'bold' }}>›</Text>
                 </Pressable>
               </View>
             </View>

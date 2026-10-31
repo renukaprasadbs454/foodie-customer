@@ -77,12 +77,17 @@ export function OrderStatusStepper({ status }: Props) {
   return (
     <View
       style={{
-        backgroundColor: tokens.color.surface,
-        padding: tokens.spacing.lg,
-        borderRadius: tokens.radius.lg,
-        borderWidth: 1,
-        borderColor: tokens.color.border,
-        gap: tokens.spacing.sm,
+        backgroundColor: '#131F18',
+        padding: 16,
+        borderRadius: 18,
+        borderWidth: 1.2,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        gap: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        elevation: 3,
       }}
       accessibilityLabel={`Order status stepper, current ${status}`}
     >
@@ -90,18 +95,18 @@ export function OrderStatusStepper({ status }: Props) {
         style={{
           flexDirection: 'row',
           alignItems: 'flex-start',
-          gap: tokens.spacing.md,
+          gap: 12,
         }}
       >
         <View style={{ alignItems: 'center', width: 20 }}>
           <View
             style={{
-              width: 14,
-              height: 14,
-              borderRadius: 7,
-              backgroundColor: tokens.color.accent,
+              width: 16,
+              height: 16,
+              borderRadius: 8,
+              backgroundColor: '#FCD34D',
               borderWidth: 3,
-              borderColor: tokens.color.accentMuted,
+              borderColor: 'rgba(252, 211, 77, 0.3)',
               zIndex: 2,
             }}
           />
@@ -109,19 +114,17 @@ export function OrderStatusStepper({ status }: Props) {
 
         <View style={{ flex: 1, marginTop: -2 }}>
           <Text
-            variant="label"
             style={{
-              fontWeight: '800',
-              color: tokens.color.accent,
+              fontWeight: '900',
+              color: '#FCD34D',
+              fontSize: 16,
             }}
           >
             {STATUS_TITLES[effectiveStatus] || effectiveStatus.replace(/_/g, ' ')}
           </Text>
           {STATUS_DESCRIPTIONS[effectiveStatus] ? (
             <Text
-              variant="caption"
-              color={tokens.color.textSecondary}
-              style={{ marginTop: 2, lineHeight: 14 }}
+              style={{ marginTop: 4, lineHeight: 18, color: '#9CA3AF', fontSize: 13 }}
             >
               {STATUS_DESCRIPTIONS[effectiveStatus]}
             </Text>

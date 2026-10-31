@@ -210,8 +210,8 @@ export function PaymentScreen({ navigation, route }: Props) {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
-      <StatusBar backgroundColor="#14532D" barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0A120E' }} edges={['top', 'left', 'right']}>
+      <StatusBar backgroundColor="#012B18" barStyle="light-content" />
 
       {/* Screen Loader / Container */}
       <View
@@ -220,50 +220,90 @@ export function PaymentScreen({ navigation, route }: Props) {
           alignItems: 'center',
           justifyContent: 'center',
           padding: 24,
-          gap: 16,
+          backgroundColor: '#0A120E',
         }}
       >
         {phase === 'initiating' || phase === 'awaiting_confirmed' ? (
-          <>
+          <View
+            style={{
+              backgroundColor: '#131F18',
+              borderRadius: 24,
+              borderWidth: 1.2,
+              borderColor: 'rgba(252, 211, 77, 0.25)',
+              padding: 32,
+              alignItems: 'center',
+              width: '100%',
+              maxWidth: 360,
+              gap: 16,
+            }}
+          >
             <ActivityIndicator size="large" color="#FCD34D" />
             <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '800', textAlign: 'center' }}>
               {phase === 'awaiting_confirmed'
                 ? 'Verifying Payment with Cashfree...'
                 : 'Opening Cashfree Secure Gateway...'}
             </Text>
-            <Text style={{ color: '#A7F3D0', fontSize: 13, textAlign: 'center' }}>
+            <Text style={{ color: '#9CA3AF', fontSize: 13, textAlign: 'center', lineHeight: 18 }}>
               Please do not close or navigate away from this screen.
             </Text>
-          </>
+          </View>
         ) : phase === 'failed' ? (
-          <EmptyState
-            title="Payment Failed"
-            description="The order could not be paid. Return home to try again."
-            accessibilityLabel="Payment failed"
-            actionLabel="Return Home"
-            onAction={() => navigation.navigate('Home')}
-          />
+          <View
+            style={{
+              backgroundColor: '#131F18',
+              borderRadius: 24,
+              borderWidth: 1.2,
+              borderColor: 'rgba(239, 68, 68, 0.4)',
+              padding: 28,
+              alignItems: 'center',
+              width: '100%',
+              maxWidth: 360,
+              gap: 16,
+            }}
+          >
+            <EmptyState
+              title="Payment Failed"
+              description="The order could not be paid. Return home to try again."
+              accessibilityLabel="Payment failed"
+              actionLabel="Return Home"
+              onAction={() => navigation.navigate('Home')}
+            />
+          </View>
         ) : (
-          /* When user closes or cancels Razorpay checkout */
-          <View style={{ width: '100%', gap: 16, alignItems: 'center' }}>
+          /* When user closes or cancels Razorpay/Cashfree checkout */
+          <View
+            style={{
+              backgroundColor: '#131F18',
+              borderRadius: 24,
+              borderWidth: 1.2,
+              borderColor: 'rgba(252, 211, 77, 0.25)',
+              padding: 28,
+              width: '100%',
+              maxWidth: 380,
+              gap: 16,
+              alignItems: 'center',
+            }}
+          >
             <View
               style={{
                 width: 64,
                 height: 64,
                 borderRadius: 32,
-                backgroundColor: 'rgba(252, 211, 77, 0.2)',
+                backgroundColor: 'rgba(252, 211, 77, 0.15)',
+                borderWidth: 1,
+                borderColor: '#FCD34D',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: 8,
+                marginBottom: 4,
               }}
             >
-              <Text style={{ fontSize: 32 }}>💳</Text>
+              <Text style={{ fontSize: 30 }}>💳</Text>
             </View>
             <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', textAlign: 'center' }}>
               Cashfree Payment Pending
             </Text>
-            <Text style={{ color: '#A7F3D0', fontSize: 14, textAlign: 'center' }}>
-              Click below to launch the official Cashfree payment page.
+            <Text style={{ color: '#9CA3AF', fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
+              Click below to launch the official Cashfree secure payment page.
             </Text>
 
             <Pressable
@@ -272,25 +312,30 @@ export function PaymentScreen({ navigation, route }: Props) {
                 void runInitiateAndCheckout();
               }}
               style={({ pressed }) => ({
-                backgroundColor: pressed ? '#d97706' : '#FCD34D',
+                backgroundColor: pressed ? '#EAB308' : '#FCD34D',
                 paddingVertical: 16,
                 paddingHorizontal: 24,
-                borderRadius: 12,
+                borderRadius: 14,
                 width: '100%',
                 alignItems: 'center',
-                marginTop: 12,
+                marginTop: 8,
+                shadowColor: '#FCD34D',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.25,
+                shadowRadius: 8,
+                elevation: 4,
               })}
             >
-              <Text style={{ color: '#14532D', fontSize: 16, fontWeight: '900' }}>
+              <Text style={{ color: '#022414', fontSize: 16, fontWeight: '900' }}>
                 Open Cashfree Payment Page ➔
               </Text>
             </Pressable>
 
             <Pressable
               onPress={() => navigation.navigate('Home')}
-              style={{ paddingVertical: 12 }}
+              style={{ paddingVertical: 10 }}
             >
-              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>
+              <Text style={{ color: '#9CA3AF', fontSize: 14, fontWeight: '700' }}>
                 Cancel & Return Home
               </Text>
             </Pressable>

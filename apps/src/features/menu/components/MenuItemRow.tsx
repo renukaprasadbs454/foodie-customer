@@ -31,7 +31,7 @@ export function MenuItemRow({
 }: Props) {
   const { tokens } = useTheme();
   const disabled = !item.isAvailable || isRestaurantClosed;
-  const primary = disabled ? '#9CA3AF' : '#111827';
+  const primary = disabled ? '#6B7280' : '#FFFFFF';
   const imageUrl = resolveDishImage(item.imageUrl);
 
   return (
@@ -79,7 +79,7 @@ export function MenuItemRow({
         </Text>
 
         {/* Real Price */}
-        <Text style={[styles.dishPrice, disabled && { color: '#9CA3AF' }]}>
+        <Text style={[styles.dishPrice, disabled && { color: '#6B7280' }]}>
           ₹{formatMoney(item.basePrice)}
         </Text>
 
@@ -247,9 +247,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     letterSpacing: -0.2,
     marginTop: 2,
+    color: '#FFFFFF',
   },
   dishPrice: {
-    color: '#14532D',
+    color: '#FCD34D',
     fontWeight: '900',
     fontSize: 15,
     letterSpacing: 0.2,
@@ -259,7 +260,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 17,
     fontSize: 12.5,
-    color: '#6B7280',
+    color: '#9CA3AF',
   },
   rightImageColumn: {
     width: 108,
@@ -271,7 +272,7 @@ const styles = StyleSheet.create({
     width: 105,
     height: 92,
     borderRadius: 16,
-    backgroundColor: '#F5EFE6',
+    backgroundColor: '#131F18',
   },
   floatingButtonWrap: {
     position: 'absolute',
@@ -286,7 +287,7 @@ const styles = StyleSheet.create({
   },
   stepperContainer: {
     flexDirection: 'row',
-    backgroundColor: '#14532D',
+    backgroundColor: '#022414',
     borderWidth: 1.5,
     borderColor: '#FCD34D',
     borderRadius: 10,
@@ -294,15 +295,15 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#14532D',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
   },
   stepperContainerInline: {
     flexDirection: 'row',
-    backgroundColor: '#14532D',
+    backgroundColor: '#022414',
     borderWidth: 1.5,
     borderColor: '#FCD34D',
     borderRadius: 10,
@@ -310,9 +311,9 @@ const styles = StyleSheet.create({
     height: 34,
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#14532D',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
   },
@@ -332,38 +333,42 @@ const styles = StyleSheet.create({
   },
   addButton: {
     borderWidth: 1.5,
-    borderColor: '#14532D',
+    borderColor: '#FCD34D',
+    backgroundColor: '#022414',
     borderRadius: 10,
     width: 86,
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#14532D',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
   },
   addButtonText: {
-    color: '#14532D',
+    color: '#FCD34D',
     fontWeight: '900',
     fontSize: 13,
     letterSpacing: 0.5,
   },
   addInlineButton: {
+    backgroundColor: '#022414',
+    borderWidth: 1.5,
+    borderColor: '#FCD34D',
     borderRadius: 10,
     width: 86,
     height: 34,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#14532D',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
   },
   addInlineButtonText: {
-    color: '#FFFFFF',
+    color: '#FCD34D',
     fontWeight: '900',
     fontSize: 13,
     letterSpacing: 0.5,

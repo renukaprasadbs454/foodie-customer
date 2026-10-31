@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { FlatList, RefreshControl, View, StatusBar, Animated, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   EmptyState,
@@ -48,37 +49,43 @@ export function MyOrdersScreen({ navigation }: Props) {
   }, []);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
-      <StatusBar backgroundColor="#14532D" barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#012B18' }} edges={['top', 'left', 'right']}>
+      <StatusBar backgroundColor="#012B18" barStyle="light-content" />
       <Animated.View
         style={{
           flex: 1,
-          backgroundColor: '#F2F2F7',
+          backgroundColor: '#0A120E',
           opacity: fadeValue,
           transform: [{ scale: scaleValue }],
         }}
       >
         {/* Curved Header */}
-        <View style={{
-          paddingTop: 36,
-          paddingBottom: 24,
-          paddingHorizontal: 20,
-          backgroundColor: '#14532D',
-          borderBottomLeftRadius: 32,
-          borderBottomRightRadius: 32,
-          shadowColor: '#14532D',
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.15,
-          shadowRadius: 10,
-          elevation: 5
-        }}>
+        <LinearGradient
+          colors={['#012B18', '#053E23', '#0A4D2E']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            paddingTop: 24,
+            paddingBottom: 24,
+            paddingHorizontal: 20,
+            borderBottomLeftRadius: 32,
+            borderBottomRightRadius: 32,
+            borderBottomWidth: 1.2,
+            borderBottomColor: 'rgba(252, 211, 77, 0.25)',
+            shadowColor: '#000000',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.35,
+            shadowRadius: 10,
+            elevation: 6,
+          }}
+        >
           <Text style={{ color: '#FCD34D', fontSize: 32, fontWeight: '900', letterSpacing: -0.5 }}>
             My Orders
           </Text>
-          <Text style={{ color: '#A7F3D0', fontSize: 13, marginTop: 4, fontWeight: '600' }}>
+          <Text style={{ color: '#9CA3AF', fontSize: 13, marginTop: 4, fontWeight: '600' }}>
             Check order status and reorder meals instantly
           </Text>
-        </View>
+        </LinearGradient>
 
         <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }}>
           {!isConnected ? (

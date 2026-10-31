@@ -1,9 +1,9 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, View } from 'react-native';
+import { Text, View, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { CartScreen } from '../features/cart/screens/CartScreen';
 import { CheckoutScreen } from '../features/checkout/screens/CheckoutScreen';
 import { PaymentScreen } from '../features/payment/screens/PaymentScreen';
@@ -15,18 +15,21 @@ import { RefundStatusScreen } from '../features/orders/screens/RefundStatusScree
 import { AddressesScreen } from '../features/profile/screens/AddressesScreen';
 import { ProfileScreen } from '../features/profile/screens/ProfileScreen';
 import { SettingsScreen } from '../features/profile/screens/SettingsScreen';
+import { SupportScreen } from '../features/profile/screens/SupportScreen';
 import { NotificationsScreen } from '../features/notifications/screens/NotificationsScreen';
 import { ReviewsScreen } from '../features/reviews/screens/ReviewsScreen';
 import { HomeScreen } from '../features/restaurants/screens/HomeScreen';
 import { RestaurantDetailsScreen } from '../features/restaurants/screens/RestaurantDetailsScreen';
 import { RestaurantListingScreen } from '../features/restaurants/screens/RestaurantListingScreen';
 import { SearchScreen } from '../features/restaurants/screens/SearchScreen';
+import { WalletScreen } from '../features/wallet/screens/WalletScreen';
 import type {
   BrowseStackParamList,
   MainTabParamList,
   NotificationsStackParamList,
   OrdersStackParamList,
   ProfileStackParamList,
+  HelpStackParamList,
 } from './types';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -35,6 +38,7 @@ const OrdersStack = createNativeStackNavigator<OrdersStackParamList>();
 const NotificationsStack =
   createNativeStackNavigator<NotificationsStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
+const HelpStack = createNativeStackNavigator<HelpStackParamList>();
 
 import { DarkStoreScreen } from '../features/darkStore/screens/DarkStoreScreen';
 import { DarkStoreSubCategoryScreen } from '../features/darkStore/screens/DarkStoreSubCategoryScreen';
@@ -113,6 +117,16 @@ function BrowseStackNavigator() {
         name="Notifications"
         component={NotificationsScreen}
         options={{ title: 'Notifications' }}
+      />
+      <BrowseStack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ title: 'Profile' }}
+      />
+      <BrowseStack.Screen
+        name="Wallet"
+        component={WalletScreen}
+        options={{ title: 'Wallet' }}
       />
     </BrowseStack.Navigator>
   );
@@ -199,7 +213,17 @@ function DarkStoreStackNavigator() {
   );
 }
 
-import { WalletScreen } from '../features/wallet/screens/WalletScreen';
+function HelpStackNavigator() {
+  return (
+    <HelpStack.Navigator screenOptions={{ headerShown: false }}>
+      <HelpStack.Screen
+        name="Help"
+        component={SupportScreen}
+        options={{ title: 'Help & Support' }}
+      />
+    </HelpStack.Navigator>
+  );
+}
 
 function ProfileStackNavigator() {
   return (
@@ -242,15 +266,15 @@ export function MainNavigator() {
         tabBarStyle: {
           borderTopWidth: 1.2,
           borderTopColor: 'rgba(252, 211, 77, 0.25)',
-          backgroundColor: '#022414', // Dark emerald matching top hero
-          height: 62 + Math.max(insets.bottom, 8),
+          backgroundColor: '#0B1410', // Deep luxury slate/emerald background for high contrast
+          height: Platform.OS === 'ios' ? 88 : 70 + Math.max(insets.bottom, 4),
           paddingBottom: Math.max(insets.bottom, 8),
-          paddingTop: 6,
+          paddingTop: 8,
           shadowColor: '#000000',
           shadowOffset: { width: 0, height: -3 },
           shadowOpacity: 0.35,
           shadowRadius: 8,
-          elevation: 10,
+          elevation: 12,
         },
         tabBarLabelStyle: {
           fontSize: 11,
@@ -259,15 +283,15 @@ export function MainNavigator() {
           letterSpacing: 0.2,
         },
         tabBarIcon: ({ focused }) => {
-          let iconName: keyof typeof Ionicons.glyphMap = 'home';
+          let iconName: keyof typeof Feather.glyphMap = 'home';
           if (route.name === 'BrowseTab') {
-            iconName = focused ? 'home' : 'home-outline';
+            iconName = 'home';
           } else if (route.name === 'DarkStoreTab') {
-            iconName = focused ? 'flash' : 'flash-outline';
+            iconName = 'zap';
           } else if (route.name === 'OrdersTab') {
-            iconName = focused ? 'receipt' : 'receipt-outline';
-          } else if (route.name === 'ProfileTab') {
-            iconName = focused ? 'person' : 'person-outline';
+            iconName = 'file-text';
+          } else if (route.name === 'HelpTab' || (route as any).name === 'ProfileTab') {
+            iconName = 'headphones';
           }
 
           return (
@@ -275,15 +299,15 @@ export function MainNavigator() {
               style={{
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: focused ? 'rgba(252, 211, 77, 0.16)' : 'transparent',
-                borderRadius: 20,
-                paddingHorizontal: 14,
-                paddingVertical: 3,
+                backgroundColor: focused ? 'rgba(252, 211, 77, 0.18)' : 'transparent',
+                borderRadius: 16,
+                width: 44,
+                height: 30,
               }}
             >
-              <Ionicons
+              <Feather
                 name={iconName}
-                size={21}
+                size={20}
                 color={focused ? '#FCD34D' : '#9CA3AF'}
               />
             </View>
@@ -325,13 +349,13 @@ export function MainNavigator() {
         })}
       />
       <Tab.Screen
-        name="ProfileTab"
-        component={ProfileStackNavigator}
-        options={{ title: 'Profile' }}
+        name="HelpTab"
+        component={HelpStackNavigator}
+        options={{ title: 'Help' }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            navigation.navigate('ProfileTab', { screen: 'Profile' });
+            navigation.navigate('HelpTab', { screen: 'Help' });
           },
         })}
       />

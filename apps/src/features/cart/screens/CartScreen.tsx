@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { FlatList, RefreshControl, View, StatusBar, Pressable, TextInput as RNTextInput, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Button,
@@ -352,9 +353,9 @@ export function CartScreen({ navigation, route }: Props) {
   const totalBill = Math.max(0, subtotalAmt + deliveryFee + platformFee + calculatedTaxes - resolvedDiscount);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
-      <StatusBar backgroundColor="#14532D" barStyle="light-content" />
-      <Animated.View style={{ flex: 1, backgroundColor: '#F2F2F7', opacity: fadeValue, transform: [{ scale: scaleValue }] }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#012B18' }} edges={['top', 'left', 'right']}>
+      <StatusBar backgroundColor="#012B18" barStyle="light-content" />
+      <Animated.View style={{ flex: 1, backgroundColor: '#0A120E', opacity: fadeValue, transform: [{ scale: scaleValue }] }}>
         <FlatList
           style={{ flex: 1 }}
           data={showItems ? items : []}
@@ -377,22 +378,26 @@ export function CartScreen({ navigation, route }: Props) {
             />
           }
           ListHeaderComponent={
-            <View style={{
-              paddingTop: 12,
-              paddingBottom: 20,
-              paddingHorizontal: 20,
-              backgroundColor: '#14532D',
-              borderBottomLeftRadius: 32,
-              borderBottomRightRadius: 32,
-              shadowColor: '#14532D',
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.15,
-              shadowRadius: 10,
-              elevation: 5
-            }}>
+            <LinearGradient
+              colors={['#012B18', '#053E23', '#0A4D2E']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={{
+                paddingTop: 16,
+                paddingBottom: 22,
+                paddingHorizontal: 20,
+                borderBottomLeftRadius: 32,
+                borderBottomRightRadius: 32,
+                shadowColor: '#000000',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.3,
+                shadowRadius: 10,
+                elevation: 6
+              }}
+            >
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View>
-                  <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 24, letterSpacing: -0.5 }}>
+                  <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 26, letterSpacing: -0.5 }}>
                     Checkout Cart
                   </Text>
                   {restaurantName && (
@@ -400,7 +405,7 @@ export function CartScreen({ navigation, route }: Props) {
                       {restaurantName}
                     </Text>
                   )}
-                  <Text style={{ color: '#A7F3D0', fontWeight: '600', fontSize: 13, marginTop: 2 }}>
+                  <Text style={{ color: '#FEF3C7', fontWeight: '600', fontSize: 13, marginTop: 2 }}>
                     ⏱️ {distanceInfo} | {userCity}
                   </Text>
                 </View>
@@ -408,26 +413,26 @@ export function CartScreen({ navigation, route }: Props) {
               {isSuspended && (
                 <View style={{
                   marginTop: 12,
-                  backgroundColor: '#FEF2F2',
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
                   borderWidth: 1.5,
                   borderColor: '#EF4444',
                   borderRadius: 12,
                   padding: 12,
                 }}>
-                  <Text style={{ color: '#991B1B', fontWeight: '800', fontSize: 14 }}>
+                  <Text style={{ color: '#FCD34D', fontWeight: '800', fontSize: 14 }}>
                     🚫 Account Suspended
                   </Text>
-                  <Text style={{ color: '#7F1D1D', fontSize: 12, marginTop: 2 }}>
+                  <Text style={{ color: '#FEF2F2', fontSize: 12, marginTop: 2 }}>
                     {myProfile?.suspensionReason ? `Reason: ${myProfile.suspensionReason}. ` : ''}Your account has been suspended by administration. Checkout is disabled.
                   </Text>
                 </View>
               )}
-            </View>
+            </LinearGradient>
           }
           renderItem={({ item, index }) => {
             const menuItem = menuItemsMap.get(item.menuItemId);
             return (
-              <View style={{ backgroundColor: '#F2F2F7', paddingHorizontal: 16, paddingTop: index === 0 ? 16 : 8 }}>
+              <View style={{ backgroundColor: '#0A120E', paddingHorizontal: 16, paddingTop: index === 0 ? 16 : 8 }}>
                 <CartItemRow
                   item={item}
                   name={menuItem?.name || item.name}
@@ -450,27 +455,27 @@ export function CartScreen({ navigation, route }: Props) {
                       navigation.navigate('Home');
                     }
                   }}>
-                    <Text style={{ color: '#14532D', fontWeight: '800', fontSize: 14 }}>+ Add more items</Text>
+                    <Text style={{ color: '#10B981', fontWeight: '800', fontSize: 14 }}>+ Add more items</Text>
                   </Pressable>
                   <Text style={{ color: '#6B7280', fontWeight: '700', fontSize: 14 }}>|</Text>
                   <Pressable onPress={() => setClearVisible(true)}>
-                    <Text style={{ color: '#DC2626', fontWeight: '800', fontSize: 14 }}>🗑️ Clear Cart</Text>
+                    <Text style={{ color: '#EF4444', fontWeight: '800', fontSize: 14 }}>🗑️ Clear Cart</Text>
                   </Pressable>
                 </View>
 
                 {/* Coupon Section */}
                 <View style={{
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: '#131F18',
                   padding: 16,
                   borderRadius: 16,
                   borderWidth: 1.5,
-                  borderColor: '#E5E7EB',
+                  borderColor: 'rgba(252, 211, 77, 0.3)',
                   borderStyle: 'dashed',
-                  shadowColor: '#14532D',
+                  shadowColor: '#000000',
                   shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.04,
-                  shadowRadius: 10,
-                  elevation: 2,
+                  shadowOpacity: 0.2,
+                  shadowRadius: 8,
+                  elevation: 3,
                   flexDirection: 'row',
                   alignItems: 'center',
                 }}>
@@ -479,21 +484,21 @@ export function CartScreen({ navigation, route }: Props) {
                       width: 32,
                       height: 32,
                       borderRadius: 16,
-                      backgroundColor: appliedCoupon ? '#DCFCE7' : '#F3F4F6',
+                      backgroundColor: appliedCoupon ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginRight: 12
                     }}>
-                      <Text style={{ fontSize: 16, color: appliedCoupon ? '#166534' : '#374151' }}>%</Text>
+                      <Text style={{ fontSize: 16, color: appliedCoupon ? '#10B981' : '#FCD34D' }}>%</Text>
                     </View>
                     <View style={{ flex: 1, marginRight: 8 }}>
                       {appliedCoupon ? (
                         <>
-                          <Text style={{ fontWeight: '800', fontSize: 14, color: '#111827' }}>
+                          <Text style={{ fontWeight: '800', fontSize: 14, color: '#FFFFFF' }}>
                             Save ₹{formatMoney(appliedCoupon.discountAmount)} with '{appliedCoupon.code}'
                           </Text>
                           <Pressable onPress={() => setShowCouponsModal(true)} style={{ marginTop: 2 }}>
-                            <Text style={{ color: '#059669', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>
+                            <Text style={{ color: '#10B981', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>
                           </Pressable>
                         </>
                       ) : (couponsQuery.data && couponsQuery.data.length > 0) ? (
@@ -504,7 +509,7 @@ export function CartScreen({ navigation, route }: Props) {
                               const { discountAmount } = calculateCouponDiscount(eligibleCoupon, subtotalAmt);
                               const formattedDisc = Number.isInteger(discountAmount) ? discountAmount.toString() : discountAmount.toFixed(2);
                               return (
-                                <Text style={{ fontWeight: '800', fontSize: 14, color: '#111827' }}>
+                                <Text style={{ fontWeight: '800', fontSize: 14, color: '#FFFFFF' }}>
                                   Save ₹{formattedDisc} with '{eligibleCoupon.code}'
                                 </Text>
                               );
@@ -512,22 +517,22 @@ export function CartScreen({ navigation, route }: Props) {
                             const topCoupon = couponsQuery.data[0];
                             const { amountNeeded } = getCouponEligibility(topCoupon, subtotalAmt);
                             return (
-                              <Text style={{ fontWeight: '800', fontSize: 13, color: '#D97706' }}>
+                              <Text style={{ fontWeight: '800', fontSize: 13, color: '#FCD34D' }}>
                                 Add items worth ₹{amountNeeded} more to unlock '{topCoupon.code}'
                               </Text>
                             );
                           })()}
                           <Pressable onPress={() => setShowCouponsModal(true)} style={{ marginTop: 2 }}>
-                            <Text style={{ color: '#059669', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>
+                            <Text style={{ color: '#10B981', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>
                           </Pressable>
                         </>
                       ) : (
                         <>
-                          <Text style={{ fontWeight: '800', fontSize: 14, color: '#111827' }}>
+                          <Text style={{ fontWeight: '800', fontSize: 14, color: '#FFFFFF' }}>
                             Apply a coupon
                           </Text>
                           <Pressable onPress={() => setShowCouponsModal(true)} style={{ marginTop: 2 }}>
-                            <Text style={{ color: '#059669', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>
+                            <Text style={{ color: '#10B981', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>
                           </Pressable>
                         </>
                       )}
@@ -554,16 +559,16 @@ export function CartScreen({ navigation, route }: Props) {
                       paddingHorizontal: 16,
                       height: 36,
                       borderRadius: 12,
-                      borderWidth: 1,
+                      borderWidth: 1.2,
                       opacity: pressed ? 0.8 : 1,
-                      borderColor: appliedCoupon ? '#EF4444' : '#14532D',
+                      borderColor: appliedCoupon ? '#EF4444' : '#FCD34D',
                       justifyContent: 'center',
                       alignItems: 'center',
-                      backgroundColor: appliedCoupon ? '#FEF2F2' : '#14532D',
+                      backgroundColor: appliedCoupon ? 'rgba(239, 68, 68, 0.15)' : '#022414',
                     })}
                   >
                     <Text style={{
-                      color: appliedCoupon ? '#DC2626' : '#FCD34D',
+                      color: appliedCoupon ? '#EF4444' : '#FCD34D',
                       fontWeight: '800',
                       fontSize: 12,
                       lineHeight: 14,
@@ -577,22 +582,22 @@ export function CartScreen({ navigation, route }: Props) {
 
                 {/* Delivery Information Block */}
                 <View style={{
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: '#131F18',
                   padding: 16,
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: '#E5E7EB',
+                  borderColor: 'rgba(255, 255, 255, 0.08)',
                   gap: 16,
-                  shadowColor: '#14532D',
+                  shadowColor: '#000000',
                   shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.04,
-                  shadowRadius: 10,
-                  elevation: 2
+                  shadowOpacity: 0.2,
+                  shadowRadius: 8,
+                  elevation: 3
                 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
                     <Text style={{ fontSize: 16 }}>⏱️</Text>
-                    <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12, borderStyle: 'dotted' }}>
-                      <Text style={{ color: '#111827', fontWeight: '800', fontSize: 14 }}>{distanceInfo}</Text>
+                    <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.08)', paddingBottom: 12, borderStyle: 'dotted' }}>
+                      <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 14 }}>{distanceInfo}</Text>
                     </View>
                   </View>
 
@@ -608,13 +613,13 @@ export function CartScreen({ navigation, route }: Props) {
                   >
                     <Text style={{ fontSize: 16 }}>📍</Text>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#111827', fontWeight: '800', fontSize: 14 }}>
+                      <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 14 }}>
                         {defaultAddress ? `Delivery at ${defaultAddress.label || 'Home'}` : 'Delivery Address'}
                       </Text>
-                      <Text style={{ color: '#4B5563', fontWeight: '600', fontSize: 13, marginTop: 4 }}>
+                      <Text style={{ color: '#9CA3AF', fontWeight: '500', fontSize: 13, marginTop: 4 }}>
                         {defaultAddress?.line1 || 'No address saved yet. Tap here to add one.'}
                       </Text>
-                      <Text style={{ color: '#14532D', fontWeight: '800', fontSize: 13, marginTop: 10 }}>
+                      <Text style={{ color: '#10B981', fontWeight: '800', fontSize: 13, marginTop: 10 }}>
                         {defaultAddress ? 'Change delivery address ›' : '+ Add delivery address'}
                       </Text>
                     </View>
@@ -623,18 +628,18 @@ export function CartScreen({ navigation, route }: Props) {
 
                 {/* Contacts Block */}
                 <View style={{
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: '#131F18',
                   padding: 16,
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: '#E5E7EB',
+                  borderColor: 'rgba(255, 255, 255, 0.08)',
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <Text style={{ fontSize: 16 }}>📞</Text>
-                    <Text style={{ color: '#111827', fontWeight: '800', fontSize: 14 }}>
+                    <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
                       {myProfile?.fullName || 'Customer'}, {myProfile?.phoneNumber || '—'}
                     </Text>
                   </View>
@@ -642,35 +647,35 @@ export function CartScreen({ navigation, route }: Props) {
 
                 {/* Detailed Bill Block */}
                 <View style={{
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: '#131F18',
                   padding: 16,
                   borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: '#E5E7EB',
+                  borderWidth: 1.2,
+                  borderColor: 'rgba(252, 211, 77, 0.25)',
                 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                     <Text style={{ fontSize: 16 }}>🧾</Text>
-                    <Text style={{ color: '#14532D', fontWeight: '900', fontSize: 16 }}>
+                    <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 16 }}>
                       Detailed Bill
                     </Text>
                   </View>
 
                   <View style={{ gap: 8, paddingHorizontal: 4 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: '#6B7280', fontWeight: '600' }}>Item Total</Text>
-                      <Text style={{ color: '#111827', fontWeight: '700' }}>₹{formatMoney(subtotalAmt)}</Text>
+                      <Text style={{ color: '#9CA3AF', fontWeight: '600' }}>Item Total</Text>
+                      <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>₹{formatMoney(subtotalAmt)}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: '#6B7280', fontWeight: '600' }}>
+                      <Text style={{ color: '#9CA3AF', fontWeight: '600' }}>
                         Delivery Partner Fee{actualDistanceKm > 0 ? ` (${actualDistanceKm.toFixed(1)} km)` : ''}
                       </Text>
-                      <Text style={{ color: '#111827', fontWeight: '700' }}>
+                      <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
                         {deliveryChargesQuery.isLoading ? '...' : `₹${formatMoney(deliveryFee)}`}
                       </Text>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: '#6B7280', fontWeight: '600' }}>Platform Fee</Text>
-                      <Text style={{ color: '#111827', fontWeight: '700' }}>
+                      <Text style={{ color: '#9CA3AF', fontWeight: '600' }}>Platform Fee</Text>
+                      <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
                         {commissionRulesQuery.isLoading
                           ? '...'
                           : commissionRulesQuery.isError && commissionRulesQuery.data?.platformFixedFee == null
@@ -679,8 +684,8 @@ export function CartScreen({ navigation, route }: Props) {
                       </Text>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: '#6B7280', fontWeight: '600' }}>Taxes & Charges</Text>
-                      <Text style={{ color: '#111827', fontWeight: '700' }}>₹{formatMoney(calculatedTaxes)}</Text>
+                      <Text style={{ color: '#9CA3AF', fontWeight: '600' }}>Taxes & Charges</Text>
+                      <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>₹{formatMoney(calculatedTaxes)}</Text>
                     </View>
                     {resolvedDiscount > 0 && (
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -688,10 +693,10 @@ export function CartScreen({ navigation, route }: Props) {
                         <Text style={{ color: '#10B981', fontWeight: '700' }}>-₹{formatMoney(resolvedDiscount)}</Text>
                       </View>
                     )}
-                    <View style={{ height: 1, backgroundColor: '#F3F4F6', marginVertical: 4 }} />
+                    <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginVertical: 4 }} />
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: '#14532D', fontWeight: '900', fontSize: 16 }}>To Pay</Text>
-                      <Text style={{ color: '#14532D', fontWeight: '900', fontSize: 16 }}>₹{formatMoney(totalBill)}</Text>
+                      <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 16 }}>To Pay</Text>
+                      <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 18 }}>₹{formatMoney(totalBill)}</Text>
                     </View>
                   </View>
                 </View>
@@ -699,24 +704,22 @@ export function CartScreen({ navigation, route }: Props) {
             ) : (
               <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, marginTop: 60 }}>
                 <Text style={{ fontSize: 64, marginBottom: 16 }}>🛒</Text>
-                <Text style={{ textAlign: 'center', color: '#14532D', fontWeight: '900', fontSize: 20, marginBottom: 8 }}>
+                <Text style={{ textAlign: 'center', color: '#FCD34D', fontWeight: '900', fontSize: 22, marginBottom: 8 }}>
                   Your cart is empty
                 </Text>
-                <Text style={{ textAlign: 'center', color: '#4B5563', marginBottom: 24, fontSize: 14 }}>
-                  Good food is always cooking! Go ahead, order some yummy items from the menu.
+                <Text style={{ textAlign: 'center', color: '#9CA3AF', marginBottom: 24, fontSize: 14, lineHeight: 20 }}>
+                  Delicious food is waiting! Explore top restaurants in your zone and add your favorites to cart.
                 </Text>
                 <Pressable
                   onPress={() => navigation.navigate('Home')}
                   style={{
-                    backgroundColor: '#14532D',
-                    paddingHorizontal: 24,
-                    paddingVertical: 12,
+                    backgroundColor: '#FCD34D',
+                    paddingHorizontal: 26,
+                    paddingVertical: 14,
                     borderRadius: 24,
-                    borderWidth: 1.5,
-                    borderColor: '#FCD34D',
                   }}
                 >
-                  <Text style={{ color: '#FCD34D', fontWeight: '800' }}>Browse Restaurants</Text>
+                  <Text style={{ color: '#022414', fontWeight: '900', fontSize: 15 }}>Browse Restaurants</Text>
                 </Pressable>
               </View>
             )
@@ -726,13 +729,13 @@ export function CartScreen({ navigation, route }: Props) {
         {/* Footer Proceed Button */}
         <View style={{
           padding: 16,
-          borderTopWidth: 1,
-          borderTopColor: '#E5E7EB',
-          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1.2,
+          borderTopColor: 'rgba(252, 211, 77, 0.25)',
+          backgroundColor: '#022414',
           paddingBottom: 24,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.05,
+          shadowOpacity: 0.35,
           shadowRadius: 8,
           elevation: 10
         }}>
@@ -783,23 +786,21 @@ export function CartScreen({ navigation, route }: Props) {
                 });
               }}
               style={({ pressed }) => ({
-                backgroundColor: pressed ? '#0F3E22' : '#14532D',
+                backgroundColor: pressed ? '#F59E0B' : '#FCD34D',
                 paddingVertical: 16,
                 borderRadius: 12,
                 flexDirection: 'row',
                 justifyContent: 'center',
                 alignItems: 'center',
-                borderWidth: 1.5,
-                borderColor: '#FCD34D',
-                shadowColor: '#14532D',
+                shadowColor: '#000000',
                 shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.15,
+                shadowOpacity: 0.3,
                 shadowRadius: 8,
-                elevation: 4
+                elevation: 5
               })}
             >
-              <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 16, letterSpacing: 0.8 }}>
-                Continue to Checkout ➔
+              <Text style={{ color: '#022414', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 }}>
+                Proceed to Checkout • ₹{formatMoney(totalBill)} ➔
               </Text>
             </Pressable>
           ) : (

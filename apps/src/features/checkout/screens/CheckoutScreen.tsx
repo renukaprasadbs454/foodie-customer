@@ -11,6 +11,8 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
@@ -253,10 +255,10 @@ export function CheckoutScreen({ navigation, route }: any) {
   const grandTotal = Math.max(0, orderTotal - walletApplied);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
-      <StatusBar backgroundColor="#14532D" barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#012B18' }} edges={['top', 'left', 'right']}>
+      <StatusBar backgroundColor="#012B18" barStyle="light-content" />
       <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: '#F2F2F7' }}
+        style={{ flex: 1, backgroundColor: '#0A120E' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <Animated.View style={{ flex: 1, opacity: fadeValue, transform: [{ scale: scaleValue }] }}>
@@ -286,56 +288,81 @@ export function CheckoutScreen({ navigation, route }: any) {
             }
           >
             {/* Header Banner */}
-            <View style={{
-              paddingTop: 12,
-              paddingBottom: 20,
-              paddingHorizontal: 20,
-              backgroundColor: '#14532D',
-              borderBottomLeftRadius: 32,
-              borderBottomRightRadius: 32,
-              shadowColor: '#14532D',
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.15,
-              shadowRadius: 10,
-              elevation: 5
-            }}>
-              <Text style={{ color: '#FCD34D', fontSize: 30, fontWeight: '900', letterSpacing: -0.5 }}>
-                Payment Review
-              </Text>
-              {(cart?.restaurantName || restaurant?.name) && (
-                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 16, marginTop: 4 }}>
-                  Ordering from: {cart?.restaurantName || restaurant?.name}
-                </Text>
-              )}
+            <LinearGradient
+              colors={['#012B18', '#053E23', '#0A4D2E']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                paddingTop: 12,
+                paddingBottom: 22,
+                paddingHorizontal: 20,
+                borderBottomLeftRadius: 32,
+                borderBottomRightRadius: 32,
+                borderBottomWidth: 1.2,
+                borderBottomColor: 'rgba(252, 211, 77, 0.25)',
+                shadowColor: '#000000',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.35,
+                shadowRadius: 10,
+                elevation: 6,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Pressable
+                  onPress={() => navigation.goBack()}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: 'rgba(252, 211, 77, 0.3)',
+                  }}
+                >
+                  <Feather name="arrow-left" size={18} color="#FCD34D" />
+                </Pressable>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#FCD34D', fontSize: 26, fontWeight: '900', letterSpacing: -0.5 }}>
+                    Checkout & Payment
+                  </Text>
+                  {(cart?.restaurantName || restaurant?.name) && (
+                    <Text style={{ color: '#E5E7EB', fontWeight: '600', fontSize: 13, marginTop: 2 }}>
+                      Ordering from: {cart?.restaurantName || restaurant?.name}
+                    </Text>
+                  )}
+                </View>
+              </View>
               {!isConnected && (
-                <Text style={{ color: '#F87171', fontWeight: '800', marginTop: 4 }}>
+                <Text style={{ color: '#F87171', fontWeight: '800', marginTop: 8, fontSize: 13 }}>
                   Offline — placing an order is locked
                 </Text>
               )}
-            </View>
+            </LinearGradient>
 
-            <View style={{ paddingHorizontal: 16, marginTop: 24, gap: 20 }}>
+            <View style={{ paddingHorizontal: 16, marginTop: 20, gap: 18 }}>
               {loading && !cart ? (
                 <CheckoutSkeleton />
               ) : (
                 <>
                   {/* Address Section */}
                   <View style={{
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: '#131F18',
                     padding: 16,
-                    borderRadius: 16,
+                    borderRadius: 20,
                     gap: 12,
-                    borderWidth: 1,
-                    borderColor: '#E5E7EB',
-                    shadowColor: '#14532D',
+                    borderWidth: 1.2,
+                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                    shadowColor: '#000',
                     shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.04,
-                    shadowRadius: 10,
-                    elevation: 2
+                    shadowOpacity: 0.2,
+                    shadowRadius: 8,
+                    elevation: 3,
                   }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                       <Text style={{ fontSize: 18 }}>📍</Text>
-                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#14532D' }}>Delivery Address</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Delivery Address</Text>
                     </View>
                     {addresses.length === 0 ? (
                       <EmptyState
@@ -359,12 +386,12 @@ export function CheckoutScreen({ navigation, route }: any) {
                             }}
                           />
                         ))}
-                        <View style={{ height: 1.5, backgroundColor: '#F3F4F6', marginVertical: 4 }} />
+                        <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginVertical: 4 }} />
                         <Pressable
                           onPress={() => navigation.navigate('Addresses', { selectMode: true })}
                           style={{ alignSelf: 'flex-start' }}
                         >
-                          <Text style={{ color: '#14532D', fontWeight: '800', fontSize: 14 }}>
+                          <Text style={{ color: '#FCD34D', fontWeight: '800', fontSize: 14 }}>
                             Manage Addresses ›
                           </Text>
                         </Pressable>
@@ -374,20 +401,20 @@ export function CheckoutScreen({ navigation, route }: any) {
 
                   {/* Wallet Section */}
                   <View style={{
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: '#131F18',
                     padding: 16,
-                    borderRadius: 16,
-                    borderWidth: 1,
-                    borderColor: '#E5E7EB',
-                    shadowColor: '#14532D',
+                    borderRadius: 20,
+                    borderWidth: 1.2,
+                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                    shadowColor: '#000',
                     shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.04,
-                    shadowRadius: 10,
-                    elevation: 2
+                    shadowOpacity: 0.2,
+                    shadowRadius: 8,
+                    elevation: 3,
                   }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                       <Text style={{ fontSize: 18 }}>💳</Text>
-                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#14532D' }}>Foodie Wallet</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Foodie Wallet</Text>
                     </View>
 
                     <Pressable
@@ -410,16 +437,16 @@ export function CheckoutScreen({ navigation, route }: any) {
                           height: 24,
                           borderRadius: 6,
                           borderWidth: 2,
-                          borderColor: useWallet ? '#14532D' : '#D1D5DB',
-                          backgroundColor: useWallet ? '#14532D' : 'transparent',
+                          borderColor: useWallet ? '#FCD34D' : '#4B5563',
+                          backgroundColor: useWallet ? '#FCD34D' : 'transparent',
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}>
-                          {useWallet && <Text style={{ color: '#FCD34D', fontWeight: 'bold', fontSize: 14 }}>✓</Text>}
+                          {useWallet && <Text style={{ color: '#022414', fontWeight: '900', fontSize: 14 }}>✓</Text>}
                         </View>
                         <View>
-                          <Text style={{ fontWeight: '700', fontSize: 15, color: '#111827' }}>Use Wallet Balance</Text>
-                          <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>
+                          <Text style={{ fontWeight: '700', fontSize: 15, color: '#FFFFFF' }}>Use Wallet Balance</Text>
+                          <Text style={{ fontSize: 13, color: '#FCD34D', marginTop: 2, fontWeight: '600' }}>
                             Available: ₹{formatMoney(walletBalance)}
                           </Text>
                         </View>
@@ -429,20 +456,20 @@ export function CheckoutScreen({ navigation, route }: any) {
 
                   {/* Payment Method Section */}
                   <View style={{
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: '#131F18',
                     padding: 16,
-                    borderRadius: 16,
-                    borderWidth: 1,
-                    borderColor: '#E5E7EB',
-                    shadowColor: '#14532D',
+                    borderRadius: 20,
+                    borderWidth: 1.2,
+                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                    shadowColor: '#000',
                     shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.04,
-                    shadowRadius: 10,
-                    elevation: 2
+                    shadowOpacity: 0.2,
+                    shadowRadius: 8,
+                    elevation: 3,
                   }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                       <Text style={{ fontSize: 18 }}>💵</Text>
-                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#14532D' }}>Payment Method</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Payment Method</Text>
                     </View>
 
                     <Pressable
@@ -452,22 +479,22 @@ export function CheckoutScreen({ navigation, route }: any) {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         opacity: pressed ? 0.8 : 1,
-                        paddingVertical: 8,
+                        paddingVertical: 10,
                         borderBottomWidth: 1,
-                        borderBottomColor: '#F3F4F6'
+                        borderBottomColor: 'rgba(255, 255, 255, 0.08)',
                       })}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                         <View style={{
                           width: 20, height: 20, borderRadius: 10, borderWidth: 2,
-                          borderColor: paymentMethod === 'ONLINE' ? '#14532D' : '#D1D5DB',
+                          borderColor: paymentMethod === 'ONLINE' ? '#FCD34D' : '#4B5563',
                           justifyContent: 'center', alignItems: 'center'
                         }}>
-                          {paymentMethod === 'ONLINE' && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#14532D' }} />}
+                          {paymentMethod === 'ONLINE' && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#FCD34D' }} />}
                         </View>
                         <View>
-                          <Text style={{ fontWeight: '700', fontSize: 15, color: '#111827' }}>Online Payment</Text>
-                          <Text style={{ fontSize: 13, color: '#6B7280' }}>Cards, UPI, Netbanking (Cashfree)</Text>
+                          <Text style={{ fontWeight: '700', fontSize: 15, color: '#FFFFFF' }}>Online Payment</Text>
+                          <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Cards, UPI, Netbanking (Cashfree)</Text>
                         </View>
                       </View>
                     </Pressable>
@@ -479,20 +506,20 @@ export function CheckoutScreen({ navigation, route }: any) {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         opacity: pressed ? 0.8 : 1,
-                        paddingVertical: 8,
+                        paddingVertical: 10,
                       })}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                         <View style={{
                           width: 20, height: 20, borderRadius: 10, borderWidth: 2,
-                          borderColor: paymentMethod === 'COD' ? '#14532D' : '#D1D5DB',
+                          borderColor: paymentMethod === 'COD' ? '#FCD34D' : '#4B5563',
                           justifyContent: 'center', alignItems: 'center'
                         }}>
-                          {paymentMethod === 'COD' && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#14532D' }} />}
+                          {paymentMethod === 'COD' && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#FCD34D' }} />}
                         </View>
                         <View>
-                          <Text style={{ fontWeight: '700', fontSize: 15, color: '#111827' }}>Cash on Delivery (COD)</Text>
-                          <Text style={{ fontSize: 13, color: '#6B7280' }}>Pay directly at your doorstep</Text>
+                          <Text style={{ fontWeight: '700', fontSize: 15, color: '#FFFFFF' }}>Cash on Delivery (COD)</Text>
+                          <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Pay directly at your doorstep</Text>
                         </View>
                       </View>
                     </Pressable>
@@ -500,21 +527,21 @@ export function CheckoutScreen({ navigation, route }: any) {
 
                   {/* Detailed Bill Block */}
                   <View style={{
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 16,
-                    borderWidth: 1,
-                    borderColor: '#E5E7EB',
+                    backgroundColor: '#131F18',
+                    borderRadius: 20,
+                    borderWidth: 1.2,
+                    borderColor: 'rgba(255, 255, 255, 0.08)',
                     padding: 16,
                     gap: 12,
-                    shadowColor: '#14532D',
+                    shadowColor: '#000',
                     shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.04,
-                    shadowRadius: 10,
-                    elevation: 2
+                    shadowOpacity: 0.2,
+                    shadowRadius: 8,
+                    elevation: 3,
                   }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                       <Text style={{ fontSize: 18 }}>🧾</Text>
-                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#14532D' }}>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
                         Detailed Bill
                       </Text>
                     </View>
@@ -524,20 +551,20 @@ export function CheckoutScreen({ navigation, route }: any) {
                         <Text>placedAt totalAmount</Text>
                       </View>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ color: '#6B7280', fontWeight: '600' }}>Item Total</Text>
-                        <Text style={{ color: '#111827', fontWeight: '700' }}>₹{formatMoney(subtotal)}</Text>
+                        <Text style={{ color: '#9CA3AF', fontWeight: '600' }}>Item Total</Text>
+                        <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>₹{formatMoney(subtotal)}</Text>
                       </View>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ color: '#6B7280', fontWeight: '600' }}>
+                        <Text style={{ color: '#9CA3AF', fontWeight: '600' }}>
                           Delivery Partner Fee{actualDistanceKm > 0 ? ` (${actualDistanceKm.toFixed(1)} km)` : ''}
                         </Text>
-                        <Text style={{ color: '#111827', fontWeight: '700' }}>
+                        <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
                           {deliveryChargesQuery.isLoading ? '...' : `₹${formatMoney(deliveryFee)}`}
                         </Text>
                       </View>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ color: '#6B7280', fontWeight: '600' }}>Platform Fee</Text>
-                        <Text style={{ color: '#111827', fontWeight: '700' }}>
+                        <Text style={{ color: '#9CA3AF', fontWeight: '600' }}>Platform Fee</Text>
+                        <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
                           {commissionRulesQuery.isLoading && route.params?.platformFee == null
                             ? '...'
                             : commissionRulesQuery.isError && actualPlatformFee === 0 && route.params?.platformFee == null
@@ -546,8 +573,8 @@ export function CheckoutScreen({ navigation, route }: any) {
                         </Text>
                       </View>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ color: '#6B7280', fontWeight: '600' }}>Taxes & Charges</Text>
-                        <Text style={{ color: '#111827', fontWeight: '700' }}>₹{formatMoney(routeTaxes)}</Text>
+                        <Text style={{ color: '#9CA3AF', fontWeight: '600' }}>Taxes & Charges</Text>
+                        <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>₹{formatMoney(routeTaxes)}</Text>
                       </View>
 
                       {routeDiscount > 0 && (
@@ -559,19 +586,19 @@ export function CheckoutScreen({ navigation, route }: any) {
 
                       {useWallet && walletApplied > 0 && (
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                          <Text style={{ color: '#059669', fontWeight: '700' }}>Wallet Applied</Text>
-                          <Text style={{ color: '#059669', fontWeight: '700' }}>-₹{formatMoney(walletApplied)}</Text>
+                          <Text style={{ color: '#10B981', fontWeight: '700' }}>Wallet Applied</Text>
+                          <Text style={{ color: '#10B981', fontWeight: '700' }}>-₹{formatMoney(walletApplied)}</Text>
                         </View>
                       )}
 
-                      <View style={{ height: 1.5, backgroundColor: '#F3F4F6', marginVertical: 4 }} />
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ fontWeight: '900', color: '#14532D', fontSize: 16 }}>To Pay</Text>
-                        <Text style={{ fontWeight: '900', color: '#14532D', fontSize: 16 }}>₹{formatMoney(grandTotal)}</Text>
+                      <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.1)', marginVertical: 6 }} />
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ fontWeight: '900', color: '#FFFFFF', fontSize: 17 }}>To Pay</Text>
+                        <Text style={{ fontWeight: '900', color: '#FCD34D', fontSize: 20 }}>₹{formatMoney(grandTotal)}</Text>
                       </View>
                     </View>
                   </View>
-                  <Text style={{ fontStyle: 'italic', fontSize: 12, color: '#6B7280', textAlign: 'center', marginHorizontal: 8 }}>
+                  <Text style={{ fontStyle: 'italic', fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginHorizontal: 8 }}>
                     Final totals are calculated securely.
                   </Text>
                 </>
@@ -584,13 +611,13 @@ export function CheckoutScreen({ navigation, route }: any) {
           <View style={{
             position: 'absolute',
             bottom: 0, left: 0, right: 0,
-            padding: 12,
-            borderTopWidth: 1,
-            borderTopColor: '#E5E7EB',
-            backgroundColor: '#FFFFFF',
+            padding: 14,
+            borderTopWidth: 1.2,
+            borderTopColor: 'rgba(252, 211, 77, 0.25)',
+            backgroundColor: '#022414',
             shadowColor: '#000',
             shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: 0.05,
+            shadowOpacity: 0.35,
             shadowRadius: 8,
             elevation: 10
           }}>
@@ -599,17 +626,29 @@ export function CheckoutScreen({ navigation, route }: any) {
               disabled={createState.isLoading || addresses.length === 0 || !addressId}
               onPress={() => { void onPlaceOrder(); }}
               style={({ pressed }) => ({
-                backgroundColor: pressed || (createState.isLoading || addresses.length === 0 || !addressId) ? '#114022' : '#14532D',
-                paddingVertical: 14,
-                borderRadius: 12,
+                backgroundColor: (createState.isLoading || addresses.length === 0 || !addressId)
+                  ? '#4B5563'
+                  : pressed
+                  ? '#EAB308'
+                  : '#FCD34D',
+                paddingVertical: 15,
+                borderRadius: 14,
                 flexDirection: 'row',
                 justifyContent: 'center',
                 alignItems: 'center',
-                borderWidth: 1.5,
-                borderColor: '#FCD34D',
+                shadowColor: '#FCD34D',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: (createState.isLoading || addresses.length === 0 || !addressId) ? 0 : 0.25,
+                shadowRadius: 8,
+                elevation: 4,
               })}
             >
-              <Text style={{ color: '#FCD34D', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 }}>
+              <Text style={{
+                color: (createState.isLoading || addresses.length === 0 || !addressId) ? '#9CA3AF' : '#022414',
+                fontWeight: '900',
+                fontSize: 16,
+                letterSpacing: 0.5,
+              }}>
                 {createState.isLoading ? 'Processing Order...' : paymentMethod === 'COD' ? `Place COD Order (₹${formatMoney(grandTotal)}) ➔` : `Proceed to Payment (₹${formatMoney(grandTotal)}) ➔`}
               </Text>
             </Pressable>

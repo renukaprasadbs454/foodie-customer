@@ -19,6 +19,8 @@ import { NotificationListSkeleton } from '../components/NotificationListSkeleton
 import { useNotificationsFeed } from '../hooks/useNotificationsFeed';
 import { useNotificationsSubscription } from '../hooks/useNotificationsSubscription';
 import { isNotificationUnread } from '../types';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
 type Props = NativeStackScreenProps<NotificationsStackParamList, 'Notifications'>;
 
@@ -87,39 +89,60 @@ export function NotificationsScreen(_props: Props) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
-      <StatusBar backgroundColor="#14532D" barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#012B18' }} edges={['top', 'left', 'right']}>
+      <StatusBar backgroundColor="#012B18" barStyle="light-content" />
       <Animated.View
         style={{
           flex: 1,
-          backgroundColor: '#F2F2F7',
+          backgroundColor: '#0A120E',
           opacity: fadeValue,
           transform: [{ scale: scaleValue }],
         }}
       >
-        {/* iOS Styled Top curved Header */}
-        <View style={{
-          paddingTop: 36,
-          paddingBottom: 24,
-          paddingHorizontal: 20,
-          backgroundColor: '#14532D',
-          borderBottomLeftRadius: 32,
-          borderBottomRightRadius: 32,
-          shadowColor: '#14532D',
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.15,
-          shadowRadius: 10,
-          elevation: 5
-        }}>
-          <Text style={{ fontSize: 32, fontWeight: '900', color: '#FCD34D', letterSpacing: -0.5 }}>
-            Notifications
-          </Text>
+        {/* Luxury Top Header */}
+        <LinearGradient
+          colors={['#012B18', '#053E23', '#0A4D2E']}
+          style={{
+            paddingTop: 16,
+            paddingBottom: 22,
+            paddingHorizontal: 20,
+            borderBottomLeftRadius: 28,
+            borderBottomRightRadius: 28,
+            borderBottomWidth: 1,
+            borderBottomColor: 'rgba(252, 211, 77, 0.25)',
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <Pressable
+              onPress={() => _props.navigation.canGoBack() && _props.navigation.goBack()}
+              style={({ pressed }) => ({
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: pressed ? 'rgba(252, 211, 77, 0.2)' : 'rgba(252, 211, 77, 0.1)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(252, 211, 77, 0.3)',
+                marginRight: 14,
+              })}
+            >
+              <Feather name="arrow-left" size={18} color="#FCD34D" />
+            </Pressable>
+            <Text style={{ fontSize: 24, fontWeight: '900', color: '#FCD34D', letterSpacing: -0.5 }}>
+              Notifications
+            </Text>
+          </View>
           {!isConnected ? (
-            <Text style={{ color: '#FCD34D', fontSize: 13, marginTop: 4, fontWeight: '700' }}>
+            <Text style={{ color: '#FCD34D', fontSize: 13, marginTop: 2, fontWeight: '700' }}>
               Offline — showing cached inbox
             </Text>
-          ) : null}
-        </View>
+          ) : (
+            <Text style={{ color: '#9CA3AF', fontSize: 13, fontWeight: '500' }}>
+              Real-time updates on orders, deliveries, and offers
+            </Text>
+          )}
+        </LinearGradient>
 
         {/* Filter Toolbar */}
         <View style={{
@@ -143,24 +166,19 @@ export function NotificationsScreen(_props: Props) {
                 accessibilityRole="button"
                 accessibilityLabel={`Show ${option.label.toLowerCase()} notifications`}
                 style={{
-                  paddingHorizontal: 16,
+                  paddingHorizontal: 18,
                   paddingVertical: 10,
                   borderRadius: 20,
-                  backgroundColor: active ? '#14532D' : '#FFFFFF',
+                  backgroundColor: active ? '#053E23' : '#131F18',
                   borderWidth: 1.5,
-                  borderColor: active ? '#FCD34D' : '#E5E7EB',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: active ? 0.1 : 0,
-                  shadowRadius: 4,
-                  elevation: active ? 2 : 0,
+                  borderColor: active ? '#FCD34D' : 'rgba(252, 211, 77, 0.2)',
                 }}
               >
                 <Text
                   style={{
                     fontSize: 14,
                     fontWeight: '800',
-                    color: active ? '#FCD34D' : '#4B5563',
+                    color: active ? '#FCD34D' : '#9CA3AF',
                   }}
                 >
                   {option.label}
@@ -189,12 +207,12 @@ export function NotificationsScreen(_props: Props) {
               onEndReached={() => feed.onLoadMore()}
               onEndReachedThreshold={0.4}
               ListEmptyComponent={
-                <View style={{ marginTop: 60, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 64, marginBottom: 16 }}>🔔</Text>
-                  <Text style={{ textAlign: 'center', color: '#14532D', fontWeight: '900', fontSize: 18, marginBottom: 8 }}>
+                <View style={{ marginTop: 60, alignItems: 'center', backgroundColor: '#131F18', padding: 32, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.2)' }}>
+                  <Text style={{ fontSize: 56, marginBottom: 16 }}>🔔</Text>
+                  <Text style={{ textAlign: 'center', color: '#FFFFFF', fontWeight: '900', fontSize: 18, marginBottom: 8 }}>
                     {unreadOnly ? 'No unread notifications' : 'You are all caught up'}
                   </Text>
-                  <Text style={{ textAlign: 'center', color: '#6B7280', fontSize: 14, marginHorizontal: 24 }}>
+                  <Text style={{ textAlign: 'center', color: '#9CA3AF', fontSize: 14, marginHorizontal: 16 }}>
                     {unreadOnly
                       ? 'Switch to All to see earlier messages.'
                       : 'Order and payment updates will show up here.'}
@@ -202,20 +220,12 @@ export function NotificationsScreen(_props: Props) {
                 </View>
               }
               renderItem={({ item }) => (
-                <View style={{
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: 16,
-                  overflow: 'hidden',
-                  borderWidth: 1.5,
-                  borderColor: isNotificationUnread(item) ? '#FCD34D' : '#E5E7EB',
-                }}>
-                  <NotificationListItem
-                    notification={item}
-                    onPress={() => {
-                      void onOpen(item.notificationLogId);
-                    }}
-                  />
-                </View>
+                <NotificationListItem
+                  notification={item}
+                  onPress={() => {
+                    void onOpen(item.notificationLogId);
+                  }}
+                />
               )}
             />
           )}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { FlatList, View, StatusBar, Animated, Pressable, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   EmptyState,
@@ -84,76 +85,104 @@ export function SearchScreen({ navigation, route }: Props) {
   }, [debounced]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#14532D' }} edges={['top', 'left', 'right']}>
-      <StatusBar backgroundColor="#14532D" barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#012B18' }} edges={['top', 'left', 'right']}>
+      <StatusBar backgroundColor="#012B18" barStyle="light-content" />
       <Animated.View
         style={{
           flex: 1,
-          backgroundColor: tokens.color.background,
+          backgroundColor: '#0A120E',
           opacity: fadeValue,
           transform: [{ scale: scaleValue }],
         }}
       >
-        {/* Curved Header */}
-        <View style={{
-          paddingTop: 36,
-          paddingBottom: 24,
-          paddingHorizontal: 20,
-          backgroundColor: '#14532D',
-          borderBottomLeftRadius: 36,
-          borderBottomRightRadius: 36,
-          shadowColor: '#14532D',
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.15,
-          shadowRadius: 16,
-          elevation: 8,
-          gap: 16,
-        }}>
+        {/* Luxury Curved Header matching HomeScreen */}
+        <LinearGradient
+          colors={['#012B18', '#053E23', '#0A4D2E']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={{
+            paddingTop: 24,
+            paddingBottom: 22,
+            paddingHorizontal: 20,
+            borderBottomLeftRadius: 32,
+            borderBottomRightRadius: 32,
+            shadowColor: '#000000',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.3,
+            shadowRadius: 10,
+            elevation: 8,
+            gap: 14,
+          }}
+        >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View>
-              <Text style={{ fontSize: 32, fontWeight: '900', color: '#FCD34D', letterSpacing: -0.5 }}>
+              <Text style={{ fontSize: 28, fontWeight: '900', color: '#FCD34D', letterSpacing: -0.5 }}>
                 Search
               </Text>
-
             </View>
             <Pressable
               onPress={() => navigation.navigate('Home')}
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                paddingHorizontal: 12,
+              style={({ pressed }) => ({
+                backgroundColor: 'rgba(252, 211, 77, 0.15)',
+                paddingHorizontal: 14,
                 paddingVertical: 6,
                 borderRadius: 20,
                 borderWidth: 1,
-                borderColor: 'rgba(255, 255, 255, 0.25)',
-              }}
+                borderColor: '#FCD34D',
+                opacity: pressed ? 0.75 : 1,
+              })}
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>Cancel</Text>
+              <Text style={{ color: '#FCD34D', fontWeight: '800', fontSize: 13 }}>Cancel</Text>
             </Pressable>
           </View>
 
-          <TextInput
-            label=""
-            accessibilityLabel="Search restaurants"
-            value={query}
-            onChangeText={setQuery}
-            autoFocus={true}
-            placeholder="Search restaurants by name..."
-            autoCorrect={false}
-            returnKeyType="search"
-            onSubmitEditing={() =>
-              trackAnalyticsEvent('search_submitted', {
-                queryLength: query.trim().length,
-              })
-            }
-            containerStyle={{
-              backgroundColor: '#FFFFFF',
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: 'rgba(255, 255, 255, 0.08)',
               borderRadius: 24,
               height: 48,
               borderWidth: 1.5,
               borderColor: '#FCD34D',
+              paddingHorizontal: 16,
             }}
-          />
-        </View>
+          >
+            <Text style={{ fontSize: 16, marginRight: 8, color: '#FCD34D' }}>🔍</Text>
+            <TextInput
+              label=""
+              accessibilityLabel="Search restaurants"
+              value={query}
+              onChangeText={setQuery}
+              autoFocus={true}
+              placeholder="Search restaurants by name or dish..."
+              placeholderTextColor="#9CA3AF"
+              autoCorrect={false}
+              returnKeyType="search"
+              onSubmitEditing={() =>
+                trackAnalyticsEvent('search_submitted', {
+                  queryLength: query.trim().length,
+                })
+              }
+              containerStyle={{
+                backgroundColor: 'transparent',
+                borderWidth: 0,
+                flex: 1,
+                height: 44,
+              }}
+              inputStyle={{
+                color: '#FFFFFF',
+                fontSize: 15,
+                fontWeight: '600',
+              }}
+            />
+            {query.length > 0 && (
+              <Pressable onPress={() => setQuery('')}>
+                <Text style={{ color: '#9CA3AF', fontSize: 16, paddingHorizontal: 4 }}>✕</Text>
+              </Pressable>
+            )}
+          </View>
+        </LinearGradient>
 
         <View style={{ flex: 1, paddingHorizontal: tokens.spacing.md, paddingTop: 16 }}>
           {feed.isLoading ? (
@@ -169,17 +198,17 @@ export function SearchScreen({ navigation, route }: Props) {
                 <View style={{ marginBottom: tokens.spacing.md }}>
                   {debounced.length === 0 ? (
                     <View style={{ marginBottom: tokens.spacing.sm }}>
-                      <Text variant="heading2" style={{ fontWeight: '800', color: '#14532D', fontSize: 18 }}>
-                        What's on your mind?
+                      <Text style={{ fontWeight: '900', color: '#FCD34D', fontSize: 18, letterSpacing: -0.2 }}>
+                        WHAT'S ON YOUR MIND?
                       </Text>
-                      <Text variant="caption" style={{ color: tokens.color.textSecondary, marginBottom: 8, fontWeight: '600' }}>
+                      <Text style={{ color: '#9CA3AF', marginBottom: 12, fontWeight: '500', fontSize: 13 }}>
                         Explore popular items before you search
                       </Text>
                     </View>
                   ) : (
                     matchingFoods.length > 0 ? (
                       <View style={{ marginBottom: tokens.spacing.xs }}>
-                        <Text variant="label" style={{ fontWeight: '800', color: '#14532D', fontSize: 14 }}>
+                        <Text style={{ fontWeight: '800', color: '#FCD34D', fontSize: 15 }}>
                           Matching Foods & Cuisines
                         </Text>
                       </View>
@@ -206,19 +235,19 @@ export function SearchScreen({ navigation, route }: Props) {
                               borderWidth: 2,
                               borderColor: '#FCD34D',
                               overflow: 'hidden',
-                              backgroundColor: '#FFFFFF',
-                              shadowColor: '#14532D',
+                              backgroundColor: '#131F18',
+                              shadowColor: '#000000',
                               shadowOffset: { width: 0, height: 2 },
-                              shadowOpacity: 0.1,
-                              shadowRadius: 3,
-                              elevation: 2
+                              shadowOpacity: 0.3,
+                              shadowRadius: 4,
+                              elevation: 3,
                             }}>
                               <Image
                                 source={{ uri: food.image }}
                                 style={{ width: '100%', height: '100%' }}
                               />
                             </View>
-                            <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: '#14532D', marginTop: 4 }}>
+                            <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF', marginTop: 6 }}>
                               {food.name}
                             </Text>
                           </Pressable>
@@ -242,19 +271,19 @@ export function SearchScreen({ navigation, route }: Props) {
                               borderWidth: 2,
                               borderColor: '#FCD34D',
                               overflow: 'hidden',
-                              backgroundColor: '#FFFFFF',
-                              shadowColor: '#14532D',
+                              backgroundColor: '#131F18',
+                              shadowColor: '#000000',
                               shadowOffset: { width: 0, height: 2 },
-                              shadowOpacity: 0.1,
-                              shadowRadius: 3,
-                              elevation: 2
+                              shadowOpacity: 0.3,
+                              shadowRadius: 4,
+                              elevation: 3,
                             }}>
                               <Image
                                 source={{ uri: food.image }}
                                 style={{ width: '100%', height: '100%' }}
                               />
                             </View>
-                            <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: '#14532D', marginTop: 4 }}>
+                            <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF', marginTop: 6 }}>
                               {food.name}
                             </Text>
                           </Pressable>
@@ -264,19 +293,19 @@ export function SearchScreen({ navigation, route }: Props) {
                   ) : null}
 
                   {debounced.length === 0 ? (
-                    <View style={{ marginTop: 8, marginBottom: 4 }}>
-                      <Text variant="heading2" style={{ fontWeight: '800', color: '#14532D', fontSize: 18 }}>
+                    <View style={{ marginTop: 8, marginBottom: 8 }}>
+                      <Text style={{ fontWeight: '900', color: '#FCD34D', fontSize: 18, letterSpacing: -0.2 }}>
                         Recommended For You
                       </Text>
-                      <Text variant="caption" style={{ color: tokens.color.textSecondary, fontWeight: '600' }}>
-                        Premium dining spots around your location
+                      <Text style={{ color: '#9CA3AF', fontWeight: '500', fontSize: 13, marginTop: 2 }}>
+                        Top dining spots around your location
                       </Text>
                     </View>
                   ) : (
                     feed.items.length > 0 ? (
-                      <View style={{ marginTop: 8, marginBottom: 4 }}>
-                        <Text variant="heading2" style={{ fontWeight: '800', color: '#14532D', fontSize: 18 }}>
-                          Matching Restaurants
+                      <View style={{ marginTop: 8, marginBottom: 8 }}>
+                        <Text style={{ fontWeight: '900', color: '#FCD34D', fontSize: 18, letterSpacing: -0.2 }}>
+                          Matching Restaurants ({feed.items.length})
                         </Text>
                       </View>
                     ) : null
@@ -285,20 +314,39 @@ export function SearchScreen({ navigation, route }: Props) {
               }
               ListEmptyComponent={
                 activeZone && !activeZone.serviceable ? (
-                  <View style={{ marginTop: 30, alignItems: 'center', paddingHorizontal: 20 }}>
+                  <View style={{
+                    marginTop: 30,
+                    alignItems: 'center',
+                    padding: 24,
+                    backgroundColor: '#131F18',
+                    borderRadius: 18,
+                    borderWidth: 1,
+                    borderColor: 'rgba(239, 68, 68, 0.4)',
+                  }}>
                     <Text style={{ fontSize: 40, marginBottom: 10 }}>📍</Text>
-                    <Text style={{ fontSize: 17, fontWeight: '800', color: '#B45309', marginBottom: 6, textAlign: 'center' }}>
+                    <Text style={{ fontSize: 17, fontWeight: '900', color: '#FCD34D', marginBottom: 6, textAlign: 'center' }}>
                       Location Outside Delivery Coverage
                     </Text>
-                    <Text style={{ fontSize: 13, color: '#92400E', textAlign: 'center', lineHeight: 18 }}>
-                      We do not deliver to this location yet. Please select another delivery address.
+                    <Text style={{ fontSize: 13, color: '#9CA3AF', textAlign: 'center', lineHeight: 18, marginBottom: 14 }}>
+                      We do not deliver to this location yet. Request has been reported to administration. Please change your delivery address to order.
                     </Text>
+                    <Pressable
+                      onPress={() => navigation.navigate('Addresses', { selectMode: true })}
+                      style={{
+                        backgroundColor: '#FCD34D',
+                        paddingHorizontal: 20,
+                        paddingVertical: 10,
+                        borderRadius: 10,
+                      }}
+                    >
+                      <Text style={{ color: '#022414', fontWeight: '800', fontSize: 13 }}>Change Delivery Address</Text>
+                    </Pressable>
                   </View>
                 ) : (
-                  <View style={{ marginTop: 40, alignItems: 'center' }}>
+                  <View style={{ marginTop: 40, alignItems: 'center', padding: 24, backgroundColor: '#131F18', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)' }}>
                     <Text style={{ fontSize: 48, marginBottom: 12 }}>🍽️</Text>
-                    <Text style={{ fontSize: 18, fontWeight: '800', color: '#14532D', marginBottom: 4 }}>No Results Found</Text>
-                    <Text style={{ fontSize: 14, color: '#6B7280', textAlign: 'center', marginHorizontal: 32 }}>
+                    <Text style={{ fontSize: 18, fontWeight: '900', color: '#FCD34D', marginBottom: 6 }}>No Results Found</Text>
+                    <Text style={{ fontSize: 13, color: '#9CA3AF', textAlign: 'center', marginHorizontal: 20, lineHeight: 18 }}>
                       Try checking spelling or type another dish or restaurant name.
                     </Text>
                   </View>
