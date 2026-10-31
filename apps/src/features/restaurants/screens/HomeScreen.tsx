@@ -517,6 +517,53 @@ export function HomeScreen({ navigation }: Props) {
           </Pressable>
         </View>
       </View>
+
+      {/* Account Suspended Alert Banner with Reason */}
+      {Boolean(profileQuery.data?.isSuspended || profileQuery.data?.accountStatus === 'SUSPENDED') && (
+        <View style={{
+          marginHorizontal: 16,
+          marginTop: 10,
+          marginBottom: 10,
+          backgroundColor: 'rgba(239, 68, 68, 0.15)',
+          borderWidth: 1.5,
+          borderColor: '#EF4444',
+          borderRadius: 16,
+          padding: 14,
+          shadowColor: '#EF4444',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.25,
+          shadowRadius: 8,
+          elevation: 4,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ fontSize: 16 }}>🚫</Text>
+              <Text style={{ color: '#EF4444', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 }}>
+                ACCOUNT SUSPENDED
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => navigation.navigate('Profile' as any)}
+              style={({ pressed }) => ({
+                backgroundColor: '#EF4444',
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 8,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 11 }}>View Profile ›</Text>
+            </Pressable>
+          </View>
+          <Text style={{ color: '#FCA5A5', fontSize: 13, fontWeight: '700', marginBottom: 2 }}>
+            Reason: {profileQuery.data?.suspensionReason || 'Security policy review'}
+          </Text>
+          <Text style={{ color: '#E5E7EB', fontSize: 12, lineHeight: 16 }}>
+            Your account has been suspended by administration. Ordering and checkout are disabled. Please contact support or appeal from your profile.
+          </Text>
+        </View>
+      )}
+
       {/* Out-of-Zone Notification Banner */}
       {detectedZone && !isAreaServiceable && (
         <View style={styles.outOfZoneCard}>

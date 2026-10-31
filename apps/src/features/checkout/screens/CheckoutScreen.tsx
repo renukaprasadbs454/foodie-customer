@@ -31,6 +31,7 @@ import { useGetCartQuery } from '../../../api/endpoints/cartApi';
 import { useCreateOrderMutation, useTransitionOrderStatusMutation, saveOrderPaymentMethod } from '../../../api/endpoints/ordersApi';
 import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
 import { useGetWalletBalanceQuery } from '../../../api/endpoints/walletApi';
+import { useGetMyProfileQuery } from '../../../api/endpoints/usersApi';
 import { useGetDeliveryChargesQuery, useGetCommissionRulesQuery } from '../../../api/endpoints/feesApi';
 import { getDistanceKm } from '../../restaurants/types';
 import { globalLocation } from '../../../core/GlobalLocation';
@@ -59,8 +60,18 @@ export function CheckoutScreen({ navigation, route }: any) {
   const [addressId, setAddressId] = useState<string | null>(null);
   const [useWallet, setUseWallet] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'COD'>('ONLINE');
+  const profileQuery = useGetMyProfileQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true });
+  const isCodDisabled = Boolean(profileQuery.data?.isCodDisabled);
+  const isSuspended = Boolean(profileQuery.data?.isSuspended || profileQuery.data?.accountStatus === 'SUSPENDED');
+  const suspensionReason = profileQuery.data?.suspensionReason;
   const placeAttemptKey = useRef<string | null>(null);
   const [showAddressRequiredModal, setShowAddressRequiredModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isCodDisabled && paymentMethod === 'COD') {
+      setPaymentMethod('ONLINE');
+    }
+  }, [isCodDisabled, paymentMethod]);
   const [toast, setToast] = useState<{
     message: string;
     variant: 'info' | 'success' | 'error' | 'warning';
@@ -162,6 +173,20 @@ export function CheckoutScreen({ navigation, route }: any) {
   const loading = cartQuery.isLoading || addressesQuery.isLoading || createState.isLoading || walletQuery.isLoading || deliveryChargesQuery.isLoading;
 
   const onPlaceOrder = async () => {
+    if (isSuspended) {
+      setToast({
+        message: `Your account is suspended: ${suspensionReason || 'Security policy review'}. Ordering is disabled.`,
+        variant: 'error',
+      });
+      return;
+    }
+    if (isCodDisabled && paymentMethod === 'COD') {
+      setToast({
+        message: 'Cash on Delivery is disabled for your account. Please select Online Payment.',
+        variant: 'error',
+      });
+      return;
+    }
     if (!addressId || !isAddressId(addressId)) {
       setShowAddressRequiredModal(true);
       return;
@@ -342,6 +367,30 @@ export function CheckoutScreen({ navigation, route }: any) {
             </LinearGradient>
 
             <View style={{ paddingHorizontal: 16, marginTop: 20, gap: 18 }}>
+              {isSuspended && (
+                <View style={{
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  borderWidth: 1.5,
+                  borderColor: '#EF4444',
+                  borderRadius: 16,
+                  padding: 16,
+                  gap: 6,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ fontSize: 18 }}>🚫</Text>
+                    <Text style={{ color: '#EF4444', fontWeight: '900', fontSize: 15, letterSpacing: 0.5 }}>
+                      ACCOUNT SUSPENDED
+                    </Text>
+                  </View>
+                  <Text style={{ color: '#FCA5A5', fontSize: 13, fontWeight: '700' }}>
+                    Reason: {suspensionReason || 'Security policy review'}
+                  </Text>
+                  <Text style={{ color: '#E5E7EB', fontSize: 12, lineHeight: 16 }}>
+                    Your account has been suspended by administration. Ordering is disabled. Please contact support to submit an appeal.
+                  </Text>
+                </View>
+              )}
+
               {loading && !cart ? (
                 <CheckoutSkeleton />
               ) : (
@@ -500,26 +549,60 @@ export function CheckoutScreen({ navigation, route }: any) {
                     </Pressable>
 
                     <Pressable
-                      onPress={() => setPaymentMethod('COD')}
+                      onPress={() => {
+                        if (isCodDisabled) {
+                          setToast({
+                            message: 'Cash on Delivery is disabled for your account by administrator. Please use Online Payment.',
+                            variant: 'error',
+                          });
+                          return;
+                        }
+                        setPaymentMethod('COD');
+                      }}
                       style={({ pressed }) => ({
                         flexDirection: 'row',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        opacity: pressed ? 0.8 : 1,
+                        opacity: isCodDisabled ? 0.7 : (pressed ? 0.8 : 1),
                         paddingVertical: 10,
+                        backgroundColor: isCodDisabled ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
+                        borderRadius: 10,
+                        paddingHorizontal: isCodDisabled ? 8 : 0,
                       })}
                     >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
                         <View style={{
                           width: 20, height: 20, borderRadius: 10, borderWidth: 2,
-                          borderColor: paymentMethod === 'COD' ? '#FCD34D' : '#4B5563',
-                          justifyContent: 'center', alignItems: 'center'
+                          borderColor: isCodDisabled ? '#6B7280' : (paymentMethod === 'COD' ? '#FCD34D' : '#4B5563'),
+                          justifyContent: 'center', alignItems: 'center',
+                          backgroundColor: isCodDisabled ? 'rgba(107, 114, 128, 0.2)' : 'transparent',
                         }}>
-                          {paymentMethod === 'COD' && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#FCD34D' }} />}
+                          {!isCodDisabled && paymentMethod === 'COD' && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#FCD34D' }} />}
+                          {isCodDisabled && <Text style={{ fontSize: 10, color: '#EF4444', fontWeight: '900' }}>✕</Text>}
                         </View>
-                        <View>
-                          <Text style={{ fontWeight: '700', fontSize: 15, color: '#FFFFFF' }}>Cash on Delivery (COD)</Text>
-                          <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Pay directly at your doorstep</Text>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                            <Text style={{ fontWeight: '700', fontSize: 15, color: isCodDisabled ? '#9CA3AF' : '#FFFFFF' }}>
+                              Cash on Delivery (COD)
+                            </Text>
+                            {isCodDisabled && (
+                              <View style={{
+                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                borderWidth: 1,
+                                borderColor: '#EF4444',
+                                borderRadius: 4,
+                                paddingHorizontal: 6,
+                                paddingVertical: 1,
+                              }}>
+                                <Text style={{ color: '#EF4444', fontSize: 10, fontWeight: '800' }}>
+                                  DISABLED BY ADMIN
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={{ fontSize: 13, color: isCodDisabled ? '#EF4444' : '#9CA3AF', fontWeight: isCodDisabled ? '600' : '400', marginTop: 2 }}>
+                            {isCodDisabled ? 'Disabled for your account. Please pay online via UPI or Cards.' : 'Pay directly at your doorstep'}
+                          </Text>
                         </View>
                       </View>
                     </Pressable>
@@ -621,37 +704,68 @@ export function CheckoutScreen({ navigation, route }: any) {
             shadowRadius: 8,
             elevation: 10
           }}>
-            <Pressable
-              accessibilityLabel="Place Order"
-              disabled={createState.isLoading || addresses.length === 0 || !addressId}
-              onPress={() => { void onPlaceOrder(); }}
-              style={({ pressed }) => ({
-                backgroundColor: (createState.isLoading || addresses.length === 0 || !addressId)
-                  ? '#4B5563'
-                  : pressed
-                  ? '#EAB308'
-                  : '#FCD34D',
-                paddingVertical: 15,
-                borderRadius: 14,
-                flexDirection: 'row',
-                justifyContent: 'center',
-                alignItems: 'center',
-                shadowColor: '#FCD34D',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: (createState.isLoading || addresses.length === 0 || !addressId) ? 0 : 0.25,
-                shadowRadius: 8,
-                elevation: 4,
-              })}
-            >
-              <Text style={{
-                color: (createState.isLoading || addresses.length === 0 || !addressId) ? '#9CA3AF' : '#022414',
-                fontWeight: '900',
-                fontSize: 16,
-                letterSpacing: 0.5,
-              }}>
-                {createState.isLoading ? 'Processing Order...' : paymentMethod === 'COD' ? `Place COD Order (₹${formatMoney(grandTotal)}) ➔` : `Proceed to Payment (₹${formatMoney(grandTotal)}) ➔`}
-              </Text>
-            </Pressable>
+            {isSuspended ? (
+              <Pressable
+                accessibilityLabel="Account Suspended"
+                onPress={() => {
+                  setToast({
+                    message: `Account Suspended: ${suspensionReason || 'Security policy review'}. Ordering is disabled.`,
+                    variant: 'error',
+                  });
+                }}
+                style={{
+                  backgroundColor: '#DC2626',
+                  paddingVertical: 15,
+                  borderRadius: 14,
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  borderWidth: 1.5,
+                  borderColor: '#F87171',
+                  shadowColor: '#DC2626',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 8,
+                  elevation: 4,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 15, letterSpacing: 0.5 }}>
+                  🚫 Account Suspended — Ordering Disabled
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                accessibilityLabel="Place Order"
+                disabled={createState.isLoading || addresses.length === 0 || !addressId}
+                onPress={() => { void onPlaceOrder(); }}
+                style={({ pressed }) => ({
+                  backgroundColor: (createState.isLoading || addresses.length === 0 || !addressId)
+                    ? '#4B5563'
+                    : pressed
+                    ? '#EAB308'
+                    : '#FCD34D',
+                  paddingVertical: 15,
+                  borderRadius: 14,
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  shadowColor: '#FCD34D',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: (createState.isLoading || addresses.length === 0 || !addressId) ? 0 : 0.25,
+                  shadowRadius: 8,
+                  elevation: 4,
+                })}
+              >
+                <Text style={{
+                  color: (createState.isLoading || addresses.length === 0 || !addressId) ? '#9CA3AF' : '#022414',
+                  fontWeight: '900',
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                }}>
+                  {createState.isLoading ? 'Processing Order...' : paymentMethod === 'COD' ? `Place COD Order (₹${formatMoney(grandTotal)}) ➔` : `Proceed to Payment (₹${formatMoney(grandTotal)}) ➔`}
+                </Text>
+              </Pressable>
+            )}
           </View>
 
           {createState.isLoading && (

@@ -321,7 +321,7 @@ export function ProfileScreen({ navigation }: Props) {
               {/* Account Suspended Alert Card */}
               {isSuspended && (
                 <View style={{
-                  backgroundColor: '#FEF2F2',
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
                   borderColor: '#EF4444',
                   borderWidth: 1.5,
                   borderRadius: 16,
@@ -329,7 +329,7 @@ export function ProfileScreen({ navigation }: Props) {
                   marginBottom: 20,
                   shadowColor: '#EF4444',
                   shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.15,
+                  shadowOpacity: 0.25,
                   shadowRadius: 10,
                   elevation: 4,
                 }}>
@@ -349,13 +349,13 @@ export function ProfileScreen({ navigation }: Props) {
                       </Text>
                     </View>
                   </View>
-                  <Text style={{ color: '#991B1B', fontWeight: '800', fontSize: 16, marginBottom: 4 }}>
+                  <Text style={{ color: '#EF4444', fontWeight: '800', fontSize: 16, marginBottom: 4 }}>
                     Your account has been suspended by administration
                   </Text>
-                  <Text style={{ color: '#7F1D1D', fontSize: 13, lineHeight: 18, marginBottom: 12 }}>
-                    Reason: <Text style={{ fontWeight: '700' }}>{suspensionReason || 'Security policy review'}</Text>
+                  <Text style={{ color: '#FCA5A5', fontSize: 13, lineHeight: 18, marginBottom: 8 }}>
+                    Reason: <Text style={{ fontWeight: '800', color: '#FFFFFF' }}>{suspensionReason || 'Security policy review'}</Text>
                   </Text>
-                  <Text style={{ color: '#6B7280', fontSize: 12, lineHeight: 16, marginBottom: 14 }}>
+                  <Text style={{ color: '#D1D5DB', fontSize: 12, lineHeight: 16, marginBottom: 14 }}>
                     Placing new orders and checkout are currently disabled on your profile. If you believe this is an error or would like to submit an appeal, please contact support.
                   </Text>
                   <View style={{ flexDirection: 'row', gap: 10 }}>
