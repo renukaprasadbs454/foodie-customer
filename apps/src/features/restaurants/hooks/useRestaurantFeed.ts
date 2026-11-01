@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useGetRestaurantsQuery } from '../../../api/endpoints/restaurantsApi';
 import type { RestaurantListParams, RestaurantSummary } from '../types';
 import { getDistanceKm } from '../types';
+import { isRestaurantInZone } from '../utils/zoneTargeting';
 
 type FeedArgs = Omit<RestaurantListParams, 'page' | 'size'> & {
   size?: number;
@@ -114,8 +115,16 @@ export function useRestaurantFeed(args: FeedArgs) {
         const nLng = Number(r.longitude);
         return !isNaN(nLat) && !isNaN(nLng) && (nLat !== 0 || nLng !== 0);
       });
-      // The backend /api/v1/restaurants endpoint filters by cuisineType including all menu items (e.g. Chicken Biriyani for Biriyani)
-      // and restaurant details. Do not re-filter on the client without menu data.
+      // Strictly isolate restaurants to customer's target zone!
+      if (args.zoneId) {
+        list = list.filter((r) => isRestaurantInZone(r, {
+          zoneId: args.zoneId,
+          latitude: args.userLatitude,
+          longitude: args.userLongitude,
+        }));
+      }
+
+      // Proximity check for fallback items
       if (isExpandedFromNearby && args.userLatitude !== undefined && args.userLongitude !== undefined) {
         const uLat = args.userLatitude;
         const uLng = args.userLongitude;

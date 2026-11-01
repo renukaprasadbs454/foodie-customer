@@ -16,6 +16,9 @@ export async function applyAuthSession(
   dispatch: AppDispatch,
   data: AuthTokenData,
 ): Promise<void> {
+  // Clear any previously cached API and profile state from other accounts
+  dispatch(baseApi.util.resetApiState());
+
   // Pre-fetch live GPS location immediately during login so Home feed loads instantly
   void initGlobalLocation(true);
 

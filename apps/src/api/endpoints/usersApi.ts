@@ -18,12 +18,10 @@ export const usersApi = baseApi.injectEndpoints({
         }
         let profile = ((result.data as any)?.data || result.data) as CustomerProfile;
         try {
-          // Check Admin BFF for live suspension/control override (for instant cross-app updates)
+          // Check Admin BFF strictly by customerId and phone (unique identifiers)
           const params = new URLSearchParams();
-          if (profile?.customerId) params.set('id', profile.customerId);
-          if (profile?.email) params.set('email', profile.email);
-          if (profile?.phoneNumber) params.set('phone', profile.phoneNumber);
-          if (profile?.fullName) params.set('name', profile.fullName);
+          if (profile?.customerId) params.set('id', String(profile.customerId));
+          if (profile?.phoneNumber) params.set('phone', String(profile.phoneNumber));
 
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), 2000);
@@ -38,9 +36,9 @@ export const usersApi = baseApi.injectEndpoints({
               const isSusp = bffData.isSuspended === true || bffData.accountStatus === 'SUSPENDED';
               profile = {
                 ...profile,
-                accountStatus: isSusp ? 'SUSPENDED' : (bffData.accountStatus || profile.accountStatus || 'ACTIVE'),
+                accountStatus: isSusp ? 'SUSPENDED' : 'ACTIVE',
                 isSuspended: isSusp,
-                suspensionReason: bffData.suspensionReason || profile.suspensionReason || (isSusp ? 'Account suspended by security administration' : null),
+                suspensionReason: isSusp ? (bffData.suspensionReason || profile.suspensionReason || 'Account suspended by security administration') : null,
                 isCodDisabled: bffData.isCodDisabled !== undefined ? bffData.isCodDisabled : profile.isCodDisabled,
               };
             }

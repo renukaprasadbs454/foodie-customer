@@ -33,7 +33,7 @@ import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import { useGetMyProfileQuery } from '../../../api/endpoints/usersApi';
 import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
 import { useGetDeliveryChargesQuery, useGetCommissionRulesQuery } from '../../../api/endpoints/feesApi';
-import { globalLocation } from '../../../core/GlobalLocation';
+import { globalLocation, useGlobalLocation } from '../../../core/GlobalLocation';
 import { MOCK_RESTAURANTS, MOCK_MENUS } from '../../restaurants/mockData';
 import { canProceedToCheckout } from '../types';
 
@@ -147,17 +147,24 @@ export function CartScreen({ navigation, route }: Props) {
     });
   }
 
+  const { zone: globalZone } = useGlobalLocation();
+  const currentActiveZoneId = globalZone?.zoneId || null;
+
   const couponsQuery = useGetEligibleCouponsQuery({
     restaurantId: restaurantId || '',
     cartTotal: subtotalAmt,
+    zoneId: currentActiveZoneId,
   }, { skip: !restaurantId || isDarkStoreMock });
-
-
 
   useEffect(() => {
     if (selectedCouponCode && restaurantId) {
       const localCouponObj = (couponsQuery.data || []).find(c => c.code === selectedCouponCode);
-      applyCouponMutation({ code: selectedCouponCode, restaurantId, cartTotal: subtotalAmt })
+      applyCouponMutation({
+        code: selectedCouponCode,
+        restaurantId,
+        cartTotal: subtotalAmt,
+        zoneId: currentActiveZoneId,
+      })
         .unwrap()
         .then((res) => {
           setAppliedCoupon({

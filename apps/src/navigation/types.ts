@@ -88,4 +88,5 @@ export type RootStackParamList = {
   Auth: undefined;
   ProfileCompletion: undefined;
   Main: undefined;
+  Suspended: undefined;
 };

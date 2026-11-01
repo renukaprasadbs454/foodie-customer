@@ -13,6 +13,8 @@ type Props = {
   userLat?: number;
   userLng?: number;
   showDistance?: boolean;
+  badge?: string;
+  offerText?: string;
 };
 
 function resolveRestaurantImage(imageUrl?: string | null): string | null {
@@ -29,6 +31,8 @@ export function RestaurantCard({
   userLat,
   userLng,
   showDistance = true,
+  badge,
+  offerText,
 }: Props) {
   const { tokens } = useTheme();
 
@@ -108,7 +112,11 @@ export function RestaurantCard({
             style={styles.gradientOverlay}
           >
             <View style={styles.imageOverlayContent}>
-              {restaurant.topPosition !== null &&
+              {badge ? (
+                <View style={[styles.topBadge, { backgroundColor: '#059669' }]}>
+                  <Text style={styles.topBadgeText}>{badge}</Text>
+                </View>
+              ) : restaurant.topPosition !== null &&
               restaurant.topPosition !== undefined &&
               Number(restaurant.topPosition) > 0 ? (
                 <View style={styles.topBadge}>
@@ -177,6 +185,15 @@ export function RestaurantCard({
           >
             {cuisine}
           </Text>
+        ) : null}
+
+        {/* Offer Tag Strip */}
+        {offerText && !isClosed ? (
+          <View style={styles.cardOfferTagWrap}>
+            <Text numberOfLines={1} style={styles.cardOfferTagText}>
+              🏷️ {offerText}
+            </Text>
+          </View>
         ) : null}
 
         {/* Bottom Distance & City */}
@@ -398,5 +415,21 @@ const styles = StyleSheet.create({
   },
   cityMetaClosed: {
     color: '#6B7280',
+  },
+  cardOfferTagWrap: {
+    backgroundColor: 'rgba(234, 88, 12, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.4)',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  cardOfferTagText: {
+    color: '#FB923C',
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
 });

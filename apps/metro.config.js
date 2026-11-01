@@ -107,6 +107,39 @@ config.server = {
         return;
       }
 
+      if (req.url && req.url.startsWith('/api/bff/')) {
+        const targetHost = 'http://localhost:3100';
+        const targetUrl = targetHost + req.url;
+        const httpLib = require('http');
+        const hostHeader = 'localhost:3100';
+        const options = {
+          method: req.method,
+          headers: {
+            ...req.headers,
+            host: hostHeader,
+          },
+        };
+        const proxyReq = httpLib.request(targetUrl, options, (proxyRes) => {
+          res.writeHead(proxyRes.statusCode || 200, {
+            ...proxyRes.headers,
+            'access-control-allow-origin': '*',
+            'access-control-allow-headers': '*',
+            'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+          });
+          proxyRes.pipe(res, { end: true });
+        });
+        proxyReq.on('error', (err) => {
+          res.writeHead(502, {
+            'Content-Type': 'application/json',
+            'access-control-allow-origin': '*',
+            'access-control-allow-headers': '*',
+          });
+          res.end(JSON.stringify({ success: false, error: { code: 'BAD_GATEWAY', message: err.message } }));
+        });
+        req.pipe(proxyReq, { end: true });
+        return;
+      }
+
       if (req.url && req.url.startsWith('/api/')) {
         const targetHost = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.foodie.kwiko.org';
         const targetUrl = targetHost + req.url;

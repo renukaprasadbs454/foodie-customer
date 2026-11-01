@@ -43,6 +43,7 @@ import { useGetWalletBalanceQuery } from '../../../api/endpoints/walletApi';
 import { GlobalCartBanner } from '../../cart/components/GlobalCartBanner';
 import { useGlobalLocation } from '../../../core/GlobalLocation';
 import { getDistanceKm, getEstimatedTimeMins } from '../types';
+import { isRestaurantInZone, filterFoodItemsForZone } from '../utils/zoneTargeting';
 import {
   syncSupportChatMessages,
   connectToAgentAndCreateEnquiry,
@@ -107,6 +108,32 @@ export function HomeScreen({ navigation }: Props) {
     variant: 'info' | 'success' | 'error' | 'warning';
   } | null>(null);
 
+  // Filter Modal & Preferences
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [selectedPriceRange, setSelectedPriceRange] = useState<'ALL' | 'UNDER_150' | 'UNDER_250' | '250_500' | 'ABOVE_500'>('ALL');
+  const [selectedDeliveryTime, setSelectedDeliveryTime] = useState<'ALL' | 'UNDER_30' | 'UNDER_45'>('ALL');
+  const [sortBy, setSortBy] = useState<'RELEVANCE' | 'FAST_DELIVERY' | 'RATING_HIGH' | 'COST_LOW_HIGH' | 'COST_HIGH_LOW'>('RELEVANCE');
+  const [minRating, setMinRating] = useState<number>(0);
+  const [filterOffersOnly, setFilterOffersOnly] = useState<boolean>(false);
+
+  // Draft States for Filter Modal
+  const [draftPriceRange, setDraftPriceRange] = useState<'ALL' | 'UNDER_150' | 'UNDER_250' | '250_500' | 'ABOVE_500'>('ALL');
+  const [draftDeliveryTime, setDraftDeliveryTime] = useState<'ALL' | 'UNDER_30' | 'UNDER_45'>('ALL');
+  const [draftSortBy, setDraftSortBy] = useState<'RELEVANCE' | 'FAST_DELIVERY' | 'RATING_HIGH' | 'COST_LOW_HIGH' | 'COST_HIGH_LOW'>('RELEVANCE');
+  const [draftMinRating, setDraftMinRating] = useState<number>(0);
+  const [draftVegOnly, setDraftVegOnly] = useState<boolean>(false);
+  const [draftOffersOnly, setDraftOffersOnly] = useState<boolean>(false);
+
+  const activeModalFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedPriceRange !== 'ALL') count++;
+    if (selectedDeliveryTime !== 'ALL') count++;
+    if (sortBy !== 'RELEVANCE') count++;
+    if (minRating > 0) count++;
+    if (filterOffersOnly) count++;
+    return count;
+  }, [selectedPriceRange, selectedDeliveryTime, sortBy, minRating, filterOffersOnly]);
+
   // Global Location
   const {
     coords: userCoords,
@@ -115,6 +142,7 @@ export function HomeScreen({ navigation }: Props) {
     source: locationSource,
     fetchExactLocation: triggerLocateMe,
     setZone,
+    zone: globalZone,
   } = useGlobalLocation();
 
   // Saved Delivery Addresses & Profile
@@ -144,10 +172,13 @@ export function HomeScreen({ navigation }: Props) {
     }
   );
   const detectedZone = zoneQuery.data;
-  const isAreaServiceable = Boolean(detectedZone?.serviceable && detectedZone?.zoneId);
+  const activeZone = detectedZone || globalZone;
+  const currentActiveZoneId = activeZone?.zoneId || null;
+  const isAreaServiceable = Boolean(activeZone?.serviceable && activeZone?.zoneId);
 
   useEffect(() => {
     if (detectedZone) {
+      setZone(detectedZone);
       const serviceable = Boolean(detectedZone.serviceable && detectedZone.zoneId);
       setIsZoneServiceable(serviceable);
 
@@ -178,23 +209,27 @@ export function HomeScreen({ navigation }: Props) {
     currentUserPhone,
   ]);
 
-  // Real Restaurant Feed
+  // Real Restaurant Feed strictly scoped to active customer zone
   const feed = useRestaurantFeed({
     sort: undefined,
     userLatitude: userCoords?.latitude,
     userLongitude: userCoords?.longitude,
-    zoneId: detectedZone?.zoneId ?? undefined,
+    zoneId: currentActiveZoneId ?? undefined,
     isServiceable: isAreaServiceable,
   });
 
-  const allNearbyQuery = useGetRestaurantsQuery({});
+  const allNearbyQuery = useGetRestaurantsQuery({
+    zoneId: currentActiveZoneId ?? undefined,
+    lat: userCoords?.latitude,
+    lng: userCoords?.longitude,
+  });
   const allRestaurants = allNearbyQuery.data ?? [];
 
-  // Available restaurants pool in the zone
+  // Available restaurants pool strictly filtered to the customer's active zone
   const zoneRestaurants = useMemo(() => {
-    if (feed.items && feed.items.length > 0) return feed.items;
-    return allRestaurants;
-  }, [feed.items, allRestaurants]);
+    const rawList = feed.items && feed.items.length > 0 ? feed.items : allRestaurants;
+    return rawList.filter((r) => isRestaurantInZone(r, activeZone));
+  }, [feed.items, allRestaurants, activeZone]);
 
   // Real Food Items
   const foodItemsQuery = useSearchFoodItemsQuery(
@@ -202,6 +237,94 @@ export function HomeScreen({ navigation }: Props) {
     { pollingInterval: 30000, refetchOnFocus: true }
   );
   const rawFoodItems = foodItemsQuery.data ?? [];
+
+  // Effective Customer Coordinates for accurate distance and ETA calculation
+  const effectiveCoords = useMemo(() => {
+    if (userCoords?.latitude && userCoords?.longitude) {
+      return { latitude: Number(userCoords.latitude), longitude: Number(userCoords.longitude) };
+    }
+    if (currentSavedAddress?.latitude && currentSavedAddress?.longitude) {
+      return { latitude: Number(currentSavedAddress.latitude), longitude: Number(currentSavedAddress.longitude) };
+    }
+    if (activeZone?.latitude && activeZone?.longitude) {
+      return { latitude: Number(activeZone.latitude), longitude: Number(activeZone.longitude) };
+    }
+    return { latitude: 13.3400, longitude: 77.1200 };
+  }, [userCoords, currentSavedAddress, activeZone]);
+
+  // Under ₹250 Food Items strictly from restaurants in this particular zone
+  const under250FoodItems = useMemo(() => {
+    const zoneFilteredDishes = filterFoodItemsForZone(rawFoodItems, zoneRestaurants);
+    return zoneFilteredDishes
+      .filter((item) => Number(item.basePrice) > 0 && Number(item.basePrice) <= 250)
+      .slice(0, 15);
+  }, [rawFoodItems, zoneRestaurants]);
+
+  // Great Offer Food Items strictly from restaurants in this particular zone
+  const offerFoodItems = useMemo(() => {
+    const zoneFilteredDishes = filterFoodItemsForZone(rawFoodItems, zoneRestaurants);
+    return zoneFilteredDishes
+      .filter((item) => Number(item.basePrice) > 0)
+      .slice(0, 15);
+  }, [rawFoodItems, zoneRestaurants]);
+
+  // Restaurant Price Stats Lookup
+  const restaurantPriceStats = useMemo(() => {
+    const stats: Record<string, { minPrice: number; avgPrice: number; hasUnder250: boolean }> = {};
+    rawFoodItems.forEach((item) => {
+      const rId = item.restaurantId;
+      if (!rId) return;
+      const price = Number(item.basePrice);
+      if (isNaN(price) || price <= 0) return;
+      if (!stats[rId]) {
+        stats[rId] = { minPrice: price, avgPrice: price, hasUnder250: price <= 250 };
+      } else {
+        stats[rId].minPrice = Math.min(stats[rId].minPrice, price);
+        stats[rId].avgPrice = (stats[rId].avgPrice + price) / 2;
+        if (price <= 250) stats[rId].hasUnder250 = true;
+      }
+    });
+    return stats;
+  }, [rawFoodItems]);
+
+  // Modal Handlers
+  const handleOpenFilterModal = () => {
+    setDraftPriceRange(selectedPriceRange);
+    setDraftDeliveryTime(selectedDeliveryTime);
+    setDraftSortBy(sortBy);
+    setDraftMinRating(minRating);
+    setDraftVegOnly(isVegOnly);
+    setDraftOffersOnly(filterOffersOnly);
+    setIsFilterModalOpen(true);
+  };
+
+  const handleApplyModalFilters = () => {
+    setSelectedPriceRange(draftPriceRange);
+    setSelectedDeliveryTime(draftDeliveryTime);
+    setSortBy(draftSortBy);
+    setMinRating(draftMinRating);
+    setIsVegOnly(draftVegOnly);
+    setFilterOffersOnly(draftOffersOnly);
+    setIsFilterModalOpen(false);
+  };
+
+  const handleClearAllFilters = () => {
+    setSelectedPriceRange('ALL');
+    setSelectedDeliveryTime('ALL');
+    setSortBy('RELEVANCE');
+    setMinRating(0);
+    setIsVegOnly(false);
+    setFilterOffersOnly(false);
+    setActiveFilterPill(null);
+    setSelectedCategoryId('all');
+    setDraftPriceRange('ALL');
+    setDraftDeliveryTime('ALL');
+    setDraftSortBy('RELEVANCE');
+    setDraftMinRating(0);
+    setDraftVegOnly(false);
+    setDraftOffersOnly(false);
+    setIsFilterModalOpen(false);
+  };
 
   // Cart & Add to Cart mutation
   const cartQuery = useGetCartQuery();
@@ -324,11 +447,11 @@ export function HomeScreen({ navigation }: Props) {
     }).filter((cat) => cat.id === 'all' || cat.count > 0);
   }, [rawFoodItems]);
 
-  // Filtered restaurants for display with Deduplication (Top restaurants excluded from delivering to you list)
+  // Filtered restaurants for display with Deduplication (Top restaurants excluded when no filters are active)
   const displayedRestaurants = useMemo(() => {
     let list = [...zoneRestaurants];
 
-    // Category filter from "WHAT'S ON YOUR MIND?"
+    // 1. Category filter from "WHAT'S ON YOUR MIND?"
     if (selectedCategoryId !== 'all') {
       const selectedCat = computedCategories.find((c) => c.id === selectedCategoryId);
       if (selectedCat) {
@@ -353,7 +476,7 @@ export function HomeScreen({ navigation }: Props) {
       }
     }
 
-    // Veg filter
+    // 2. Veg filter
     if (isVegOnly) {
       list = list.filter((r) => {
         const cuisines = Array.isArray(r.cuisineTypes) ? r.cuisineTypes : [];
@@ -365,27 +488,124 @@ export function HomeScreen({ navigation }: Props) {
       });
     }
 
-    // Filter pills
-    if (activeFilterPill === 'topRestaurants') {
-      return topRestaurantsList;
-    }
-
-    if (activeFilterPill === 'fastDelivery') {
+    // 3. Filter Pill: "New to you"
+    if (activeFilterPill === 'new') {
       list = list.filter((r) => {
-        if (!userCoords || !r.latitude || !r.longitude) return true;
-        const dist = getDistanceKm(userCoords.latitude, userCoords.longitude, Number(r.latitude), Number(r.longitude));
-        return dist <= 3.5;
+        const orderCount = userOrderCounts[r.id] || 0;
+        const isFlaggedNew = (r as any).isNew === true;
+        const isLowReviewCount = r.ratingCount !== undefined && r.ratingCount !== null && r.ratingCount < 40;
+        const isNotTopTen = r.topPosition === null || r.topPosition === undefined || Number(r.topPosition) > 5;
+        return orderCount === 0 || isFlaggedNew || isLowReviewCount || isNotTopTen;
       });
     }
 
-    // Deduplication required by user:
-    // "if the resturant appears in top resturants then dont again disply in restrurants deliverys to you option"
-    const topIds = new Set<string>();
-    topRestaurantsList.forEach((r) => topIds.add(r.id));
+    // 4. Filter Pill: "Great offers" OR modal offer filter
+    if (activeFilterPill === 'offers' || filterOffersOnly) {
+      const restoIdsWithOfferDishes = new Set(offerFoodItems.map((f) => f.restaurantId).filter(Boolean));
+      list = list.filter((r) => {
+        const hasOfferDish = restoIdsWithOfferDishes.has(r.id);
+        const hasDirectOffer = Boolean((r as any).hasOffer || (r as any).offerText || (r as any).discount);
+        const hasPromotion = Boolean((r.topPosition !== null && r.topPosition !== undefined && Number(r.topPosition) > 0) || (r.avgRating && Number(r.avgRating) >= 4.0));
+        return hasOfferDish || hasDirectOffer || hasPromotion;
+      });
+    }
 
-    // Strictly exclude all restaurants appearing in Top Restaurants from this list
-    return list.filter((r) => !topIds.has(r.id));
-  }, [zoneRestaurants, selectedCategoryId, computedCategories, rawFoodItems, isVegOnly, activeFilterPill, topRestaurantsList, userCoords]);
+    // 5. Filter Pill: "Under ₹250" OR Price Range Filter from Modal
+    const effectivePriceRange = activeFilterPill === 'under250' ? 'UNDER_250' : selectedPriceRange;
+    if (effectivePriceRange !== 'ALL') {
+      list = list.filter((r) => {
+        const stats = restaurantPriceStats[r.id];
+        const minPrice = stats ? stats.minPrice : 180;
+        const avgPrice = stats ? stats.avgPrice : 220;
+
+        if (effectivePriceRange === 'UNDER_150') {
+          return minPrice <= 150 || (Array.isArray(r.cuisineTypes) && r.cuisineTypes.some((c) => /dosa|south|fast|chai/i.test(c)));
+        }
+        if (effectivePriceRange === 'UNDER_250') {
+          return Boolean(stats?.hasUnder250) || minPrice <= 250 || avgPrice <= 250 || (Array.isArray(r.cuisineTypes) && r.cuisineTypes.some((c) => /burger|dosa|south|fast|pizza/i.test(c)));
+        }
+        if (effectivePriceRange === '250_500') {
+          return (avgPrice >= 200 && avgPrice <= 500) || minPrice <= 400;
+        }
+        if (effectivePriceRange === 'ABOVE_500') {
+          return avgPrice > 400 || (Array.isArray(r.cuisineTypes) && r.cuisineTypes.some((c) => /biriyani|mughlai|bistro/i.test(c)));
+        }
+        return true;
+      });
+    }
+
+    // 6. Filter Pill: "Delivery under 30 mins" OR Modal Delivery Time
+    const effectiveDeliveryFilter = activeFilterPill === 'fastDelivery' ? 'UNDER_30' : selectedDeliveryTime;
+    if (effectiveDeliveryFilter !== 'ALL') {
+      const maxMins = effectiveDeliveryFilter === 'UNDER_30' ? 30 : 45;
+      list = list.filter((r) => {
+        const rLat = Number(r.latitude) || effectiveCoords.latitude;
+        const rLng = Number(r.longitude) || effectiveCoords.longitude;
+        const dist = getDistanceKm(effectiveCoords.latitude, effectiveCoords.longitude, rLat, rLng);
+        const eta = getEstimatedTimeMins(dist);
+        return eta.max <= maxMins || dist <= (maxMins === 30 ? 5.5 : 9.0);
+      });
+    }
+
+    // 7. Minimum Rating Filter from Modal
+    if (minRating > 0) {
+      list = list.filter((r) => {
+        const rate = r.avgRating ? Number(r.avgRating) : 0;
+        return rate >= minRating;
+      });
+    }
+
+    // 8. Sorting
+    const activeSort = activeFilterPill === 'fastDelivery' ? 'FAST_DELIVERY' : sortBy;
+    if (activeSort === 'FAST_DELIVERY') {
+      list.sort((a, b) => {
+        const aDist = getDistanceKm(effectiveCoords.latitude, effectiveCoords.longitude, Number(a.latitude || effectiveCoords.latitude), Number(a.longitude || effectiveCoords.longitude));
+        const bDist = getDistanceKm(effectiveCoords.latitude, effectiveCoords.longitude, Number(b.latitude || effectiveCoords.latitude), Number(b.longitude || effectiveCoords.longitude));
+        return aDist - bDist;
+      });
+    } else if (activeSort === 'RATING_HIGH') {
+      list.sort((a, b) => Number(b.avgRating || 0) - Number(a.avgRating || 0));
+    } else if (activeSort === 'COST_LOW_HIGH') {
+      list.sort((a, b) => {
+        const aPrice = restaurantPriceStats[a.id]?.minPrice || 200;
+        const bPrice = restaurantPriceStats[b.id]?.minPrice || 200;
+        return aPrice - bPrice;
+      });
+    } else if (activeSort === 'COST_HIGH_LOW') {
+      list.sort((a, b) => {
+        const aPrice = restaurantPriceStats[a.id]?.avgPrice || 200;
+        const bPrice = restaurantPriceStats[b.id]?.avgPrice || 200;
+        return bPrice - aPrice;
+      });
+    }
+
+    // Deduplication required only when no specific filter is active
+    const isAnyFilterActive = activeFilterPill !== null || activeModalFilterCount > 0 || selectedCategoryId !== 'all' || isVegOnly;
+    if (!isAnyFilterActive) {
+      const topIds = new Set<string>();
+      topRestaurantsList.forEach((r) => topIds.add(r.id));
+      return list.filter((r) => !topIds.has(r.id));
+    }
+
+    return list;
+  }, [
+    zoneRestaurants,
+    selectedCategoryId,
+    computedCategories,
+    rawFoodItems,
+    isVegOnly,
+    activeFilterPill,
+    selectedPriceRange,
+    selectedDeliveryTime,
+    minRating,
+    sortBy,
+    filterOffersOnly,
+    activeModalFilterCount,
+    topRestaurantsList,
+    effectiveCoords,
+    userOrderCounts,
+    restaurantPriceStats,
+  ]);
 
   // Add to Cart
   const handleAddToCart = async (item: SearchFoodItemDto | any) => {
@@ -433,12 +653,11 @@ export function HomeScreen({ navigation }: Props) {
 
   // Helper for ETA
   const getEtaText = (r: any) => {
-    if (userCoords && r.latitude && r.longitude) {
-      const dist = getDistanceKm(userCoords.latitude, userCoords.longitude, Number(r.latitude), Number(r.longitude));
-      const eta = getEstimatedTimeMins(dist);
-      return `${eta.min}-${eta.max} mins`;
-    }
-    return '25-30 mins';
+    const lat = Number(r.latitude) || effectiveCoords.latitude;
+    const lng = Number(r.longitude) || effectiveCoords.longitude;
+    const dist = getDistanceKm(effectiveCoords.latitude, effectiveCoords.longitude, lat, lng);
+    const eta = getEstimatedTimeMins(dist);
+    return `${eta.min}-${eta.max} mins`;
   };
 
   // Header Item 0: Hero Banner with Address, Search Bar & Synchronized Dynamic Promotional Carousel
@@ -518,51 +737,6 @@ export function HomeScreen({ navigation }: Props) {
         </View>
       </View>
 
-      {/* Account Suspended Alert Banner with Reason */}
-      {Boolean(profileQuery.data?.isSuspended || profileQuery.data?.accountStatus === 'SUSPENDED') && (
-        <View style={{
-          marginHorizontal: 16,
-          marginTop: 10,
-          marginBottom: 10,
-          backgroundColor: 'rgba(239, 68, 68, 0.15)',
-          borderWidth: 1.5,
-          borderColor: '#EF4444',
-          borderRadius: 16,
-          padding: 14,
-          shadowColor: '#EF4444',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.25,
-          shadowRadius: 8,
-          elevation: 4,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={{ fontSize: 16 }}>🚫</Text>
-              <Text style={{ color: '#EF4444', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 }}>
-                ACCOUNT SUSPENDED
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => navigation.navigate('Profile' as any)}
-              style={({ pressed }) => ({
-                backgroundColor: '#EF4444',
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                borderRadius: 8,
-                opacity: pressed ? 0.8 : 1,
-              })}
-            >
-              <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 11 }}>View Profile ›</Text>
-            </Pressable>
-          </View>
-          <Text style={{ color: '#FCA5A5', fontSize: 13, fontWeight: '700', marginBottom: 2 }}>
-            Reason: {profileQuery.data?.suspensionReason || 'Security policy review'}
-          </Text>
-          <Text style={{ color: '#E5E7EB', fontSize: 12, lineHeight: 16 }}>
-            Your account has been suspended by administration. Ordering and checkout are disabled. Please contact support or appeal from your profile.
-          </Text>
-        </View>
-      )}
 
       {/* Out-of-Zone Notification Banner */}
       {detectedZone && !isAreaServiceable && (
@@ -626,6 +800,7 @@ export function HomeScreen({ navigation }: Props) {
 
       {/* Auto-sliding Animated Promotional Banner with vibrant full-width dynamic background synchronization */}
       <PromotionalBannerCarousel
+        zoneId={currentActiveZoneId}
         onBannerChange={(grad) => setActiveHeaderGradient(grad)}
         onSelectCategory={(catName) => {
           const matched = computedCategories.find(
@@ -643,138 +818,274 @@ export function HomeScreen({ navigation }: Props) {
     </LinearGradient>
   );
 
-  // Header Item 1: Sticky "WHAT'S ON YOUR MIND?" Categories Bar (pins to top on scroll)
+  // Header Item 1: Sticky Categories & Filter Bar (pins to top on scroll)
   const renderCategoriesStickyBar = () => (
-    <View style={styles.categoriesDarkSection}>
-      <Text style={styles.categoriesSectionTitle}>
-        WHAT'S ON YOUR MIND?
-      </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryScrollContent}
-      >
-        {computedCategories.map((cat) => {
-          const active = selectedCategoryId === cat.id;
-
-          return (
-            <Pressable
-              key={cat.id}
-              onPress={() => {
-                const nextId = selectedCategoryId === cat.id ? 'all' : cat.id;
-                setSelectedCategoryId(nextId);
-                trackAnalyticsEvent('category_tapped', { category: cat.name, filterApplied: nextId !== 'all' });
-              }}
-              style={styles.categoryItemWrap}
-            >
-              <View style={[styles.categoryCircleWrap, active && styles.categoryCircleActive]}>
-                <Image source={{ uri: cat.image }} style={styles.categoryCircleImage} resizeMode="cover" />
-              </View>
-
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.categoryLabel,
-                  active ? styles.categoryLabelActive : styles.categoryLabelInactive,
-                ]}
-              >
-                {cat.name}
-              </Text>
-
-              <View style={[styles.activeUnderline, active && styles.activeUnderlineVisible]} />
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-
-  // Header Item 2: Middle Sections (Filters, Recommended for You, Top Restaurants)
-  const renderMiddleSections = () => (
     <View style={{ backgroundColor: '#0A120E' }}>
-      {/* QUICK FILTER PILLS */}
+      <View style={styles.categoriesDarkSection}>
+        <Text style={styles.categoriesSectionTitle}>
+          WHAT'S ON YOUR MIND?
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryScrollContent}
+        >
+          {computedCategories.map((cat) => {
+            const active = selectedCategoryId === cat.id;
+
+            return (
+              <Pressable
+                key={cat.id}
+                onPress={() => {
+                  const nextId = selectedCategoryId === cat.id ? 'all' : cat.id;
+                  setSelectedCategoryId(nextId);
+                  trackAnalyticsEvent('category_tapped', { category: cat.name, filterApplied: nextId !== 'all' });
+                }}
+                style={styles.categoryItemWrap}
+              >
+                <View style={[styles.categoryCircleWrap, active && styles.categoryCircleActive]}>
+                  <Image source={{ uri: cat.image }} style={styles.categoryCircleImage} resizeMode="cover" />
+                </View>
+
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.categoryLabel,
+                    active ? styles.categoryLabelActive : styles.categoryLabelInactive,
+                  ]}
+                >
+                  {cat.name}
+                </Text>
+
+                <View style={[styles.activeUnderline, active && styles.activeUnderlineVisible]} />
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* QUICK FILTER PILLS (STAYS PINNED WITH STICKY HEADER) */}
       <View style={styles.filtersSection}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.quickFiltersContent}
         >
+          {/* Filter Modal Trigger */}
           <Pressable
-            onPress={() => {
-              setActiveFilterPill(null);
-              setIsVegOnly(false);
-              setSelectedCategoryId('all');
-            }}
-            style={[
+            testID="filter-pill-modal"
+            accessibilityRole="button"
+            accessibilityLabel="Open filters modal"
+            onPress={handleOpenFilterModal}
+            style={({ pressed }) => [
               styles.darkFilterPill,
-              !activeFilterPill && !isVegOnly && styles.darkFilterPillActive,
+              activeModalFilterCount > 0 && styles.darkFilterPillActive,
+              pressed && { opacity: 0.8 },
             ]}
           >
-            <Text style={!activeFilterPill && !isVegOnly ? styles.darkFilterTextActive : styles.darkFilterText}>
-              ⚙️ Filters ▾
+            <Text style={activeModalFilterCount > 0 ? styles.darkFilterTextActive : styles.darkFilterText}>
+              ⚙️ Filters {activeModalFilterCount > 0 ? `(${activeModalFilterCount}) ` : ''}▾
             </Text>
           </Pressable>
 
+          {/* New to you */}
           <Pressable
+            testID="filter-pill-new"
+            accessibilityRole="button"
+            accessibilityLabel="Filter new restaurants"
             onPress={() =>
               setActiveFilterPill(activeFilterPill === 'new' ? null : 'new')
             }
-            style={[
+            style={({ pressed }) => [
               styles.darkFilterPill,
               activeFilterPill === 'new' && styles.darkFilterPillActive,
+              pressed && { opacity: 0.8 },
             ]}
           >
             <Text style={activeFilterPill === 'new' ? styles.darkFilterTextActive : styles.darkFilterText}>
-              New to you
+              ✨ New to you
             </Text>
           </Pressable>
 
+          {/* Great offers */}
           <Pressable
+            testID="filter-pill-offers"
+            accessibilityRole="button"
+            accessibilityLabel="Filter great offers"
             onPress={() =>
               setActiveFilterPill(activeFilterPill === 'offers' ? null : 'offers')
             }
-            style={[
+            style={({ pressed }) => [
               styles.darkFilterPill,
               activeFilterPill === 'offers' && styles.darkFilterPillActive,
+              pressed && { opacity: 0.8 },
             ]}
           >
             <Text style={activeFilterPill === 'offers' ? styles.darkFilterTextActive : styles.darkFilterText}>
-              Great offers
+              🔥 Great offers
             </Text>
           </Pressable>
 
+          {/* Under ₹250 */}
           <Pressable
+            testID="filter-pill-under250"
+            accessibilityRole="button"
+            accessibilityLabel="Filter under 250"
             onPress={() =>
               setActiveFilterPill(activeFilterPill === 'under250' ? null : 'under250')
             }
-            style={[
+            style={({ pressed }) => [
               styles.darkFilterPill,
               activeFilterPill === 'under250' && styles.darkFilterPillActive,
+              pressed && { opacity: 0.8 },
             ]}
           >
             <Text style={activeFilterPill === 'under250' ? styles.darkFilterTextActive : styles.darkFilterText}>
-              Under ₹250
+              💰 Under ₹250
             </Text>
           </Pressable>
 
+          {/* Delivery under 30 mins */}
           <Pressable
+            testID="filter-pill-fastDelivery"
+            accessibilityRole="button"
+            accessibilityLabel="Filter fast delivery under 30 mins"
             onPress={() =>
               setActiveFilterPill(activeFilterPill === 'fastDelivery' ? null : 'fastDelivery')
             }
-            style={[
+            style={({ pressed }) => [
               styles.darkFilterPill,
               activeFilterPill === 'fastDelivery' && styles.darkFilterPillActive,
+              pressed && { opacity: 0.8 },
             ]}
           >
             <Text style={activeFilterPill === 'fastDelivery' ? styles.darkFilterTextActive : styles.darkFilterText}>
-              Delivery under 30 mins
+              ⚡ Delivery under 30 mins
             </Text>
           </Pressable>
         </ScrollView>
       </View>
+    </View>
+  );
 
-      {/* RECOMMENDED FOR YOU (Frequently ordered by customer) */}
-      {recommendedRestaurants.length > 0 && (
+  // Header Item 2: Middle Sections (Spotlights, Recommended for You, Top Restaurants)
+  const renderMiddleSections = () => (
+    <View style={{ backgroundColor: '#0A120E' }}>
+
+      {/* ACTIVE FILTER BANNER IF APPLIED */}
+      {(activeFilterPill !== null || activeModalFilterCount > 0) && (
+        <View style={styles.activeFilterBanner}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+            <Text style={styles.activeFilterBannerTitle}>
+              {activeFilterPill === 'new' && `✨ Showing New Restaurants for You in ${activeZone?.zoneName || activeZone?.cityName || 'your zone'}`}
+              {activeFilterPill === 'offers' && `🔥 Showing Restaurants & Food Deals with Great Offers in ${activeZone?.zoneName || activeZone?.cityName || 'your zone'}`}
+              {activeFilterPill === 'under250' && `💰 Showing Restaurants & Dishes Under ₹250 in ${activeZone?.zoneName || activeZone?.cityName || 'your zone'}`}
+              {activeFilterPill === 'fastDelivery' && `⚡ Showing Fast Delivery Restaurants in ${activeZone?.zoneName || activeZone?.cityName || 'your zone'}`}
+              {!activeFilterPill && activeModalFilterCount > 0 && `⚙️ ${activeModalFilterCount} Filter Preferences Applied in ${activeZone?.zoneName || activeZone?.cityName || 'your zone'}`}
+            </Text>
+          </View>
+          <Pressable
+            testID="btn-reset-filters"
+            accessibilityRole="button"
+            onPress={handleClearAllFilters}
+            style={styles.activeFilterClearBtn}
+          >
+            <Text style={styles.activeFilterClearBtnText}>Reset All ✕</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* DISHES UNDER ₹250 SECTION */}
+      {activeFilterPill === 'under250' && under250FoodItems.length > 0 && (
+        <View style={styles.filterSpotlightSection}>
+          <View style={styles.spotlightHeaderRow}>
+            <View>
+              <Text style={styles.spotlightTitle}>🍱 Dishes & Meals Under ₹250</Text>
+              <Text style={styles.spotlightSubtitle}>Affordable, tasty food you can order right now</Text>
+            </View>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.spotlightScroll}>
+            {under250FoodItems.map((item) => (
+              <View key={item.menuItemId} style={styles.spotlightCard}>
+                <Image
+                  source={{ uri: resolveImageUrl(item.imageUrl) || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=300' }}
+                  style={styles.spotlightImage}
+                />
+                <View style={styles.spotlightPriceBadge}>
+                  <Text style={styles.spotlightPriceBadgeText}>UNDER ₹250</Text>
+                </View>
+                <View style={styles.spotlightCardBody}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={{ fontSize: 10 }}>{item.isVeg ? '🟢' : '🔴'}</Text>
+                    <Text numberOfLines={1} style={styles.spotlightItemName}>{item.name}</Text>
+                  </View>
+                  <Text numberOfLines={1} style={styles.spotlightRestoName}>{item.restaurantName || 'Foodie Partner'}</Text>
+                  <View style={styles.spotlightPriceRow}>
+                    <Text style={styles.spotlightPrice}>₹{Math.round(item.basePrice)}</Text>
+                    <Pressable
+                      onPress={() => handleAddToCart(item)}
+                      style={styles.spotlightAddBtn}
+                    >
+                      <Text style={styles.spotlightAddBtnText}>+ ADD</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* GREAT OFFERS FOOD SECTION */}
+      {activeFilterPill === 'offers' && offerFoodItems.length > 0 && (
+        <View style={styles.filterSpotlightSection}>
+          <View style={styles.spotlightHeaderRow}>
+            <View>
+              <Text style={styles.spotlightTitle}>🔥 Great Food Deals & Offers</Text>
+              <Text style={styles.spotlightSubtitle}>Special discounted dishes & exclusive offers</Text>
+            </View>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.spotlightScroll}>
+            {offerFoodItems.map((item, idx) => {
+              const offerLabel = idx % 2 === 0 ? '₹40 OFF' : '25% OFF';
+              const origPrice = Math.round(item.basePrice * (idx % 2 === 0 ? 1.25 : 1.33));
+              return (
+                <View key={item.menuItemId} style={styles.spotlightCard}>
+                  <Image
+                    source={{ uri: resolveImageUrl(item.imageUrl) || 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=300' }}
+                    style={styles.spotlightImage}
+                  />
+                  <View style={styles.spotlightOfferBadge}>
+                    <Text style={styles.spotlightOfferBadgeText}>{offerLabel}</Text>
+                  </View>
+                  <View style={styles.spotlightCardBody}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Text style={{ fontSize: 10 }}>{item.isVeg ? '🟢' : '🔴'}</Text>
+                      <Text numberOfLines={1} style={styles.spotlightItemName}>{item.name}</Text>
+                    </View>
+                    <Text numberOfLines={1} style={styles.spotlightRestoName}>{item.restaurantName || 'Foodie Partner'}</Text>
+                    <View style={styles.spotlightPriceRow}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.spotlightPrice}>₹{Math.round(item.basePrice)}</Text>
+                        <Text style={styles.spotlightOrigPrice}>₹{origPrice}</Text>
+                      </View>
+                      <Pressable
+                        onPress={() => handleAddToCart(item)}
+                        style={styles.spotlightAddBtn}
+                      >
+                        <Text style={styles.spotlightAddBtnText}>+ ADD</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* RECOMMENDED FOR YOU (Only shown when no specific filter pill is active) */}
+      {!activeFilterPill && activeModalFilterCount === 0 && recommendedRestaurants.length > 0 && (
         <View style={styles.recommendedSection}>
           <Text style={styles.sectionHeadingUppercase}>
             RECOMMENDED FOR YOU
@@ -852,101 +1163,111 @@ export function HomeScreen({ navigation }: Props) {
         </View>
       )}
 
-      {/* TOP RESTAURANTS SECTION WITH "Explore all restaurants ›" */}
-      <View style={styles.topRestaurantsSection}>
-        <View style={styles.topRestaurantsHeaderRow}>
-          <Text style={styles.topSectionTitle}>
-            Top Restaurants
-          </Text>
+      {/* TOP RESTAURANTS SECTION WITH "Explore all restaurants ›" (Only shown when no specific filter is active) */}
+      {!activeFilterPill && activeModalFilterCount === 0 && (
+        <View style={styles.topRestaurantsSection}>
+          <View style={styles.topRestaurantsHeaderRow}>
+            <Text style={styles.topSectionTitle}>
+              Top Restaurants
+            </Text>
 
-          <Pressable
-            onPress={handleExploreAllPress}
-            style={({ pressed }) => [
-              styles.exploreAllButton,
-              { opacity: pressed ? 0.75 : 1 },
-            ]}
-          >
-            <Text style={styles.exploreAllText}>Explore all restaurants ›</Text>
-          </Pressable>
-        </View>
+            <Pressable
+              onPress={handleExploreAllPress}
+              style={({ pressed }) => [
+                styles.exploreAllButton,
+                { opacity: pressed ? 0.75 : 1 },
+              ]}
+            >
+              <Text style={styles.exploreAllText}>Explore all restaurants ›</Text>
+            </Pressable>
+          </View>
 
-        {topFeaturedRestaurant && (
-          <Pressable
-            onPress={() => navigation.navigate('Menu', { restaurantId: topFeaturedRestaurant.id })}
-            style={({ pressed }) => [
-              styles.topHeroCard,
-              topFeaturedRestaurant.isOpen === false && styles.cardOffline,
-              { opacity: pressed ? 0.94 : 1 },
-            ]}
-          >
-            <View style={styles.topHeroImageWrap}>
-              {resolveImageUrl(topFeaturedRestaurant.imageUrl) ? (
-                <Image
-                  source={{ uri: resolveImageUrl(topFeaturedRestaurant.imageUrl)! }}
-                  style={[styles.topHeroImage, topFeaturedRestaurant.isOpen === false && { opacity: 0.25 }]}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={styles.topHeroFallback}>
-                  <Text style={{ fontSize: 48, opacity: topFeaturedRestaurant.isOpen === false ? 0.3 : 1 }}>🍛</Text>
-                </View>
-              )}
-
-              {/* Offer Badge (if open) */}
-              {!topFeaturedRestaurant.isOpen === false && (
-                <View style={styles.heroOfferBadge}>
-                  <Text style={styles.heroOfferBadgeText}>₹75 OFF above ₹149</Text>
-                </View>
-              )}
-
-              {/* Black and white closed banner if closed */}
-              {topFeaturedRestaurant.isOpen === false && (
-                <View style={styles.closedOverlay}>
-                  <View style={styles.closedTagBox}>
-                    <Text style={styles.closedText}>⚫ CLOSED / OFFLINE</Text>
+          {topFeaturedRestaurant && (
+            <Pressable
+              onPress={() => navigation.navigate('Menu', { restaurantId: topFeaturedRestaurant.id })}
+              style={({ pressed }) => [
+                styles.topHeroCard,
+                topFeaturedRestaurant.isOpen === false && styles.cardOffline,
+                { opacity: pressed ? 0.94 : 1 },
+              ]}
+            >
+              <View style={styles.topHeroImageWrap}>
+                {resolveImageUrl(topFeaturedRestaurant.imageUrl) ? (
+                  <Image
+                    source={{ uri: resolveImageUrl(topFeaturedRestaurant.imageUrl)! }}
+                    style={[styles.topHeroImage, topFeaturedRestaurant.isOpen === false && { opacity: 0.25 }]}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.topHeroFallback}>
+                    <Text style={{ fontSize: 48, opacity: topFeaturedRestaurant.isOpen === false ? 0.3 : 1 }}>🍛</Text>
                   </View>
-                </View>
-              )}
+                )}
 
-              <LinearGradient
-                colors={['transparent', 'rgba(20, 83, 45, 0.95)']}
-                style={styles.heroBottomOverlay}
-              >
-                <View style={styles.heroBottomRow}>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.heroRestoTitle} numberOfLines={1}>
-                      {topFeaturedRestaurant.name}
-                    </Text>
-                    <Text style={styles.heroRestoEta}>
-                      ⏱️ {getEtaText(topFeaturedRestaurant)}
-                    </Text>
+                {/* Offer Badge (if open) */}
+                {!topFeaturedRestaurant.isOpen === false && (
+                  <View style={styles.heroOfferBadge}>
+                    <Text style={styles.heroOfferBadgeText}>₹75 OFF above ₹149</Text>
                   </View>
+                )}
 
-                  {topFeaturedRestaurant.avgRating && (
-                    <View style={styles.heroRatingBadge}>
-                      <Text style={styles.heroRatingText}>
-                        ★ {topFeaturedRestaurant.avgRating.toFixed(1)}
+                {/* Black and white closed banner if closed */}
+                {topFeaturedRestaurant.isOpen === false && (
+                  <View style={styles.closedOverlay}>
+                    <View style={styles.closedTagBox}>
+                      <Text style={styles.closedText}>⚫ CLOSED / OFFLINE</Text>
+                    </View>
+                  </View>
+                )}
+
+                <LinearGradient
+                  colors={['transparent', 'rgba(20, 83, 45, 0.95)']}
+                  style={styles.heroBottomOverlay}
+                >
+                  <View style={styles.heroBottomRow}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={styles.heroRestoTitle} numberOfLines={1}>
+                        {topFeaturedRestaurant.name}
+                      </Text>
+                      <Text style={styles.heroRestoEta}>
+                        ⏱️ {getEtaText(topFeaturedRestaurant)}
                       </Text>
                     </View>
-                  )}
-                </View>
-              </LinearGradient>
-            </View>
-          </Pressable>
-        )}
-      </View>
+
+                    {topFeaturedRestaurant.avgRating && (
+                      <View style={styles.heroRatingBadge}>
+                        <Text style={styles.heroRatingText}>
+                          ★ {topFeaturedRestaurant.avgRating.toFixed(1)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </LinearGradient>
+              </View>
+            </Pressable>
+          )}
+        </View>
+      )}
 
       {/* RESTAURANTS DELIVERING TO YOU Heading */}
       <View style={styles.zoneListHeader}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={styles.zoneCountHeading}>
-            {selectedCategoryId !== 'all'
-              ? `${computedCategories.find((c) => c.id === selectedCategoryId)?.name || 'Category'} (${displayedRestaurants.length})`
-              : `${displayedRestaurants.length} Restaurants Delivering to You`}
+            {activeFilterPill === 'new'
+              ? `New Restaurants in ${activeZone?.zoneName || activeZone?.cityName || 'Your Zone'} (${displayedRestaurants.length})`
+              : activeFilterPill === 'offers'
+              ? `Great Offers in ${activeZone?.zoneName || activeZone?.cityName || 'Your Zone'} (${displayedRestaurants.length})`
+              : activeFilterPill === 'under250'
+              ? `Meals Under ₹250 in ${activeZone?.zoneName || activeZone?.cityName || 'Your Zone'} (${displayedRestaurants.length})`
+              : activeFilterPill === 'fastDelivery'
+              ? `Fast Delivery Under 30 Mins in ${activeZone?.zoneName || activeZone?.cityName || 'Your Zone'} (${displayedRestaurants.length})`
+              : selectedCategoryId !== 'all'
+              ? `${computedCategories.find((c) => c.id === selectedCategoryId)?.name || 'Category'} in ${activeZone?.zoneName || activeZone?.cityName || 'Your Zone'} (${displayedRestaurants.length})`
+              : `${displayedRestaurants.length} Restaurants Delivering in ${activeZone?.zoneName || activeZone?.cityName || 'Your Zone'}`}
           </Text>
-          {selectedCategoryId !== 'all' && (
+          {(activeFilterPill !== null || activeModalFilterCount > 0 || selectedCategoryId !== 'all') && (
             <Pressable
-              onPress={() => setSelectedCategoryId('all')}
+              onPress={handleClearAllFilters}
               style={{
                 backgroundColor: 'rgba(252, 211, 77, 0.15)',
                 paddingHorizontal: 8,
@@ -961,7 +1282,15 @@ export function HomeScreen({ navigation }: Props) {
           )}
         </View>
         <Text style={styles.zoneSubtitle}>
-          {selectedCategoryId !== 'all'
+          {activeFilterPill === 'fastDelivery'
+            ? 'Sorted by nearest distance & fastest delivery time to your location'
+            : activeFilterPill === 'under250'
+            ? 'Budget-friendly restaurants with items and combos under ₹250'
+            : activeFilterPill === 'offers'
+            ? 'Restaurants offering exclusive discounts, coupon deals & promotions'
+            : activeFilterPill === 'new'
+            ? 'Discover recently onboarded restaurants you have not ordered from yet'
+            : selectedCategoryId !== 'all'
             ? `Filtered by ${computedCategories.find((c) => c.id === selectedCategoryId)?.name} • Tap category again to clear`
             : 'Featured & Nearby'}
         </Text>
@@ -1002,21 +1331,233 @@ export function HomeScreen({ navigation }: Props) {
 
   // FlatList Data with Sticky Header Structure
   type HomeListItem =
-    | { type: 'HERO'; id: 'hero' }
-    | { type: 'CATEGORIES'; id: 'categories' }
-    | { type: 'MIDDLE_SECTIONS'; id: 'middle' }
+    | { type: 'HERO'; id: string }
+    | { type: 'CATEGORIES'; id: string }
+    | { type: 'MIDDLE_SECTIONS'; id: string }
     | { type: 'RESTAURANT'; id: string; data: any };
 
   const listData: HomeListItem[] = useMemo(() => [
     { type: 'HERO', id: 'hero' },
     { type: 'CATEGORIES', id: 'categories' },
-    { type: 'MIDDLE_SECTIONS', id: 'middle' },
+    { type: 'MIDDLE_SECTIONS', id: `middle-${currentActiveZoneId || 'global'}-${activeFilterPill || 'none'}-${activeModalFilterCount}-${isVegOnly}-${selectedCategoryId || 'none'}` },
     ...displayedRestaurants.map((resto) => ({
       type: 'RESTAURANT' as const,
-      id: resto.id,
+      id: `${resto.id}-${currentActiveZoneId || 'global'}-${activeFilterPill || 'all'}`,
       data: resto,
     })),
-  ], [displayedRestaurants]);
+  ], [displayedRestaurants, activeFilterPill, activeModalFilterCount, isVegOnly, selectedCategoryId, currentActiveZoneId]);
+
+  // Filter Preferences & Modal Sheet
+  const renderFilterModal = () => (
+    <RNModal
+      visible={isFilterModalOpen}
+      animationType="slide"
+      transparent
+      onRequestClose={() => setIsFilterModalOpen(false)}
+    >
+      <View style={styles.filterModalBackdrop}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => setIsFilterModalOpen(false)}
+        />
+        <View style={styles.filterModalCard}>
+          {/* Header */}
+          <View style={styles.filterModalHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.filterModalTitle}>Filters & Preferences</Text>
+              <Text style={styles.filterModalSubtitle}>Select price ranges, delivery speed & sorting</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <Pressable
+                onPress={() => {
+                  setDraftPriceRange('ALL');
+                  setDraftDeliveryTime('ALL');
+                  setDraftSortBy('RELEVANCE');
+                  setDraftMinRating(0);
+                  setDraftVegOnly(false);
+                  setDraftOffersOnly(false);
+                }}
+              >
+                <Text style={styles.filterModalResetText}>Reset</Text>
+              </Pressable>
+              <Pressable
+                testID="btn-modal-close"
+                accessibilityRole="button"
+                onPress={() => setIsFilterModalOpen(false)}
+                style={styles.filterModalCloseBtn}
+              >
+                <Text style={styles.filterModalCloseText}>✕</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Body */}
+          <ScrollView style={styles.filterModalBody} showsVerticalScrollIndicator={false}>
+            {/* Price Ranges */}
+            <View style={styles.filterSectionBox}>
+              <Text style={styles.filterSectionLabel}>💰 PRICE RANGES</Text>
+              <View style={styles.filterChipRow}>
+                {[
+                  { id: 'ALL', label: 'All Prices' },
+                  { id: 'UNDER_150', label: 'Under ₹150' },
+                  { id: 'UNDER_250', label: 'Under ₹250 (Meals)' },
+                  { id: '250_500', label: '₹250 - ₹500' },
+                  { id: 'ABOVE_500', label: 'Above ₹500' },
+                ].map((item) => {
+                  const active = draftPriceRange === item.id;
+                  return (
+                    <Pressable
+                      key={item.id}
+                      testID={`filter-chip-price-${item.id}`}
+                      accessibilityRole="button"
+                      onPress={() => setDraftPriceRange(item.id as any)}
+                      style={[styles.filterChoiceChip, active && styles.filterChoiceChipActive]}
+                    >
+                      <Text style={[styles.filterChoiceChipText, active && styles.filterChoiceChipTextActive]}>
+                        {active ? '✓ ' : ''}{item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Delivery Speed */}
+            <View style={styles.filterSectionBox}>
+              <Text style={styles.filterSectionLabel}>⚡ DELIVERY SPEED</Text>
+              <View style={styles.filterChipRow}>
+                {[
+                  { id: 'ALL', label: 'Any Delivery Time' },
+                  { id: 'UNDER_30', label: '⚡ Delivery Under 30 mins' },
+                  { id: 'UNDER_45', label: 'Under 45 mins' },
+                ].map((item) => {
+                  const active = draftDeliveryTime === item.id;
+                  return (
+                    <Pressable
+                      key={item.id}
+                      testID={`filter-chip-speed-${item.id}`}
+                      accessibilityRole="button"
+                      onPress={() => setDraftDeliveryTime(item.id as any)}
+                      style={[styles.filterChoiceChip, active && styles.filterChoiceChipActive]}
+                    >
+                      <Text style={[styles.filterChoiceChipText, active && styles.filterChoiceChipTextActive]}>
+                        {active ? '✓ ' : ''}{item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Sort Options */}
+            <View style={styles.filterSectionBox}>
+              <Text style={styles.filterSectionLabel}>🔃 SORT BY</Text>
+              <View style={styles.filterChipRow}>
+                {[
+                  { id: 'RELEVANCE', label: 'Relevance (Default)' },
+                  { id: 'FAST_DELIVERY', label: '⚡ Fastest Delivery' },
+                  { id: 'RATING_HIGH', label: '⭐ Rating: High to Low' },
+                  { id: 'COST_LOW_HIGH', label: '💵 Cost: Low to High' },
+                  { id: 'COST_HIGH_LOW', label: '💎 Cost: High to Low' },
+                ].map((item) => {
+                  const active = draftSortBy === item.id;
+                  return (
+                    <Pressable
+                      key={item.id}
+                      testID={`filter-chip-sort-${item.id}`}
+                      accessibilityRole="button"
+                      onPress={() => setDraftSortBy(item.id as any)}
+                      style={[styles.filterChoiceChip, active && styles.filterChoiceChipActive]}
+                    >
+                      <Text style={[styles.filterChoiceChipText, active && styles.filterChoiceChipTextActive]}>
+                        {active ? '✓ ' : ''}{item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Rating */}
+            <View style={styles.filterSectionBox}>
+              <Text style={styles.filterSectionLabel}>⭐ CUSTOMER RATING</Text>
+              <View style={styles.filterChipRow}>
+                {[
+                  { id: 0, label: 'Any Rating' },
+                  { id: 4.0, label: '4.0+ Stars ★' },
+                  { id: 4.5, label: '4.5+ Stars ★' },
+                ].map((item) => {
+                  const active = draftMinRating === item.id;
+                  return (
+                    <Pressable
+                      key={item.id}
+                      testID={`filter-chip-rating-${item.id}`}
+                      accessibilityRole="button"
+                      onPress={() => setDraftMinRating(item.id)}
+                      style={[styles.filterChoiceChip, active && styles.filterChoiceChipActive]}
+                    >
+                      <Text style={[styles.filterChoiceChipText, active && styles.filterChoiceChipTextActive]}>
+                        {active ? '✓ ' : ''}{item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Dietary & Offers */}
+            <View style={styles.filterSectionBox}>
+              <Text style={styles.filterSectionLabel}>🥗 PREFERENCES & OFFERS</Text>
+              <View style={styles.filterToggleRow}>
+                <View>
+                  <Text style={styles.filterToggleTitle}>Pure Veg Only</Text>
+                  <Text style={styles.filterToggleSub}>Only show vegetarian restaurants</Text>
+                </View>
+                <Switch
+                  value={draftVegOnly}
+                  onValueChange={setDraftVegOnly}
+                  trackColor={{ false: '#374151', true: '#10B981' }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+              <View style={[styles.filterToggleRow, { marginTop: 12 }]}>
+                <View>
+                  <Text style={styles.filterToggleTitle}>Great Offers & Deals Only</Text>
+                  <Text style={styles.filterToggleSub}>Only show restaurants offering discounts</Text>
+                </View>
+                <Switch
+                  value={draftOffersOnly}
+                  onValueChange={setDraftOffersOnly}
+                  trackColor={{ false: '#374151', true: '#10B981' }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* Footer */}
+          <View style={styles.filterModalFooter}>
+            <Pressable
+              testID="btn-modal-clear"
+              accessibilityRole="button"
+              onPress={handleClearAllFilters}
+              style={styles.filterModalClearBtn}
+            >
+              <Text style={styles.filterModalClearBtnText}>Clear All</Text>
+            </Pressable>
+            <Pressable
+              testID="btn-apply-filters"
+              accessibilityRole="button"
+              onPress={handleApplyModalFilters}
+              style={styles.filterModalApplyBtn}
+            >
+              <Text style={styles.filterModalApplyBtnText}>Apply Filters</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </RNModal>
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#012B18' }} edges={['top', 'left', 'right']}>
@@ -1029,6 +1570,18 @@ export function HomeScreen({ navigation }: Props) {
             ref={flatListRef}
             style={{ backgroundColor: '#0A120E' }}
             data={listData}
+            extraData={{
+              currentActiveZoneId,
+              activeFilterPill,
+              activeModalFilterCount,
+              isVegOnly,
+              selectedPriceRange,
+              sortBy,
+              minRating,
+              selectedDeliveryTime,
+              filterOffersOnly,
+              selectedCategoryId,
+            }}
             keyExtractor={(item) => item.id}
             stickyHeaderIndices={[1]}
             contentContainerStyle={{ paddingBottom: insets.bottom + 40, paddingTop: 0 }}
@@ -1054,19 +1607,38 @@ export function HomeScreen({ navigation }: Props) {
               if (item.type === 'CATEGORIES') return renderCategoriesStickyBar();
               if (item.type === 'MIDDLE_SECTIONS') return renderMiddleSections();
               if (item.type === 'RESTAURANT') {
+                const resto = item.data;
+                let badgeText: string | undefined = undefined;
+                let offerText: string | undefined = undefined;
+
+                if (activeFilterPill === 'new') {
+                  badgeText = '🆕 NEW TO YOU';
+                  offerText = 'Welcome Deal: 20% OFF';
+                } else if (activeFilterPill === 'offers' || filterOffersOnly) {
+                  badgeText = '🔥 GREAT OFFER';
+                  offerText = (resto.topPosition && Number(resto.topPosition) % 2 === 0) ? '₹40 OFF above ₹99' : '50% OFF up to ₹100';
+                } else if (activeFilterPill === 'under250' || selectedPriceRange === 'UNDER_250') {
+                  badgeText = '💰 MEALS UNDER ₹250';
+                  offerText = 'Pocket-friendly options';
+                } else if (activeFilterPill === 'fastDelivery' || selectedDeliveryTime === 'UNDER_30') {
+                  badgeText = '⚡ UNDER 30 MINS';
+                }
+
                 return (
                   <View style={{ paddingHorizontal: 16 }}>
                     <RestaurantCard
-                      restaurant={item.data}
+                      restaurant={resto}
                       columnMode={false}
-                      userLat={userCoords?.latitude}
-                      userLng={userCoords?.longitude}
+                      userLat={effectiveCoords.latitude}
+                      userLng={effectiveCoords.longitude}
+                      badge={badgeText}
+                      offerText={offerText}
                       onPress={() => {
                         trackAnalyticsEvent('restaurant_card_tapped', {
-                          restaurantId: item.data.id,
+                          restaurantId: resto.id,
                         });
                         navigation.navigate('Menu', {
-                          restaurantId: item.data.id,
+                          restaurantId: resto.id,
                         });
                       }}
                     />
@@ -1078,6 +1650,7 @@ export function HomeScreen({ navigation }: Props) {
           />
         )}
 
+        {renderFilterModal()}
         <GlobalCartBanner />
         <Toast
           visible={Boolean(toast)}
@@ -1670,5 +2243,303 @@ const styles = StyleSheet.create({
     color: '#022414',
     fontSize: 14,
     fontWeight: '900',
+  },
+  activeFilterBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0F2618',
+    borderWidth: 1,
+    borderColor: '#10B981',
+    marginHorizontal: 16,
+    marginTop: 6,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  activeFilterBannerTitle: {
+    color: '#86EFAC',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  activeFilterClearBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.18)',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  activeFilterClearBtnText: {
+    color: '#FCA5A5',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  filterSpotlightSection: {
+    backgroundColor: '#0D1611',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 10,
+  },
+  spotlightHeaderRow: {
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  spotlightTitle: {
+    color: '#FCD34D',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: -0.2,
+  },
+  spotlightSubtitle: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  spotlightScroll: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  spotlightCard: {
+    width: 155,
+    backgroundColor: '#16231C',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  spotlightImage: {
+    width: '100%',
+    height: 95,
+    backgroundColor: '#1E3326',
+  },
+  spotlightPriceBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: '#047857',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  spotlightPriceBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  spotlightOfferBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: '#EA580C',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  spotlightOfferBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  spotlightCardBody: {
+    padding: 8,
+  },
+  spotlightItemName: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    flex: 1,
+  },
+  spotlightRestoName: {
+    color: '#9CA3AF',
+    fontSize: 10,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  spotlightPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  spotlightPrice: {
+    color: '#10B981',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  spotlightOrigPrice: {
+    color: '#6B7280',
+    fontSize: 11,
+    textDecorationLine: 'line-through',
+  },
+  spotlightAddBtn: {
+    backgroundColor: '#0B3820',
+    borderWidth: 1,
+    borderColor: '#10B981',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  spotlightAddBtnText: {
+    color: '#10B981',
+    fontSize: 10.5,
+    fontWeight: '900',
+  },
+  filterModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  filterModalCard: {
+    backgroundColor: '#0F1A14',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: '#1F3827',
+    maxHeight: '85%',
+    paddingBottom: 24,
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  filterModalTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+  filterModalSubtitle: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  filterModalResetText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  filterModalCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#1F2937',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterModalCloseText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  filterModalBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  filterSectionBox: {
+    marginBottom: 20,
+  },
+  filterSectionLabel: {
+    color: '#9CA3AF',
+    fontSize: 11.5,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  filterChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterChoiceChip: {
+    backgroundColor: '#16231C',
+    borderWidth: 1,
+    borderColor: '#263B2F',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  filterChoiceChipActive: {
+    backgroundColor: '#0B3820',
+    borderColor: '#10B981',
+    borderWidth: 1.5,
+  },
+  filterChoiceChipText: {
+    color: '#D1D5DB',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  filterChoiceChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+  filterToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#16231C',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#263B2F',
+  },
+  filterToggleTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  filterToggleSub: {
+    color: '#9CA3AF',
+    fontSize: 10.5,
+    marginTop: 2,
+  },
+  filterModalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  filterModalClearBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#374151',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterModalClearBtnText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  filterModalApplyBtn: {
+    flex: 2,
+    backgroundColor: '#10B981',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterModalApplyBtnText: {
+    color: '#062013',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.2,
   },
 });

@@ -16,6 +16,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
         },
       },
       ProfileCompletion: 'profile-completion',
+      Suspended: 'suspended',
       Main: {
         screens: {
           BrowseTab: {

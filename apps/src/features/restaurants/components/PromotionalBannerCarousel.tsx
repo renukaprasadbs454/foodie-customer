@@ -91,71 +91,87 @@ interface PromoBannerItem {
   theme: PromoBannerTheme;
 }
 
-const DEFAULT_PROMO_BANNERS: Omit<PromoBannerItem, 'theme'>[] = [
-  {
-    id: 'promo-1',
-    badge: '⚡ SPECIAL DEAL',
-    topTitle: 'MEGA OFFER',
-    bigHighlight: 'ON HOTEL MAYURA',
-    subtitle: 'Up to 60% offer',
-    ctaText: 'Order now ›',
-    ctaType: 'OPEN_CATEGORY',
-    ctaTarget: 'Chicken',
-    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600',
-  },
-  {
-    id: 'promo-2',
-    badge: '⚡ SPECIAL DEAL',
-    topTitle: 'ROYAL FEAST',
-    bigHighlight: 'UP TO 50% OFF',
-    subtitle: 'Authentic Hyderabadi spice & tender cuts.',
-    ctaText: 'Order now ›',
-    ctaType: 'OPEN_CATEGORY',
-    ctaTarget: 'Biryani',
-    imageUrl: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=600',
-  },
-  {
-    id: 'promo-3',
-    badge: '⚡ SPECIAL DEAL',
-    topTitle: 'WEEKEND SPECIAL',
-    bigHighlight: 'FLAT ₹100 OFF',
-    subtitle: 'Waffles, milkshakes & artisanal treats.',
-    ctaText: 'Order now ›',
-    ctaType: 'OPEN_CATEGORY',
-    ctaTarget: 'South Indian',
-    imageUrl: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?q=80&w=600',
-  },
-  {
-    id: 'promo-4',
-    badge: '⚡ SPECIAL DEAL',
-    topTitle: 'CHEF CURATED',
-    bigHighlight: 'SAVE BIG TODAY',
-    subtitle: 'Top rated gourmet feasts for family.',
-    ctaText: 'Order now ›',
-    ctaType: 'OPEN_CATEGORY',
-    ctaTarget: 'Chicken',
-    imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=600',
-  },
-];
+function getDefaultBannersForZone(zoneId?: string | null): Omit<PromoBannerItem, 'theme'>[] {
+  const clean = (zoneId || '').toLowerCase();
+  const isTmk = clean.includes('tumkur') || clean.includes('tumakuru') || clean.includes('tmk');
+  const isBlr = clean.includes('bangalore') || clean.includes('bengaluru') || clean.includes('blr');
+
+  if (isTmk) {
+    return [
+      {
+        id: 'promo-tmk-1',
+        badge: '⚡ SPECIAL DEAL',
+        topTitle: 'TUMKUR FEAST',
+        bigHighlight: 'UP TO 50% OFF',
+        subtitle: 'Exclusive discounts on Tumkur restaurants',
+        ctaText: 'Order now ›',
+        ctaType: 'OPEN_CATEGORY',
+        ctaTarget: 'Chicken',
+        imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600',
+      },
+      {
+        id: 'promo-tmk-2',
+        badge: '🔥 TUMKUR BITES',
+        topTitle: 'FLAT ₹80 OFF',
+        bigHighlight: 'ON BREAKFAST & MEALS',
+        subtitle: 'Valid across all restaurants in Tumkur Zone',
+        ctaText: 'Order now ›',
+        ctaType: 'OPEN_CATEGORY',
+        ctaTarget: 'South Indian',
+        imageUrl: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?q=80&w=600',
+      },
+    ];
+  }
+
+  // Bangalore / Default
+  return [
+    {
+      id: 'promo-blr-1',
+      badge: '⚡ SPECIAL DEAL',
+      topTitle: 'BANGALORE FEAST',
+      bigHighlight: 'UP TO 50% OFF',
+      subtitle: 'Exclusive discounts across Bangalore restaurants',
+      ctaText: 'Order now ›',
+      ctaType: 'OPEN_CATEGORY',
+      ctaTarget: 'Biryani',
+      imageUrl: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=600',
+    },
+    {
+      id: 'promo-blr-2',
+      badge: '🔥 BENGALURU BITES',
+      topTitle: 'FLAT ₹150 OFF',
+      bigHighlight: 'ON TOP RESTAURANTS',
+      subtitle: 'Order your favorite food delivered fast in Bengaluru',
+      ctaText: 'Order now ›',
+      ctaType: 'OPEN_CATEGORY',
+      ctaTarget: 'South Indian',
+      imageUrl: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?q=80&w=600',
+    },
+  ];
+}
 
 export function PromotionalBannerCarousel({
+  zoneId,
   onSelectCategory,
   onBannerChange,
 }: {
+  zoneId?: string | null;
   onSelectCategory?: (category: string) => void;
   onBannerChange?: (gradient: [string, string, string]) => void;
 }) {
   const { width } = useWindowDimensions();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
-  const { data: apiBanners } = useGetActiveBannersQuery();
+  const { data: apiBanners } = useGetActiveBannersQuery(zoneId);
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
+  const defaultBanners = getDefaultBannersForZone(zoneId);
+
   const displayBanners: PromoBannerItem[] =
     apiBanners && apiBanners.length > 0
       ? apiBanners.map((b, idx) => {
-          const fallback = DEFAULT_PROMO_BANNERS[idx % DEFAULT_PROMO_BANNERS.length]!;
+          const fallback = defaultBanners[idx % defaultBanners.length]!;
           const resolvedImg = b.imageUrl?.startsWith('/api')
             ? `${ENV.apiBaseUrl}${b.imageUrl}`
             : b.imageUrl || fallback.imageUrl;
@@ -185,7 +201,7 @@ export function PromotionalBannerCarousel({
             theme,
           };
         })
-      : DEFAULT_PROMO_BANNERS.map((item, idx) => ({
+      : defaultBanners.map((item, idx) => ({
           ...item,
           theme: PROMO_BANNER_THEMES[idx % PROMO_BANNER_THEMES.length]!,
         }));

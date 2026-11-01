@@ -22,12 +22,15 @@ export type EligibleCoupon = {
   minOrderAmount?: number | string | null;
   maxDiscountAmount?: number | string | null;
   expiryDate?: string | null;
+  zoneId?: string | null;
+  zoneName?: string | null;
 };
 
 export type ApplyCouponRequest = {
   code: string;
   restaurantId: string;
   cartTotal: number | string;
+  zoneId?: string | null;
 };
 
 export type ApplyCouponResult = {
