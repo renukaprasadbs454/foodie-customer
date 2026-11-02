@@ -12,6 +12,8 @@ export const TUMKUR_ZONE_RESTAURANT_IDS = new Set<string>([
   '5d938f03-719b-48c3-9c57-99b94d14374f', // Madhuvan
   'd3133510-5295-4753-9418-c06ecb3e962f', // Meghana Foods (Biryani)
   'dab800d2-31cf-4013-a9cf-e3a0bafd9baf', // CTR (Dosa)
+  'ebef972f-8a30-4a57-a2a6-66e3d31d4389', // Shetty biriyani house (Tumakuru)
+  '8742d1a6-a93f-4c53-9c71-ed431157888e', // Shetty biriyani 2 (Tumakuru)
 ]);
 
 export const BANGALORE_ZONE_RESTAURANT_IDS = new Set<string>([
@@ -22,8 +24,6 @@ export const BANGALORE_ZONE_RESTAURANT_IDS = new Set<string>([
   'b7409190-8c81-44a8-8cee-d817d84df5f0', // Test Restaurant
   '16b86453-52f9-4526-bd76-02234a8478da', // Ganesha Hotel
   '8f1de57c-777a-470c-a8a9-063646a989af', // Royal Hotel
-  'ebef972f-8a30-4a57-a2a6-66e3d31d4389', // Shetty biriyani house
-  '8742d1a6-a93f-4c53-9c71-ed431157888e', // Shetty biriyani 2
   'e27b20dc-783b-4aff-8af6-9da360b2ff9f', // Spice Garden Biryani
   '533656b2-2c7a-4e39-899b-9b8015cdd8aa', // Asian Wok & Noodle House
 ]);
@@ -73,6 +73,11 @@ export function isRestaurantInZone(
     if (HASSAN_ZONE_RESTAURANT_IDS.has(restoId)) {
       return isHasCustomer;
     }
+  }
+
+  const restoName = ((restaurant as any).name || '').toLowerCase();
+  if (restoName.includes('shetty') && restoName.includes('biriyani')) {
+    return isTmkCustomer;
   }
 
   // 2. ZoneId field match if present

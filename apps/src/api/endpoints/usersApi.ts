@@ -18,30 +18,39 @@ export const usersApi = baseApi.injectEndpoints({
         }
         let profile = ((result.data as any)?.data || result.data) as CustomerProfile;
         try {
-          // Check Admin BFF strictly by customerId and phone (unique identifiers)
+          // Check Admin BFF strictly by customerId, phone, and email (unique identifiers)
           const params = new URLSearchParams();
           if (profile?.customerId) params.set('id', String(profile.customerId));
           if (profile?.phoneNumber) params.set('phone', String(profile.phoneNumber));
+          if (profile?.email) params.set('email', String(profile.email));
 
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 2000);
-          const res = await fetch(`http://localhost:3100/api/bff/customer/status?${params.toString()}`, {
-            signal: controller.signal,
-          });
-          clearTimeout(timer);
-          if (res.ok) {
-            const json = await res.json();
-            const bffData = json?.data;
-            if (bffData) {
-              const isSusp = bffData.isSuspended === true || bffData.accountStatus === 'SUSPENDED';
-              profile = {
-                ...profile,
-                accountStatus: isSusp ? 'SUSPENDED' : 'ACTIVE',
-                isSuspended: isSusp,
-                suspensionReason: isSusp ? (bffData.suspensionReason || profile.suspensionReason || 'Account suspended by security administration') : null,
-                isCodDisabled: bffData.isCodDisabled !== undefined ? bffData.isCodDisabled : profile.isCodDisabled,
-              };
-            }
+          const endpoints = [
+            `http://localhost:3000/api/bff/customer/status?${params.toString()}`,
+            `http://localhost:3100/api/bff/customer/status?${params.toString()}`,
+          ];
+
+          for (const ep of endpoints) {
+            try {
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort(), 1800);
+              const res = await fetch(ep, { signal: controller.signal });
+              clearTimeout(timer);
+              if (res.ok) {
+                const json = await res.json();
+                const bffData = json?.data;
+                if (bffData) {
+                  const isSusp = bffData.isSuspended === true || bffData.accountStatus === 'SUSPENDED';
+                  profile = {
+                    ...profile,
+                    accountStatus: isSusp ? 'SUSPENDED' : 'ACTIVE',
+                    isSuspended: isSusp,
+                    suspensionReason: isSusp ? (bffData.suspensionReason || profile.suspensionReason || 'Account suspended by security administration') : null,
+                    isCodDisabled: bffData.isCodDisabled !== undefined ? bffData.isCodDisabled : profile.isCodDisabled,
+                  };
+                  break;
+                }
+              }
+            } catch {}
           }
         } catch {
           // BFF check silent fallback

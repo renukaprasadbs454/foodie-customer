@@ -62,11 +62,43 @@ export function CheckoutScreen({ navigation, route }: any) {
   const [useWallet, setUseWallet] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'COD'>('ONLINE');
   const profileQuery = useGetMyProfileQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true });
-  const isCodDisabled = Boolean(profileQuery.data?.isCodDisabled);
+  const [directCodDisabled, setDirectCodDisabled] = useState<boolean>(false);
+  const isCodDisabled = Boolean(profileQuery.data?.isCodDisabled || directCodDisabled);
   const isSuspended = Boolean(profileQuery.data?.isSuspended || profileQuery.data?.accountStatus === 'SUSPENDED');
   const suspensionReason = profileQuery.data?.suspensionReason;
   const placeAttemptKey = useRef<string | null>(null);
   const [showAddressRequiredModal, setShowAddressRequiredModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkDirectCod = async () => {
+      const p = profileQuery.data;
+      const params = new URLSearchParams();
+      if (p?.customerId) params.set('id', String(p.customerId));
+      if (p?.phoneNumber) params.set('phone', String(p.phoneNumber));
+      if (p?.email) params.set('email', String(p.email));
+      if (!p?.customerId && !p?.phoneNumber && !p?.email) return;
+
+      const endpoints = [
+        `http://localhost:3000/api/bff/customer/status?${params.toString()}`,
+        `http://localhost:3100/api/bff/customer/status?${params.toString()}`,
+      ];
+      for (const ep of endpoints) {
+        try {
+          const res = await fetch(ep);
+          if (res.ok) {
+            const json = await res.json();
+            if (isMounted && json?.data?.isCodDisabled !== undefined) {
+              setDirectCodDisabled(Boolean(json.data.isCodDisabled));
+              break;
+            }
+          }
+        } catch {}
+      }
+    };
+    void checkDirectCod();
+    return () => { isMounted = false; };
+  }, [profileQuery.data?.customerId, profileQuery.data?.phoneNumber, profileQuery.data?.email]);
 
   useEffect(() => {
     if (isCodDisabled && paymentMethod === 'COD') {
