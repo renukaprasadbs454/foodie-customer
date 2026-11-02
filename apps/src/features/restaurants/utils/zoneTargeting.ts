@@ -153,3 +153,180 @@ export function filterFoodItemsForZone(
       };
     });
 }
+
+/**
+ * Returns the canonical zone identifier and display name for a given restaurant.
+ */
+export function getRestaurantZone(restaurant?: {
+  id?: string | null;
+  zoneId?: string | null;
+  zoneName?: string | null;
+  city?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  name?: string | null;
+} | null): { zoneId: string; zoneName: string } {
+  if (!restaurant) {
+    return { zoneId: 'dz-bengaluru-zone', zoneName: 'Bengaluru Zone' };
+  }
+
+  const restoId = (restaurant as any).id || (restaurant as any).restaurantId || '';
+
+  // 1. Infallible Catalog lookup by Restaurant ID
+  if (restoId) {
+    if (TUMKUR_ZONE_RESTAURANT_IDS.has(restoId)) {
+      return { zoneId: 'dz-tumkur-zone', zoneName: 'Tumkur Zone' };
+    }
+    if (BANGALORE_ZONE_RESTAURANT_IDS.has(restoId)) {
+      return { zoneId: 'dz-bengaluru-zone', zoneName: 'Bengaluru Zone' };
+    }
+    if (HASSAN_ZONE_RESTAURANT_IDS.has(restoId)) {
+      return { zoneId: 'dz-hassan-zone', zoneName: 'Hassan Zone' };
+    }
+  }
+
+  // 2. Explicit zoneId field
+  if ((restaurant as any).zoneId) {
+    const z = String((restaurant as any).zoneId).toLowerCase();
+    if (z.includes('tumkur') || z.includes('tumakuru') || z.includes('tmk')) {
+      return { zoneId: 'dz-tumkur-zone', zoneName: 'Tumkur Zone' };
+    }
+    if (z.includes('bangalore') || z.includes('bengaluru') || z.includes('blr')) {
+      return { zoneId: 'dz-bengaluru-zone', zoneName: 'Bengaluru Zone' };
+    }
+    if (z.includes('hassan')) {
+      return { zoneId: 'dz-hassan-zone', zoneName: 'Hassan Zone' };
+    }
+    return { zoneId: String((restaurant as any).zoneId), zoneName: (restaurant as any).zoneName || 'Local Zone' };
+  }
+
+  // 3. City name check
+  if (restaurant.city) {
+    const c = restaurant.city.toLowerCase();
+    if (c.includes('tumkur') || c.includes('tumakuru')) {
+      return { zoneId: 'dz-tumkur-zone', zoneName: 'Tumkur Zone' };
+    }
+    if (c.includes('bangalore') || c.includes('bengaluru') || c.includes('ramapura')) {
+      return { zoneId: 'dz-bengaluru-zone', zoneName: 'Bengaluru Zone' };
+    }
+    if (c.includes('hassan')) {
+      return { zoneId: 'dz-hassan-zone', zoneName: 'Hassan Zone' };
+    }
+  }
+
+  // 4. Geographic coordinates
+  const lat = Number(restaurant.latitude);
+  const lng = Number(restaurant.longitude);
+  if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+    if (lat >= 13.25 && lng <= 77.35) {
+      return { zoneId: 'dz-tumkur-zone', zoneName: 'Tumkur Zone' };
+    }
+    if (lat < 13.25 && lat > 12.5) {
+      return { zoneId: 'dz-bengaluru-zone', zoneName: 'Bengaluru Zone' };
+    }
+  }
+
+  // Default to Bengaluru Zone
+  return { zoneId: 'dz-bengaluru-zone', zoneName: 'Bengaluru Zone' };
+}
+
+/**
+ * Returns the canonical zone identifier and display name for a customer delivery address.
+ */
+export function getAddressZone(address?: {
+  addressId?: string;
+  city?: string | null;
+  pincode?: string | null;
+  line1?: string | null;
+  line2?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  zoneId?: string | null;
+} | null): { zoneId: string; zoneName: string } {
+  if (!address) {
+    return { zoneId: 'dz-bengaluru-zone', zoneName: 'Bengaluru Zone' };
+  }
+
+  // 1. Explicit zoneId if provided
+  if ((address as any).zoneId) {
+    const z = String((address as any).zoneId).toLowerCase();
+    if (z.includes('tumkur') || z.includes('tumakuru') || z.includes('tmk')) {
+      return { zoneId: 'dz-tumkur-zone', zoneName: 'Tumkur Zone' };
+    }
+    if (z.includes('bangalore') || z.includes('bengaluru') || z.includes('blr')) {
+      return { zoneId: 'dz-bengaluru-zone', zoneName: 'Bengaluru Zone' };
+    }
+    if (z.includes('hassan')) {
+      return { zoneId: 'dz-hassan-zone', zoneName: 'Hassan Zone' };
+    }
+  }
+
+  // 2. City name check
+  if (address.city) {
+    const c = address.city.toLowerCase();
+    if (c.includes('tumkur') || c.includes('tumakuru') || c.includes('tumakur')) {
+      return { zoneId: 'dz-tumkur-zone', zoneName: 'Tumkur Zone' };
+    }
+    if (c.includes('bangalore') || c.includes('bengaluru') || c.includes('ramapura')) {
+      return { zoneId: 'dz-bengaluru-zone', zoneName: 'Bengaluru Zone' };
+    }
+    if (c.includes('hassan')) {
+      return { zoneId: 'dz-hassan-zone', zoneName: 'Hassan Zone' };
+    }
+  }
+
+  // 3. Pincode check
+  if (address.pincode) {
+    const pin = address.pincode.trim();
+    if (pin.startsWith('572')) {
+      return { zoneId: 'dz-tumkur-zone', zoneName: 'Tumkur Zone' };
+    }
+    if (pin.startsWith('560')) {
+      return { zoneId: 'dz-bengaluru-zone', zoneName: 'Bengaluru Zone' };
+    }
+    if (pin.startsWith('573')) {
+      return { zoneId: 'dz-hassan-zone', zoneName: 'Hassan Zone' };
+    }
+  }
+
+  // 4. Coordinates check
+  const lat = Number(address.latitude);
+  const lng = Number(address.longitude);
+  if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+    if (lat >= 13.25 && lng <= 77.35) {
+      return { zoneId: 'dz-tumkur-zone', zoneName: 'Tumkur Zone' };
+    }
+    if (lat < 13.25 && lat > 12.5) {
+      return { zoneId: 'dz-bengaluru-zone', zoneName: 'Bengaluru Zone' };
+    }
+  }
+
+  // 5. Line1 / Line2 text fallback
+  const text = `${address.line1 || ''} ${address.line2 || ''}`.toLowerCase();
+  if (text.includes('tumkur') || text.includes('tumakuru')) {
+    return { zoneId: 'dz-tumkur-zone', zoneName: 'Tumkur Zone' };
+  }
+  if (text.includes('bangalore') || text.includes('bengaluru')) {
+    return { zoneId: 'dz-bengaluru-zone', zoneName: 'Bengaluru Zone' };
+  }
+  if (text.includes('hassan')) {
+    return { zoneId: 'dz-hassan-zone', zoneName: 'Hassan Zone' };
+  }
+
+  // Default to Bengaluru Zone
+  return { zoneId: 'dz-bengaluru-zone', zoneName: 'Bengaluru Zone' };
+}
+
+/**
+ * Checks whether a given delivery address belongs strictly to the selected restaurant's zone.
+ * An order cannot be placed across zones (intra-zone only).
+ */
+export function isAddressInRestaurantZone(
+  address?: any | null,
+  restaurant?: any | null
+): boolean {
+  if (!address || !restaurant) return true;
+  const restoZone = getRestaurantZone(restaurant);
+  const addrZone = getAddressZone(address);
+  return restoZone.zoneId === addrZone.zoneId;
+}

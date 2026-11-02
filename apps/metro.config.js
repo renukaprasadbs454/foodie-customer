@@ -107,11 +107,75 @@ config.server = {
         return;
       }
 
+      if (req.url && (req.url.includes('/banners/active') || req.url.includes('/api/v1/banners/active') || req.url.includes('/api/bff/banners/active'))) {
+        const fs = require('fs');
+        const os = require('os');
+        const path = require('path');
+        const adminDataPath = path.resolve(__dirname, '../../foodie-admin/apps/data/promotional_banners.json');
+        const tmpPath = path.join(os.tmpdir(), 'foodie_admin_banners_v1.json');
+        let banners = [];
+        try {
+          if (fs.existsSync(adminDataPath)) {
+            const raw = fs.readFileSync(adminDataPath, 'utf8');
+            const parsed = JSON.parse(raw);
+            banners = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.banners) ? parsed.banners : []);
+          } else if (fs.existsSync(tmpPath)) {
+            const raw = fs.readFileSync(tmpPath, 'utf8');
+            const parsed = JSON.parse(raw);
+            banners = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.banners) ? parsed.banners : []);
+          }
+        } catch (e) {
+          banners = [];
+        }
+
+        // Zone filter
+        const matchZone = (req.url.match(/[?&]zoneId=([^&]+)/) || [])[1] || req.headers['x-active-zone-id'] || '';
+        const cleanZone = decodeURIComponent(matchZone).trim().toLowerCase();
+
+        const isMatch = (target, cZone) => {
+          if (!target || !cZone) return false;
+          const t = target.trim().toLowerCase();
+          const c = cZone.trim().toLowerCase();
+          if (t === 'all' || c === 'all') return true;
+          if (t === c) return true;
+          if ((t.includes('tumkur') || t.includes('tumakuru') || t.includes('tmk')) && (c.includes('tumkur') || c.includes('tumakuru') || c.includes('tmk'))) return true;
+          if ((t.includes('bangalore') || t.includes('bengaluru') || t.includes('blr')) && (c.includes('bangalore') || c.includes('bengaluru') || c.includes('blr'))) return true;
+          const strip = (s) => s.replace(/^dz-/, '').replace(/-zone$/, '').replace(/\s+zone$/i, '').trim();
+          return strip(t) === strip(c);
+        };
+
+        const activeList = banners.filter(b => {
+          if (!b || b.status !== 'ACTIVE') return false;
+          const isAll = b.isAllZones === true || (Array.isArray(b.targetZoneIds) && b.targetZoneIds.includes('ALL')) || (Array.isArray(b.targetZoneNames) && b.targetZoneNames.includes('All Zones'));
+          if (isAll) return true;
+          if (Array.isArray(b.targetZoneIds) && b.targetZoneIds.length > 0) {
+            if (!cleanZone || cleanZone === 'all') return false;
+            const names = b.targetZoneNames || [];
+            return [...b.targetZoneIds, ...names].some(t => isMatch(t, cleanZone));
+          }
+          return false;
+        });
+
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'access-control-allow-origin': '*',
+          'access-control-allow-headers': '*',
+          'access-control-allow-methods': 'GET, POST, OPTIONS',
+        });
+        res.end(JSON.stringify({
+          success: true,
+          data: activeList,
+          error: null,
+          meta: { timestamp: new Date().toISOString(), requestId: 'metro-banners' }
+        }));
+        return;
+      }
+
       if (req.url && req.url.startsWith('/api/bff/')) {
-        const targetHost = 'http://localhost:3100';
+        const targetHost = 'http://localhost:3000';
         const targetUrl = targetHost + req.url;
         const httpLib = require('http');
-        const hostHeader = 'localhost:3100';
+        const hostHeader = 'localhost:3000';
         const options = {
           method: req.method,
           headers: {

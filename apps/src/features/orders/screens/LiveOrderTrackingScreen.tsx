@@ -27,6 +27,7 @@ import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
 import { useGetMenuQuery } from '../../../api/endpoints/menuApi';
 import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import type { CustomerAddress } from '../../checkout/types';
+import { getRestaurantZone, getAddressZone } from '../../restaurants/utils/zoneTargeting';
 import { toUnwrappedApiError } from '../../auth/apiError';
 import type { OrdersStackParamList } from '../../../navigation/types';
 import { OrderStatusStepper } from '../components/OrderStatusStepper';
@@ -640,9 +641,11 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                   <Text style={{ fontSize: 22 }}>🏠</Text>
                 </View>
                 <View style={{ flex: 1, marginLeft: tokens.spacing.md }}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#FCD34D', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Delivering To ({selectedAddr.label || 'Home'})
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#FCD34D', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Delivering To ({selectedAddr.label || 'Home'})
+                    </Text>
+                  </View>
                   <Text style={{ fontWeight: '700', fontSize: 14, color: '#FFFFFF', marginTop: 2 }} numberOfLines={1}>
                     {[selectedAddr.line1, selectedAddr.line2].filter(Boolean).join(', ') || 'Your delivery address'}
                   </Text>
@@ -680,9 +683,11 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                 </View>
                 <View style={{ flex: 1, marginLeft: tokens.spacing.md }}>
                   <Text style={{ fontWeight: '700', fontSize: 16, color: '#FFFFFF' }}>{(order as any)?.restaurantName || restaurant?.name || 'Restaurant'}</Text>
-                  <Text style={{ color: '#9CA3AF', fontSize: 13, marginTop: 2 }}>
-                    Preparing your food
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    <Text style={{ color: '#9CA3AF', fontSize: 13 }}>
+                      Preparing your food
+                    </Text>
+                  </View>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 12 }}>
                   <Pressable

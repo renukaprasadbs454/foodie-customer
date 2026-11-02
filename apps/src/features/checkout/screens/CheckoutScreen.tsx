@@ -28,6 +28,7 @@ import {
 } from 'foodie-shared-rn';
 import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import { useGetCartQuery } from '../../../api/endpoints/cartApi';
+import type { BrowseStackParamList } from '../../../navigation/types';
 import { useCreateOrderMutation, useTransitionOrderStatusMutation, saveOrderPaymentMethod } from '../../../api/endpoints/ordersApi';
 import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
 import { useGetWalletBalanceQuery } from '../../../api/endpoints/walletApi';
@@ -37,11 +38,11 @@ import { getDistanceKm } from '../../restaurants/types';
 import { globalLocation } from '../../../core/GlobalLocation';
 import { toUnwrappedApiError } from '../../auth/apiError';
 import { formatMoney, parseMoney } from '../../menu/types';
-import type { BrowseStackParamList } from '../../../navigation/types';
 import { AddressPickerRow } from '../components/AddressPickerRow';
 import { CheckoutSkeleton } from '../components/CheckoutSkeleton';
 import { AddressRequiredModal } from '../../cart/components/AddressRequiredModal';
 import { isAddressId } from '../types';
+import { getRestaurantZone, getAddressZone, isAddressInRestaurantZone } from '../../restaurants/utils/zoneTargeting';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Checkout'>;
 
@@ -100,9 +101,26 @@ export function CheckoutScreen({ navigation, route }: any) {
   const deliveryChargesQuery = useGetDeliveryChargesQuery();
   const commissionRulesQuery = useGetCommissionRulesQuery();
 
+  const restoZone = useMemo(() => getRestaurantZone(restaurant), [restaurant]);
+
   const chosenAddr = useMemo(() => {
     return addresses.find((a) => a.addressId === addressId);
   }, [addresses, addressId]);
+
+  const sortedAddresses = useMemo(() => {
+    return [...addresses].sort((a, b) => {
+      const aServiceable = isAddressInRestaurantZone(a, restaurant);
+      const bServiceable = isAddressInRestaurantZone(b, restaurant);
+      if (aServiceable && !bServiceable) return -1;
+      if (!aServiceable && bServiceable) return 1;
+      return 0;
+    });
+  }, [addresses, restaurant]);
+
+  const isSelectedAddressInZone = useMemo(() => {
+    if (!chosenAddr || !restaurant) return Boolean(chosenAddr);
+    return isAddressInRestaurantZone(chosenAddr, restaurant);
+  }, [chosenAddr, restaurant]);
 
   const actualDistanceKm = useMemo(() => {
     const custLat = Number(chosenAddr?.latitude) || globalLocation.coords?.latitude;
@@ -160,15 +178,23 @@ export function CheckoutScreen({ navigation, route }: any) {
 
   useEffect(() => {
     const list = addressesQuery.data;
-    if (!addressId && list && list.length > 0) {
-      const preferred = list.find((row) => row.isDefault)?.addressId ?? list[0]?.addressId;
-      if (preferred) setAddressId(preferred);
+    if (list && list.length > 0) {
+      // Prioritize addresses within the selected restaurant's zone
+      const inZoneList = restaurant
+        ? list.filter((row) => isAddressInRestaurantZone(row, restaurant))
+        : list;
+
+      const currentSelected = list.find((row) => row.addressId === addressId);
+      const isCurrentInZone = currentSelected ? isAddressInRestaurantZone(currentSelected, restaurant) : false;
+
+      if (!addressId || !isCurrentInZone) {
+        const preferred = inZoneList.find((row) => row.isDefault)?.addressId ?? inZoneList[0]?.addressId ?? null;
+        if (preferred) setAddressId(preferred);
+      }
     }
-  }, [addressId, addressesQuery.data]);
+  }, [addressId, addressesQuery.data, restaurant]);
 
   const subtotalBeforeCoupons = isDarkStoreMock ? mockItems.reduce((acc: number, mi: any) => acc + (mi.price * mi.quantity), 0) : Number(cart?.subtotal || 0);
-
-
 
   const loading = cartQuery.isLoading || addressesQuery.isLoading || createState.isLoading || walletQuery.isLoading || deliveryChargesQuery.isLoading;
 
@@ -188,6 +214,14 @@ export function CheckoutScreen({ navigation, route }: any) {
       return;
     }
     if (!addressId || !isAddressId(addressId)) {
+      setShowAddressRequiredModal(true);
+      return;
+    }
+    if (chosenAddr && restaurant && !isAddressInRestaurantZone(chosenAddr, restaurant)) {
+      setToast({
+        message: `Delivery unavailable: ${restaurant.name || 'This restaurant'} does not deliver to this address. Please choose an address within the delivery area.`,
+        variant: 'error',
+      });
       setShowAddressRequiredModal(true);
       return;
     }
@@ -352,7 +386,7 @@ export function CheckoutScreen({ navigation, route }: any) {
                   <Text style={{ color: '#FCD34D', fontSize: 26, fontWeight: '900', letterSpacing: -0.5 }}>
                     Checkout & Payment
                   </Text>
-                  {(cart?.restaurantName || restaurant?.name) && (
+                  {Boolean(cart?.restaurantName || restaurant?.name) && (
                     <Text style={{ color: '#E5E7EB', fontWeight: '600', fontSize: 13, marginTop: 2 }}>
                       Ordering from: {cart?.restaurantName || restaurant?.name}
                     </Text>
@@ -409,35 +443,55 @@ export function CheckoutScreen({ navigation, route }: any) {
                     shadowRadius: 8,
                     elevation: 3,
                   }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                      <Text style={{ fontSize: 18 }}>📍</Text>
-                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Delivery Address</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <Text style={{ fontSize: 18 }}>📍</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Delivery Address</Text>
+                      </View>
                     </View>
+
+                    {restaurant && (
+                      <Text style={{ color: '#9CA3AF', fontSize: 11.5, marginTop: -4, marginBottom: 4, lineHeight: 16 }}>
+                        Delivering from <Text style={{ color: '#FCD34D', fontWeight: '700' }}>{restaurant.name}</Text>. Only serviceable addresses are enabled.
+                      </Text>
+                    )}
+
                     {addresses.length === 0 ? (
                       <EmptyState
                         title="No addresses yet"
-                        description="Add a delivery address to continue checkout."
+                        description="Add a deliverable address to continue checkout."
                         accessibilityLabel="Checkout no addresses"
                         actionLabel="Addresses"
-                        onAction={() => navigation.navigate('Addresses', { selectMode: true })}
+                        onAction={() => navigation.navigate('Addresses', { selectMode: true, restaurantId: restaurant?.id })}
                       />
                     ) : (
                       <View style={{ gap: 10 }}>
-                        {addresses.map((address) => (
-                          <AddressPickerRow
-                            key={address.addressId}
-                            address={address}
-                            selected={addressId === address.addressId}
-                            onSelect={() => {
-                              setAddressId(address.addressId);
-                              trackAnalyticsEvent('address_selected', { addressId: address.addressId });
-                              placeAttemptKey.current = null;
-                            }}
-                          />
-                        ))}
+                        {sortedAddresses.map((address) => {
+                          const isServiceable = isAddressInRestaurantZone(address, restaurant);
+                          return (
+                            <AddressPickerRow
+                              key={address.addressId}
+                              address={address}
+                              selected={addressId === address.addressId}
+                              disabled={!isServiceable}
+                              disabledReason={!isServiceable ? 'Outside delivery area for this restaurant' : undefined}
+                              onDisabledPress={() => {
+                                setToast({
+                                  message: `Cannot deliver here: ${restaurant?.name || 'This restaurant'} does not deliver to this address. Please select a deliverable address.`,
+                                  variant: 'error',
+                                });
+                              }}
+                              onSelect={() => {
+                                setAddressId(address.addressId);
+                                trackAnalyticsEvent('address_selected', { addressId: address.addressId });
+                                placeAttemptKey.current = null;
+                              }}
+                            />
+                          );
+                        })}
                         <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginVertical: 4 }} />
                         <Pressable
-                          onPress={() => navigation.navigate('Addresses', { selectMode: true })}
+                          onPress={() => navigation.navigate('Addresses', { selectMode: true, restaurantId: restaurant?.id })}
                           style={{ alignSelf: 'flex-start' }}
                         >
                           <Text style={{ color: '#FCD34D', fontWeight: '800', fontSize: 14 }}>
@@ -447,6 +501,7 @@ export function CheckoutScreen({ navigation, route }: any) {
                       </View>
                     )}
                   </View>
+
 
                   {/* Wallet Section */}
                   <View style={{

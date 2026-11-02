@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Text, useTheme } from 'foodie-shared-rn';
 import { formatMoney } from '../../menu/types';
 import type { OrderDetail } from '../types';
+import { getRestaurantZone } from '../../restaurants/utils/zoneTargeting';
 
 type Props = {
   order: OrderDetail;
@@ -12,6 +13,7 @@ type Props = {
 export function OrderSummaryCard({ order }: Props) {
   const { tokens } = useTheme();
   const items = order.items ?? [];
+  const restoZone = order.restaurantId ? getRestaurantZone({ id: order.restaurantId }) : null;
 
   return (
     <View
@@ -26,7 +28,9 @@ export function OrderSummaryCard({ order }: Props) {
       accessibilityLabel={`Order summary ${order.orderNumber}`}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={{ fontSize: 18, fontWeight: '900', color: '#FFFFFF' }}>{order.orderNumber}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ fontSize: 18, fontWeight: '900', color: '#FFFFFF' }}>{order.orderNumber}</Text>
+        </View>
         <View style={{ backgroundColor: 'rgba(252, 211, 77, 0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
           <Text style={{ fontSize: 12, fontWeight: '800', color: '#FCD34D' }}>
             {order.status}

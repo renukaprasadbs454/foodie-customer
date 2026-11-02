@@ -977,11 +977,14 @@ export function HomeScreen({ navigation }: Props) {
         <View style={styles.activeFilterBanner}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
             <Text style={styles.activeFilterBannerTitle}>
-              {activeFilterPill === 'new' && `✨ Showing New Restaurants for You in ${activeZone?.zoneName || activeZone?.cityName || 'your zone'}`}
-              {activeFilterPill === 'offers' && `🔥 Showing Restaurants & Food Deals with Great Offers in ${activeZone?.zoneName || activeZone?.cityName || 'your zone'}`}
-              {activeFilterPill === 'under250' && `💰 Showing Restaurants & Dishes Under ₹250 in ${activeZone?.zoneName || activeZone?.cityName || 'your zone'}`}
-              {activeFilterPill === 'fastDelivery' && `⚡ Showing Fast Delivery Restaurants in ${activeZone?.zoneName || activeZone?.cityName || 'your zone'}`}
-              {!activeFilterPill && activeModalFilterCount > 0 && `⚙️ ${activeModalFilterCount} Filter Preferences Applied in ${activeZone?.zoneName || activeZone?.cityName || 'your zone'}`}
+              {(() => {
+                if (activeFilterPill === 'new') return '✨ Showing New Restaurants for You';
+                if (activeFilterPill === 'offers') return '🔥 Showing Restaurants & Food Deals with Great Offers';
+                if (activeFilterPill === 'under250') return '💰 Showing Restaurants & Dishes Under ₹250';
+                if (activeFilterPill === 'fastDelivery') return '⚡ Showing Fast Delivery Restaurants';
+                if (activeModalFilterCount > 0) return `⚙️ ${activeModalFilterCount} Filter Preferences Applied`;
+                return '';
+              })()}
             </Text>
           </View>
           <Pressable
@@ -1205,7 +1208,7 @@ export function HomeScreen({ navigation }: Props) {
                 )}
 
                 {/* Offer Badge (if open) */}
-                {!topFeaturedRestaurant.isOpen === false && (
+                {topFeaturedRestaurant.isOpen !== false && (
                   <View style={styles.heroOfferBadge}>
                     <Text style={styles.heroOfferBadgeText}>₹75 OFF above ₹149</Text>
                   </View>
@@ -1234,10 +1237,10 @@ export function HomeScreen({ navigation }: Props) {
                       </Text>
                     </View>
 
-                    {topFeaturedRestaurant.avgRating && (
+                    {Boolean(topFeaturedRestaurant.avgRating && Number(topFeaturedRestaurant.avgRating) > 0) && (
                       <View style={styles.heroRatingBadge}>
                         <Text style={styles.heroRatingText}>
-                          ★ {topFeaturedRestaurant.avgRating.toFixed(1)}
+                          ★ {Number(topFeaturedRestaurant.avgRating).toFixed(1)}
                         </Text>
                       </View>
                     )}
@@ -1254,16 +1257,16 @@ export function HomeScreen({ navigation }: Props) {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={styles.zoneCountHeading}>
             {activeFilterPill === 'new'
-              ? `New Restaurants in ${activeZone?.zoneName || activeZone?.cityName || 'Your Zone'} (${displayedRestaurants.length})`
+              ? `New Restaurants (${displayedRestaurants.length})`
               : activeFilterPill === 'offers'
-              ? `Great Offers in ${activeZone?.zoneName || activeZone?.cityName || 'Your Zone'} (${displayedRestaurants.length})`
+              ? `Great Offers (${displayedRestaurants.length})`
               : activeFilterPill === 'under250'
-              ? `Meals Under ₹250 in ${activeZone?.zoneName || activeZone?.cityName || 'Your Zone'} (${displayedRestaurants.length})`
+              ? `Meals Under ₹250 (${displayedRestaurants.length})`
               : activeFilterPill === 'fastDelivery'
-              ? `Fast Delivery Under 30 Mins in ${activeZone?.zoneName || activeZone?.cityName || 'Your Zone'} (${displayedRestaurants.length})`
+              ? `Fast Delivery Under 30 Mins (${displayedRestaurants.length})`
               : selectedCategoryId !== 'all'
-              ? `${computedCategories.find((c) => c.id === selectedCategoryId)?.name || 'Category'} in ${activeZone?.zoneName || activeZone?.cityName || 'Your Zone'} (${displayedRestaurants.length})`
-              : `${displayedRestaurants.length} Restaurants Delivering in ${activeZone?.zoneName || activeZone?.cityName || 'Your Zone'}`}
+              ? `${computedCategories.find((c) => c.id === selectedCategoryId)?.name || 'Category'} (${displayedRestaurants.length})`
+              : `${displayedRestaurants.length} Restaurants Delivering to You`}
           </Text>
           {(activeFilterPill !== null || activeModalFilterCount > 0 || selectedCategoryId !== 'all') && (
             <Pressable

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, Switch, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -24,6 +24,13 @@ import {
   useUpdateAddressMutation,
   useSetDefaultAddressMutation,
 } from '../../../api/endpoints/addressesApi';
+import { useGetCartQuery } from '../../../api/endpoints/cartApi';
+import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
+import {
+  isAddressInRestaurantZone,
+  getRestaurantZone,
+  getAddressZone,
+} from '../../restaurants/utils/zoneTargeting';
 import { toUnwrappedApiError } from '../../auth/apiError';
 import type {
   BrowseStackParamList,
@@ -45,7 +52,16 @@ type Props = ProfileProps | BrowseProps;
 export function AddressesScreen({ navigation, route }: Props) {
   const { tokens } = useTheme();
   const { isConnected } = useConnectivity();
-  const selectMode = Boolean(route.params?.selectMode);
+  const selectMode = Boolean((route.params as any)?.selectMode);
+  const routeRestaurantId = (route.params as any)?.restaurantId;
+  const cartQuery = useGetCartQuery();
+  const effectiveRestaurantId = routeRestaurantId || cartQuery.data?.restaurantId;
+  const restaurantQuery = useGetRestaurantQuery(effectiveRestaurantId || '', {
+    skip: !effectiveRestaurantId,
+  });
+  const activeRestaurant = restaurantQuery.data || (cartQuery.data?.restaurantName ? { id: effectiveRestaurantId, name: cartQuery.data.restaurantName } : undefined);
+  const restoZone = activeRestaurant ? getRestaurantZone(activeRestaurant) : null;
+
   const addressesQuery = useGetAddressesQuery();
   const [addAddress, addState] = useAddAddressMutation();
   const [removeAddress, removeState] = useRemoveAddressMutation();
@@ -314,13 +330,24 @@ export function AddressesScreen({ navigation, route }: Props) {
 
   const addresses = addressesQuery.data ?? [];
 
+  const sortedAddresses = useMemo(() => {
+    if (!activeRestaurant) return addresses;
+    return [...addresses].sort((a, b) => {
+      const aInZone = isAddressInRestaurantZone(a, activeRestaurant);
+      const bInZone = isAddressInRestaurantZone(b, activeRestaurant);
+      if (aInZone && !bInZone) return -1;
+      if (!aInZone && bInZone) return 1;
+      return 0;
+    });
+  }, [addresses, activeRestaurant]);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#012B18' }} edges={['top', 'left', 'right']}>
       <View style={{ flex: 1, backgroundColor: '#0A120E' }}>
         <FlatList
           style={{ flex: 1 }}
           data={
-            addressesQuery.isLoading && addresses.length === 0 ? [] : addresses
+            addressesQuery.isLoading && sortedAddresses.length === 0 ? [] : sortedAddresses
           }
           keyExtractor={(item) => item.addressId}
           contentContainerStyle={{
@@ -364,6 +391,24 @@ export function AddressesScreen({ navigation, route }: Props) {
                   Offline — showing cached addresses. Changes are blocked.
                 </Text>
               ) : null}
+
+              {activeRestaurant && (
+                <View style={{
+                  marginTop: 12,
+                  backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                  borderColor: '#F59E0B',
+                  borderWidth: 1,
+                  borderRadius: 12,
+                  padding: 12,
+                }}>
+                  <Text style={{ color: '#FCD34D', fontWeight: '800', fontSize: 13, marginBottom: 2 }}>
+                    📍 Delivery Area Restriction
+                  </Text>
+                  <Text style={{ color: '#E5E7EB', fontSize: 12, lineHeight: 16 }}>
+                    Ordering from {activeRestaurant.name}. Only serviceable addresses can be selected.
+                  </Text>
+                </View>
+              )}
 
               {addressesQuery.isLoading && addresses.length === 0 ? (
                 <AddressListSkeleton />
@@ -426,46 +471,61 @@ export function AddressesScreen({ navigation, route }: Props) {
               </Pressable>
             </View>
           }
-          renderItem={({ item: address }) => (
-            <View style={{ paddingHorizontal: tokens.spacing.md, marginVertical: tokens.spacing.xs }}>
-              <AddressCard
-                address={address}
-                selectMode={selectMode}
-                removing={removingId === address.addressId && removeState.isLoading}
-                onRemove={() => {
-                  void onRemove(address.addressId);
-                }}
-                onEdit={() => openEditForm(address)}
-                onSelect={
-                  selectMode
-                    ? async () => {
-                      if (!address.isDefault) {
-                        try {
-                          await setDefault(address.addressId).unwrap();
-                        } catch (err) {
-                          // continue
+          renderItem={({ item: address }) => {
+            const inZone = activeRestaurant ? isAddressInRestaurantZone(address, activeRestaurant) : true;
+            const disabledReason = !inZone && activeRestaurant
+              ? 'Outside delivery area for this restaurant.'
+              : undefined;
+
+            return (
+              <View style={{ paddingHorizontal: tokens.spacing.md, marginVertical: tokens.spacing.xs }}>
+                <AddressCard
+                  address={address}
+                  selectMode={selectMode}
+                  disabled={!inZone}
+                  disabledReason={disabledReason}
+                  onDisabledPress={() => {
+                    setToast({
+                      message: `Cannot deliver here: ${activeRestaurant?.name || 'This restaurant'} does not deliver to this address.`,
+                      variant: 'warning',
+                    });
+                  }}
+                  removing={removingId === address.addressId && removeState.isLoading}
+                  onRemove={() => {
+                    void onRemove(address.addressId);
+                  }}
+                  onEdit={() => openEditForm(address)}
+                  onSelect={
+                    selectMode && inZone
+                      ? async () => {
+                        if (!address.isDefault) {
+                          try {
+                            await setDefault(address.addressId).unwrap();
+                          } catch (err) {
+                            // continue
+                          }
                         }
-                      }
-                      if (address.latitude && address.longitude) {
-                        await setSelectedAddress({
+                        if (address.latitude && address.longitude) {
+                          await setSelectedAddress({
+                            addressId: address.addressId,
+                            label: address.label,
+                            line1: address.line1,
+                            city: address.city,
+                            latitude: address.latitude,
+                            longitude: address.longitude,
+                          });
+                        }
+                        trackAnalyticsEvent('address_selected', {
                           addressId: address.addressId,
-                          label: address.label,
-                          line1: address.line1,
-                          city: address.city,
-                          latitude: address.latitude,
-                          longitude: address.longitude,
                         });
+                        navigation.goBack();
                       }
-                      trackAnalyticsEvent('address_selected', {
-                        addressId: address.addressId,
-                      });
-                      navigation.goBack();
-                    }
-                    : undefined
-                }
-              />
-            </View>
-          )}
+                      : undefined
+                  }
+                />
+              </View>
+            );
+          }}
         />
 
         <Modal

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   View,
   FlatList,
@@ -91,65 +91,6 @@ interface PromoBannerItem {
   theme: PromoBannerTheme;
 }
 
-function getDefaultBannersForZone(zoneId?: string | null): Omit<PromoBannerItem, 'theme'>[] {
-  const clean = (zoneId || '').toLowerCase();
-  const isTmk = clean.includes('tumkur') || clean.includes('tumakuru') || clean.includes('tmk');
-  const isBlr = clean.includes('bangalore') || clean.includes('bengaluru') || clean.includes('blr');
-
-  if (isTmk) {
-    return [
-      {
-        id: 'promo-tmk-1',
-        badge: '⚡ SPECIAL DEAL',
-        topTitle: 'TUMKUR FEAST',
-        bigHighlight: 'UP TO 50% OFF',
-        subtitle: 'Exclusive discounts on Tumkur restaurants',
-        ctaText: 'Order now ›',
-        ctaType: 'OPEN_CATEGORY',
-        ctaTarget: 'Chicken',
-        imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600',
-      },
-      {
-        id: 'promo-tmk-2',
-        badge: '🔥 TUMKUR BITES',
-        topTitle: 'FLAT ₹80 OFF',
-        bigHighlight: 'ON BREAKFAST & MEALS',
-        subtitle: 'Valid across all restaurants in Tumkur Zone',
-        ctaText: 'Order now ›',
-        ctaType: 'OPEN_CATEGORY',
-        ctaTarget: 'South Indian',
-        imageUrl: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?q=80&w=600',
-      },
-    ];
-  }
-
-  // Bangalore / Default
-  return [
-    {
-      id: 'promo-blr-1',
-      badge: '⚡ SPECIAL DEAL',
-      topTitle: 'BANGALORE FEAST',
-      bigHighlight: 'UP TO 50% OFF',
-      subtitle: 'Exclusive discounts across Bangalore restaurants',
-      ctaText: 'Order now ›',
-      ctaType: 'OPEN_CATEGORY',
-      ctaTarget: 'Biryani',
-      imageUrl: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=600',
-    },
-    {
-      id: 'promo-blr-2',
-      badge: '🔥 BENGALURU BITES',
-      topTitle: 'FLAT ₹150 OFF',
-      bigHighlight: 'ON TOP RESTAURANTS',
-      subtitle: 'Order your favorite food delivered fast in Bengaluru',
-      ctaText: 'Order now ›',
-      ctaType: 'OPEN_CATEGORY',
-      ctaTarget: 'South Indian',
-      imageUrl: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?q=80&w=600',
-    },
-  ];
-}
-
 export function PromotionalBannerCarousel({
   zoneId,
   onSelectCategory,
@@ -166,45 +107,41 @@ export function PromotionalBannerCarousel({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
-  const defaultBanners = getDefaultBannersForZone(zoneId);
+  const displayBanners: PromoBannerItem[] = useMemo(() => {
+    if (!apiBanners || apiBanners.length === 0) return [];
+    return apiBanners.map((b, idx) => {
+      const resolvedImg = b.imageUrl?.startsWith('/api')
+        ? `${ENV.apiBaseUrl}${b.imageUrl}`
+        : (b.imageUrl && b.imageUrl !== 'auto-generated' ? b.imageUrl : undefined);
 
-  const displayBanners: PromoBannerItem[] =
-    apiBanners && apiBanners.length > 0
-      ? apiBanners.map((b, idx) => {
-          const fallback = defaultBanners[idx % defaultBanners.length]!;
-          const resolvedImg = b.imageUrl?.startsWith('/api')
-            ? `${ENV.apiBaseUrl}${b.imageUrl}`
-            : b.imageUrl || fallback.imageUrl;
+      let top = 'SPECIAL OFFER';
+      let highlight = b.title || 'UP TO 50% OFF';
+      if (b.title && b.title.length > 12) {
+        const words = b.title.split(' ');
+        if (words.length > 2) {
+          top = words.slice(0, 2).join(' ').toUpperCase();
+          highlight = words.slice(2).join(' ').toUpperCase();
+        }
+      }
 
-          let top = 'SPECIAL OFFER';
-          let highlight = b.title || 'UP TO 50% OFF';
-          if (b.title && b.title.length > 12) {
-            const words = b.title.split(' ');
-            if (words.length > 2) {
-              top = words.slice(0, 2).join(' ').toUpperCase();
-              highlight = words.slice(2).join(' ').toUpperCase();
-            }
-          }
+      const theme = PROMO_BANNER_THEMES[idx % PROMO_BANNER_THEMES.length]!;
 
-          const theme = PROMO_BANNER_THEMES[idx % PROMO_BANNER_THEMES.length]!;
+      return {
+        id: b.id,
+        badge: '⚡ SPECIAL DEAL',
+        topTitle: top,
+        bigHighlight: highlight,
+        subtitle: b.subtitle || 'Fresh, fast & hygienic meals',
+        ctaText: b.ctaText ? `${b.ctaText} ›` : 'Order Now ›',
+        ctaType: b.ctaType || 'OPEN_RESTAURANT',
+        ctaTarget: b.ctaTarget,
+        imageUrl: resolvedImg,
+        theme,
+      };
+    });
+  }, [apiBanners]);
 
-          return {
-            id: b.id,
-            badge: '⚡ SPECIAL DEAL',
-            topTitle: top,
-            bigHighlight: highlight,
-            subtitle: b.subtitle || 'Fresh, fast & hygienic meals',
-            ctaText: b.ctaText ? `${b.ctaText} ›` : 'Order Now ›',
-            ctaType: b.ctaType || 'OPEN_RESTAURANT',
-            ctaTarget: b.ctaTarget,
-            imageUrl: resolvedImg,
-            theme,
-          };
-        })
-      : defaultBanners.map((item, idx) => ({
-          ...item,
-          theme: PROMO_BANNER_THEMES[idx % PROMO_BANNER_THEMES.length]!,
-        }));
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Auto-scroll loop every 3.5s with smooth animation
   useEffect(() => {
@@ -226,6 +163,29 @@ export function PromotionalBannerCarousel({
     }, 3600);
     return () => clearInterval(interval);
   }, [displayBanners, width, onBannerChange]);
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.06,
+          duration: 1300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1300,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
+
+  if (!displayBanners || displayBanners.length === 0) {
+    return null;
+  }
 
   const handleBannerPress = (banner: PromoBannerItem) => {
     if (banner.ctaType === 'OPEN_RESTAURANT' && banner.ctaTarget) {
@@ -250,27 +210,6 @@ export function PromotionalBannerCarousel({
       }
     }
   };
-
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.06,
-          duration: 1300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1300,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulseAnim]);
 
   return (
     <View style={styles.container}>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   View,
@@ -9,6 +9,11 @@ import {
 import { Text } from 'foodie-shared-rn';
 import { Feather } from '@expo/vector-icons';
 import type { CustomerAddress } from '../../checkout/types';
+import {
+  isAddressInRestaurantZone,
+  getRestaurantZone,
+  getAddressZone,
+} from '../../restaurants/utils/zoneTargeting';
 
 interface AddressRequiredModalProps {
   visible: boolean;
@@ -17,6 +22,7 @@ interface AddressRequiredModalProps {
   addresses?: CustomerAddress[];
   selectedAddressId?: string | null;
   onSelectAddress?: (addressId: string) => void;
+  restaurant?: any;
   title?: string;
   message?: string;
 }
@@ -28,10 +34,24 @@ export function AddressRequiredModal({
   addresses = [],
   selectedAddressId,
   onSelectAddress,
+  restaurant,
   title = 'Delivery Address Required',
   message = 'Please add or select a delivery address before placing your order. Without an address, we cannot deliver your food!',
 }: AddressRequiredModalProps) {
+  const restoZone = restaurant ? getRestaurantZone(restaurant) : null;
   const hasSavedAddresses = addresses && addresses.length > 0;
+
+  const sortedAddresses = useMemo(() => {
+    if (!addresses || addresses.length === 0) return [];
+    if (!restaurant) return addresses;
+    return [...addresses].sort((a, b) => {
+      const aInZone = isAddressInRestaurantZone(a, restaurant);
+      const bInZone = isAddressInRestaurantZone(b, restaurant);
+      if (aInZone && !bInZone) return -1;
+      if (!aInZone && bInZone) return 1;
+      return 0;
+    });
+  }, [addresses, restaurant]);
 
   return (
     <Modal
@@ -131,14 +151,18 @@ export function AddressRequiredModal({
               }}>
                 Choose a saved address:
               </Text>
-              <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled>
+              <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
                 <View style={{ gap: 8 }}>
-                  {addresses.map((addr) => {
+                  {sortedAddresses.map((addr) => {
                     const isSelected = selectedAddressId === addr.addressId;
+                    const inZone = restaurant ? isAddressInRestaurantZone(addr, restaurant) : true;
+
                     return (
                       <Pressable
                         key={addr.addressId}
+                        disabled={!inZone}
                         onPress={() => {
+                          if (!inZone) return;
                           onSelectAddress(addr.addressId);
                           onClose();
                         }}
@@ -148,33 +172,62 @@ export function AddressRequiredModal({
                           padding: 10,
                           borderRadius: 12,
                           borderWidth: 1.5,
-                          borderColor: isSelected ? '#15803D' : '#E5E7EB',
-                          backgroundColor: isSelected ? '#F0FDF4' : (pressed ? '#F9FAFB' : '#FFFFFF'),
+                          borderColor: !inZone
+                            ? 'rgba(239, 68, 68, 0.3)'
+                            : isSelected
+                            ? '#15803D'
+                            : '#E5E7EB',
+                          backgroundColor: !inZone
+                            ? '#FEF2F2'
+                            : isSelected
+                            ? '#F0FDF4'
+                            : pressed
+                            ? '#F9FAFB'
+                            : '#FFFFFF',
+                          opacity: !inZone ? 0.6 : 1,
                           gap: 10,
                         })}
                       >
                         <Feather
-                          name={isSelected ? 'check-circle' : 'map-pin'}
+                          name={!inZone ? 'slash' : isSelected ? 'check-circle' : 'map-pin'}
                           size={18}
-                          color={isSelected ? '#15803D' : '#9CA3AF'}
+                          color={!inZone ? '#EF4444' : isSelected ? '#15803D' : '#9CA3AF'}
                         />
                         <View style={{ flex: 1 }}>
-                          <Text style={{
-                            fontSize: 13,
-                            fontWeight: '700',
-                            color: '#111827',
-                          }}>
-                            {addr.label || addr.line1}
-                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Text style={{
+                              fontSize: 13,
+                              fontWeight: '700',
+                              color: !inZone ? '#991B1B' : '#111827',
+                            }}>
+                              {addr.label || addr.line1}
+                            </Text>
+                            {!inZone && (
+                              <View style={{
+                                backgroundColor: '#FEE2E2',
+                                borderColor: '#FCA5A5',
+                                borderWidth: 1,
+                                borderRadius: 4,
+                                paddingHorizontal: 6,
+                                paddingVertical: 1,
+                              }}>
+                                <Text style={{ color: '#B91C1C', fontSize: 9, fontWeight: '800' }}>
+                                  NOT DELIVERABLE
+                                </Text>
+                              </View>
+                            )}
+                          </View>
                           <Text
                             numberOfLines={1}
                             style={{
                               fontSize: 11,
-                              color: '#6B7280',
+                              color: !inZone ? '#B91C1C' : '#6B7280',
                               marginTop: 2,
                             }}
                           >
-                            {addr.line1} {addr.city ? `, ${addr.city}` : ''}
+                            {!inZone
+                              ? 'Outside delivery area for this restaurant'
+                              : `${addr.line1}${addr.city ? `, ${addr.city}` : ''}`}
                           </Text>
                         </View>
                       </Pressable>

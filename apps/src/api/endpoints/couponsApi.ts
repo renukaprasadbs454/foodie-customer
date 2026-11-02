@@ -56,39 +56,32 @@ export const couponsApi = baseApi.injectEndpoints({
       queryFn: async ({ restaurantId, cartTotal, zoneId }, _queryApi, _extraOptions, baseQuery) => {
         const cleanZone = zoneId ? zoneId.trim() : '';
 
-        // Try 1: Query Admin BFF for eligible coupons in this zone
-        try {
-          const bffUrl = `/api/bff/coupons/eligible?restaurantId=${encodeURIComponent(restaurantId)}&cartTotal=${cartTotal}${cleanZone ? `&zoneId=${encodeURIComponent(cleanZone)}` : ''}`;
-          const bffRes = await baseQuery({
-            url: bffUrl,
-            headers: cleanZone ? { 'x-active-zone-id': cleanZone } : undefined,
-          });
+        const isUuid = (id: string) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
-          const unwrapped = (bffRes.data as any)?.data ?? bffRes.data;
-          if (Array.isArray(unwrapped) && unwrapped.length > 0) {
-            return { data: filterCouponsForZone(unwrapped as EligibleCoupon[], cleanZone) };
-          }
-        } catch {
-          // Fall through
+        if (!restaurantId || !isUuid(restaurantId)) {
+          return { data: [] };
         }
 
-        // Try 2: Query backend /api/v1/coupons/eligible
+        // Try 1: Query backend /api/v1/coupons/eligible
         try {
           const relativeRes = await baseQuery({
             url: '/api/v1/coupons/eligible',
-            params: { restaurantId, cartTotal, ...(cleanZone ? { zoneId: cleanZone } : {}) },
+            params: { restaurantId, cartTotal: Number(cartTotal) || 0, ...(cleanZone ? { zoneId: cleanZone } : {}) },
             headers: cleanZone ? { 'x-active-zone-id': cleanZone } : undefined,
           });
 
-          const rawList = (relativeRes.data as any)?.data ?? relativeRes.data ?? [];
-          if (Array.isArray(rawList) && rawList.length > 0) {
-            return { data: filterCouponsForZone(rawList as EligibleCoupon[], cleanZone) };
+          if (relativeRes.data) {
+            const rawList = (relativeRes.data as any)?.data ?? relativeRes.data ?? [];
+            if (Array.isArray(rawList) && rawList.length > 0) {
+              return { data: filterCouponsForZone(rawList as EligibleCoupon[], cleanZone) };
+            }
           }
         } catch {
           // Fall through
         }
 
-        // Try 3: Direct BFF call to localhost:3100
+        // Try 2: Direct BFF call to localhost:3100 (fallback via native fetch, not baseQuery)
         try {
           const directUrl = `http://localhost:3100/api/bff/coupons/eligible?restaurantId=${encodeURIComponent(restaurantId)}&cartTotal=${cartTotal}${cleanZone ? `&zoneId=${encodeURIComponent(cleanZone)}` : ''}`;
           const directRes = await fetch(directUrl);

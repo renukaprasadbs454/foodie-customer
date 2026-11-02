@@ -50,49 +50,45 @@ export function isZoneMatching(target: string, customerZone: string): boolean {
 
 export function filterBannersForZone(banners: PromotionBannerResponse[], zoneId?: string | null): PromotionBannerResponse[] {
     if (!Array.isArray(banners)) return [];
-    if (!zoneId || zoneId.trim().toLowerCase() === 'all') {
-        return banners;
-    }
-    const cleanZone = zoneId.trim();
+    const cleanZone = zoneId ? zoneId.trim() : '';
 
     return banners.filter((b) => {
+        if (!b) return false;
         if (b.status && b.status !== 'ACTIVE') return false;
 
-        // 1. Explicit All Zones check
-        if (b.isAllZones === true || b.targetZoneIds?.includes('ALL')) {
+        // Expiry check
+        const now = Date.now();
+        if ((b as any).endsAt) {
+            const end = new Date((b as any).endsAt).getTime();
+            if (!isNaN(end) && now > end) return false;
+        }
+        if ((b as any).startsAt) {
+            const start = new Date((b as any).startsAt).getTime();
+            if (!isNaN(start) && now < start) return false;
+        }
+
+        // 1. Explicit All Zones check (Admin created banner for All Zones)
+        const isAll = b.isAllZones === true ||
+            (Array.isArray(b.targetZoneIds) && b.targetZoneIds.includes('ALL')) ||
+            (Array.isArray(b.targetZoneNames) && b.targetZoneNames.includes('All Zones'));
+
+        if (isAll) {
             return true;
         }
 
-        // 2. Explicit target zones check
+        // 2. Explicit target zones check (Admin created banner for specific zone)
         if (Array.isArray(b.targetZoneIds) && b.targetZoneIds.length > 0) {
+            if (!cleanZone || cleanZone.toLowerCase() === 'all') {
+                return false;
+            }
             const names = b.targetZoneNames || [];
             const allTargets = [...b.targetZoneIds, ...names];
             return allTargets.some((t) => isZoneMatching(t, cleanZone));
         }
 
-        // 3. Title/subtitle zone targeting check (for legacy/backend banners without targetZoneIds)
-        const text = `${b.title || ''} ${b.subtitle || ''}`.toLowerCase();
-        const hasBlr = text.includes('bangalore') || text.includes('bengaluru') || text.includes('blr');
-        const hasTmk = text.includes('tumkur') || text.includes('tumakuru') || text.includes('tmk');
-        const hasHub = text.includes('hubballi') || text.includes('hubli') || text.includes('hbl');
-        const hasMys = text.includes('mysore') || text.includes('mysuru');
-        const hasHas = text.includes('hassan');
-
-        const isBlrCustomer = isZoneMatching('bangalore', cleanZone);
-        const isTmkCustomer = isZoneMatching('tumkur', cleanZone);
-        const isHubCustomer = isZoneMatching('hubballi', cleanZone);
-        const isMysCustomer = isZoneMatching('mysore', cleanZone);
-        const isHasCustomer = isZoneMatching('hassan', cleanZone);
-
-        // If the banner mentions a specific zone, only show it if the customer is in that zone
-        if (hasHub) return isHubCustomer;
-        if (hasTmk) return isTmkCustomer;
-        if (hasBlr) return isBlrCustomer;
-        if (hasMys) return isMysCustomer;
-        if (hasHas) return isHasCustomer;
-
-        // Generic banner with no specific city name in title -> show across all zones
-        return true;
+        // 3. Reject any banner without explicit admin zone targeting
+        // Legacy/unregistered banners from remote DB lack targetZoneIds/isAllZones and must NEVER be displayed!
+        return false;
     });
 }
 
@@ -102,51 +98,47 @@ export const bannersApi = baseApi.injectEndpoints({
             queryFn: async (zoneId, _queryApi, _extraOptions, baseQuery) => {
                 const cleanZone = zoneId ? zoneId.trim() : '';
 
-                // Try 1: Fetch from Admin BFF (direct localhost or via proxy)
+                // Try 1: Fetch from Admin BFF dev server (direct port 3000 / 3100)
+                const hostCandidates = [
+                    `http://localhost:3000/api/bff/banners/active${cleanZone ? `?zoneId=${encodeURIComponent(cleanZone)}` : ''}`,
+                    `http://127.0.0.1:3000/api/bff/banners/active${cleanZone ? `?zoneId=${encodeURIComponent(cleanZone)}` : ''}`,
+                    `http://localhost:3100/api/bff/banners/active${cleanZone ? `?zoneId=${encodeURIComponent(cleanZone)}` : ''}`,
+                ];
+
+                for (const url of hostCandidates) {
+                    try {
+                        const controller = new AbortController();
+                        const timer = setTimeout(() => controller.abort(), 1500);
+                        const res = await fetch(url, { signal: controller.signal });
+                        clearTimeout(timer);
+                        if (res.ok) {
+                            const json = await res.json();
+                            const list = json?.data ?? json;
+                            if (Array.isArray(list)) {
+                                return { data: filterBannersForZone(list as PromotionBannerResponse[], cleanZone) };
+                            }
+                        }
+                    } catch {
+                        // try next
+                    }
+                }
+
+                // Try 2: Standard API query /api/v1/banners/active
                 try {
-                    const bffUrl = cleanZone
-                        ? `/api/bff/banners/active?zoneId=${encodeURIComponent(cleanZone)}`
-                        : '/api/bff/banners/active';
-                    const res = await baseQuery({
-                        url: bffUrl,
+                    const relativeRes = await baseQuery({
+                        url: '/api/v1/banners/active',
+                        params: cleanZone ? { zoneId: cleanZone } : undefined,
                         headers: cleanZone ? { 'x-active-zone-id': cleanZone } : undefined,
                     });
 
-                    const unwrapped = (res.data as any)?.data ?? res.data;
-                    if (Array.isArray(unwrapped) && unwrapped.length > 0) {
-                        return { data: filterBannersForZone(unwrapped as PromotionBannerResponse[], cleanZone) };
-                    }
-                } catch {
-                    // Fall through
-                }
-
-                // Try 2: Fetch from direct localhost:3100
-                try {
-                    const directUrl = `http://localhost:3100/api/bff/banners/active${cleanZone ? `?zoneId=${encodeURIComponent(cleanZone)}` : ''}`;
-                    const directRes = await fetch(directUrl);
-                    if (directRes.ok) {
-                        const json = await directRes.json();
-                        const list = json?.data ?? json;
-                        if (Array.isArray(list) && list.length > 0) {
-                            return { data: filterBannersForZone(list as PromotionBannerResponse[], cleanZone) };
+                    if (relativeRes.data) {
+                        const rawList = (relativeRes.data as any)?.data ?? relativeRes.data ?? [];
+                        if (Array.isArray(rawList)) {
+                            return { data: filterBannersForZone(rawList as PromotionBannerResponse[], cleanZone) };
                         }
                     }
                 } catch {
                     // Fall through
-                }
-
-                // Try 3: Standard backend query /api/v1/banners/active
-                const relativeRes = await baseQuery({
-                    url: '/api/v1/banners/active',
-                    params: cleanZone ? { zoneId: cleanZone } : undefined,
-                    headers: cleanZone ? { 'x-active-zone-id': cleanZone } : undefined,
-                });
-
-                if (relativeRes.data) {
-                    const rawList = (relativeRes.data as any)?.data ?? relativeRes.data ?? [];
-                    if (Array.isArray(rawList)) {
-                        return { data: filterBannersForZone(rawList as PromotionBannerResponse[], cleanZone) };
-                    }
                 }
 
                 return { data: [] };

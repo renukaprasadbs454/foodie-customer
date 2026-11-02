@@ -8,6 +8,7 @@ import {
   type OrderStatus,
 } from 'foodie-shared-rn';
 import { useGetOrderRefundStatusQuery } from '../../../api/endpoints/ordersApi';
+import { getRestaurantZone } from '../../restaurants/utils/zoneTargeting';
 
 type OrderSummary = {
   orderId: string;
@@ -110,6 +111,7 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
   const isRefunded = liveRefund?.status === 'REFUNDED' || liveRefund?.refundApprovalState === 'DONE';
   const isRejected = liveRefund?.status === 'REJECTED' || liveRefund?.refundApprovalState === 'FAILED';
   const refundRefId = liveRefund?.refundReference;
+  const restoZone = order.restaurantId ? getRestaurantZone({ id: order.restaurantId }) : null;
 
   return (
     <Pressable
@@ -137,9 +139,11 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
     >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ gap: 2, flex: 1, marginRight: 12 }}>
-          <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
-            Reference #{order.orderNumber}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
+              Reference #{order.orderNumber}
+            </Text>
+          </View>
           <Text style={{ fontSize: 12, color: '#FCD34D', fontWeight: '700', marginTop: 2 }}>
             📅 {order.placedAt ? new Date(order.placedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : 'Recent Order'}
           </Text>

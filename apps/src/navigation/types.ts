@@ -32,7 +32,7 @@ export type BrowseStackParamList = {
   /** UI-API Payment — P2-CUS-05. */
   Payment: { orderId: string };
   /** UI-API Addresses — also on Profile stack; Checkout uses selectMode. */
-  Addresses: { selectMode?: boolean } | undefined;
+  Addresses: { selectMode?: boolean; restaurantId?: string } | undefined;
   /** UI-API Reviews — list mode from restaurant details. */
   Reviews: ReviewsScreenParams;
 
@@ -71,7 +71,7 @@ export type HelpStackParamList = {
 
 export type ProfileStackParamList = {
   Profile: undefined;
-  Addresses: { selectMode?: boolean } | undefined;
+  Addresses: { selectMode?: boolean; restaurantId?: string } | undefined;
   Wallet: undefined;
   Settings: undefined;
 };

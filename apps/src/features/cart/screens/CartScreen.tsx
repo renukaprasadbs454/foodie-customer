@@ -36,6 +36,11 @@ import { useGetDeliveryChargesQuery, useGetCommissionRulesQuery } from '../../..
 import { globalLocation, useGlobalLocation } from '../../../core/GlobalLocation';
 import { MOCK_RESTAURANTS, MOCK_MENUS } from '../../restaurants/mockData';
 import { canProceedToCheckout } from '../types';
+import {
+  isAddressInRestaurantZone,
+  getRestaurantZone,
+  getAddressZone,
+} from '../../restaurants/utils/zoneTargeting';
 
 type Props = NativeStackScreenProps<BrowseStackParamList, 'Cart'>;
 
@@ -195,7 +200,16 @@ export function CartScreen({ navigation, route }: Props) {
     }
   }, [selectedCouponCode, subtotalAmt, restaurantId, couponsQuery.data]);
 
+  const restaurantDetailsQuery = useGetRestaurantQuery(restaurantId || '', {
+    skip: !restaurantId || isDarkStoreMock || isMock,
+  });
+  const currentRestaurant = restaurantDetailsQuery.data || mockRestaurant || (cartQuery.data?.restaurantName ? { id: restaurantId || undefined, name: cartQuery.data.restaurantName } : null);
+  const restoZone = currentRestaurant ? getRestaurantZone(currentRestaurant) : null;
+
   const defaultAddress = addresses?.find(a => a.isDefault) || addresses?.[0];
+  const isDefaultAddressInZone = Boolean(defaultAddress && currentRestaurant && isAddressInRestaurantZone(defaultAddress, currentRestaurant));
+  const isAddressOutOfZone = Boolean(defaultAddress && currentRestaurant && restoZone && !isDefaultAddressInZone);
+  const defaultAddressZone = defaultAddress ? getAddressZone(defaultAddress) : null;
 
   const [distanceInfo, setDistanceInfo] = useState<string>('Estimating status...');
   const [userCity, setUserCity] = useState<string>('Bengaluru');
@@ -614,21 +628,55 @@ export function CartScreen({ navigation, route }: Props) {
                       if (!defaultAddress && (!addresses || addresses.length === 0)) {
                         setShowAddressRequiredModal(true);
                       } else {
-                        navigation.navigate('Addresses', { selectMode: true });
+                        navigation.navigate('Addresses', { selectMode: true, restaurantId: restaurantId || undefined });
                       }
                     }}
                   >
                     <Text style={{ fontSize: 16 }}>📍</Text>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 14 }}>
-                        {defaultAddress ? `Delivery at ${defaultAddress.label || 'Home'}` : 'Delivery Address'}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 14 }}>
+                          {defaultAddress ? `Delivery at ${defaultAddress.label || 'Home'}` : 'Delivery Address'}
+                        </Text>
+                        {isAddressOutOfZone && (
+                          <View style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                            borderColor: '#EF4444',
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                          }}>
+                            <Text style={{ color: '#F87171', fontSize: 10, fontWeight: '800' }}>
+                              NOT DELIVERABLE
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={{ color: '#9CA3AF', fontWeight: '500', fontSize: 13, marginTop: 4 }}>
                         {defaultAddress?.line1 || 'No address saved yet. Tap here to add one.'}
                       </Text>
-                      <Text style={{ color: '#10B981', fontWeight: '800', fontSize: 13, marginTop: 10 }}>
-                        {defaultAddress ? 'Change delivery address ›' : '+ Add delivery address'}
-                      </Text>
+                      {isAddressOutOfZone ? (
+                        <View style={{
+                          marginTop: 8,
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          borderColor: 'rgba(239, 68, 68, 0.4)',
+                          borderWidth: 1,
+                          borderRadius: 8,
+                          padding: 8,
+                        }}>
+                          <Text style={{ color: '#FCA5A5', fontSize: 12, lineHeight: 16 }}>
+                            ⚠️ {defaultAddress?.label || 'Selected address'} is outside the delivery area for {restaurantName}.
+                          </Text>
+                          <Text style={{ color: '#FCD34D', fontWeight: '800', fontSize: 12, marginTop: 4 }}>
+                            Change to a deliverable address ›
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text style={{ color: '#10B981', fontWeight: '800', fontSize: 13, marginTop: 10 }}>
+                          {defaultAddress ? 'Change delivery address ›' : '+ Add delivery address'}
+                        </Text>
+                      )}
                     </View>
                   </Pressable>
                 </View>
@@ -783,6 +831,14 @@ export function CartScreen({ navigation, route }: Props) {
                   setShowAddressRequiredModal(true);
                   return;
                 }
+                if (isAddressOutOfZone) {
+                  setToast({
+                    message: `Delivery unavailable: ${restaurantName} does not deliver to this address. Please change your delivery address.`,
+                    variant: 'error',
+                  });
+                  setShowAddressRequiredModal(true);
+                  return;
+                }
                 navigation.navigate('Checkout' as any, {
                   mockItems: isDarkStoreMock ? mockItems : undefined,
                   discount: appliedCoupon?.discountAmount || 0,
@@ -891,11 +947,20 @@ export function CartScreen({ navigation, route }: Props) {
 
         <AddressRequiredModal
           visible={showAddressRequiredModal}
+          restaurant={currentRestaurant}
           onClose={() => setShowAddressRequiredModal(false)}
-          onAddAddress={() => navigation.navigate('Addresses', { selectMode: true })}
+          onAddAddress={() => navigation.navigate('Addresses', { selectMode: true, restaurantId: restaurantId || undefined })}
           addresses={addresses || []}
           selectedAddressId={defaultAddress?.addressId}
           onSelectAddress={(addrId) => {
+            const picked = (addresses || []).find(a => a.addressId === addrId);
+            if (picked && currentRestaurant && !isAddressInRestaurantZone(picked, currentRestaurant)) {
+              setToast({
+                message: `This address is outside ${restaurantName}'s delivery zone.`,
+                variant: 'warning',
+              });
+              return;
+            }
             navigation.navigate('Checkout' as any, {
               mockItems: isDarkStoreMock ? mockItems : undefined,
               discount: appliedCoupon?.discountAmount || 0,
