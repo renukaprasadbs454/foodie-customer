@@ -1,4 +1,6 @@
 import { baseApi } from '../baseApi';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import type {
   ApplyCouponRequest,
   ApplyCouponResult,
@@ -7,109 +9,194 @@ import type {
 import { isZoneMatching } from './bannersApi';
 
 export type EligibleCouponsArg = {
-  restaurantId: string;
-  cartTotal: number | string;
+  restaurantId?: string;
+  cartTotal?: number | string;
   zoneId?: string | null;
 };
 
 export function filterCouponsForZone(coupons: EligibleCoupon[], zoneId?: string | null): EligibleCoupon[] {
   if (!Array.isArray(coupons)) return [];
-  if (!zoneId || zoneId.trim().toLowerCase() === 'all') {
-    return coupons;
-  }
-  const cleanZone = zoneId.trim();
+  const cleanZone = zoneId ? zoneId.trim() : '';
 
   return coupons.filter((c) => {
-    // 1. If coupon explicitly belongs to All Zones or has no zone set
-    if (!c.zoneId || c.zoneId === 'ALL') {
-      // Also check code/title for zone names (e.g. HUBBALLI124, BLR150, TMK80)
-      const codeOrTitle = `${c.code || ''} ${c.zoneName || ''}`.toLowerCase();
-      const hasHub = codeOrTitle.includes('hubballi') || codeOrTitle.includes('hubli');
-      const hasTmk = codeOrTitle.includes('tumkur') || codeOrTitle.includes('tumakuru') || codeOrTitle.includes('tmk');
-      const hasBlr = codeOrTitle.includes('bangalore') || codeOrTitle.includes('bengaluru') || codeOrTitle.includes('blr');
+    if (!c || !c.code) return false;
 
-      const isBlrCustomer = isZoneMatching('bangalore', cleanZone);
-      const isTmkCustomer = isZoneMatching('tumkur', cleanZone);
-      const isHubCustomer = isZoneMatching('hubballi', cleanZone);
+    // 1. If coupon explicitly belongs to All Zones or has no zone set (Super Admin created for all zones)
+    const isAllZones =
+      !c.zoneId ||
+      c.zoneId === 'ALL' ||
+      !c.zoneId.trim() ||
+      (c.zoneName && c.zoneName.toLowerCase().includes('all'));
 
-      if (hasHub) return isHubCustomer;
-      if (hasTmk) return isTmkCustomer;
-      if (hasBlr) return isBlrCustomer;
-
+    if (isAllZones) {
       return true;
     }
 
     // 2. Check zone matching on coupon's zoneId and zoneName
-    if (isZoneMatching(c.zoneId, cleanZone)) return true;
-    if (c.zoneName && isZoneMatching(c.zoneName, cleanZone)) return true;
+    if (cleanZone && cleanZone.toLowerCase() !== 'all') {
+      if (c.zoneId && isZoneMatching(c.zoneId, cleanZone)) return true;
+      if (c.zoneName && isZoneMatching(c.zoneName, cleanZone)) return true;
+      return false;
+    }
 
-    return false;
+    // 3. If customer zone is not specified, show all active coupons
+    return true;
   });
 }
 
 /**
  * P2-CUS-04 coupons on Checkout — eligible list + apply preview (no redeem).
+ * Fetches admin-created coupons in real time from Admin BFF with fallback to remote backend.
  */
 export const couponsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getEligibleCoupons: builder.query<EligibleCoupon[], EligibleCouponsArg>({
-      queryFn: async ({ restaurantId, cartTotal, zoneId }, _queryApi, _extraOptions, baseQuery) => {
-        const cleanZone = zoneId ? zoneId.trim() : '';
+    getEligibleCoupons: builder.query<EligibleCoupon[], EligibleCouponsArg | void>({
+      queryFn: async (arg, _queryApi, _extraOptions, baseQuery) => {
+        const restaurantId = arg?.restaurantId || '';
+        const cartTotal = Number(arg?.cartTotal || 0);
+        const cleanZone = arg?.zoneId ? arg.zoneId.trim() : '';
 
-        const isUuid = (id: string) =>
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
-
-        if (!restaurantId || !isUuid(restaurantId)) {
-          return { data: [] };
+        // Determine host IP (for mobile emulator / web / LAN dev server)
+        let hostIp = 'localhost';
+        if (Constants.expoConfig?.hostUri) {
+          hostIp = Constants.expoConfig.hostUri.split(':')[0];
+        } else if (Platform.OS === 'android') {
+          hostIp = '10.0.2.2';
         }
 
-        // Try 1: Query backend /api/v1/coupons/eligible
-        try {
-          const relativeRes = await baseQuery({
-            url: '/api/v1/coupons/eligible',
-            params: { restaurantId, cartTotal: Number(cartTotal) || 0, ...(cleanZone ? { zoneId: cleanZone } : {}) },
-            headers: cleanZone ? { 'x-active-zone-id': cleanZone } : undefined,
-          });
+        const candidateBffUrls = [
+          `http://${hostIp}:3000`,
+          `http://localhost:3000`,
+          `http://127.0.0.1:3000`,
+          `http://10.109.177.186:3000`,
+          `http://${hostIp}:3100`,
+          `http://localhost:3100`,
+        ];
 
-          if (relativeRes.data) {
-            const rawList = (relativeRes.data as any)?.data ?? relativeRes.data ?? [];
-            if (Array.isArray(rawList) && rawList.length > 0) {
-              return { data: filterCouponsForZone(rawList as EligibleCoupon[], cleanZone) };
+        let fetchedCoupons: EligibleCoupon[] = [];
+
+        // Try candidate Admin BFF endpoints (where admin creates coupons in real-time)
+        for (const base of candidateBffUrls) {
+          try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 1800);
+            const targetUrl = `${base}/api/bff/coupons/eligible?cartTotal=${cartTotal}${cleanZone ? `&zoneId=${encodeURIComponent(cleanZone)}` : ''}`;
+            const res = await fetch(targetUrl, { signal: controller.signal });
+            clearTimeout(timer);
+            if (res.ok) {
+              const json = await res.json();
+              const list = json?.data ?? json;
+              if (Array.isArray(list) && list.length > 0) {
+                fetchedCoupons = list.map((c: any) => ({
+                  code: c.code,
+                  discountType: c.discountType || (c.benefitMode === 'FLAT' ? 'FLAT' : 'PERCENT'),
+                  value: Number(c.value ?? c.discountValue ?? 0),
+                  minOrderAmount: Number(c.minOrderAmount ?? c.minPurchase ?? 0),
+                  maxDiscountAmount: c.maxDiscountAmount != null ? Number(c.maxDiscountAmount) : (c.maxDiscount != null ? Number(c.maxDiscount) : null),
+                  expiryDate: c.expiryDate || null,
+                  zoneId: c.zoneId || null,
+                  zoneName: c.zoneName || null,
+                }));
+                break;
+              }
             }
+          } catch {
+            // Try next candidate
           }
-        } catch {
-          // Fall through
         }
 
-        // Try 2: Direct BFF call to localhost:3100 (fallback via native fetch, not baseQuery)
-        try {
-          const directUrl = `http://localhost:3100/api/bff/coupons/eligible?restaurantId=${encodeURIComponent(restaurantId)}&cartTotal=${cartTotal}${cleanZone ? `&zoneId=${encodeURIComponent(cleanZone)}` : ''}`;
-          const directRes = await fetch(directUrl);
-          if (directRes.ok) {
-            const json = await directRes.json();
-            const list = json?.data ?? json;
-            if (Array.isArray(list) && list.length > 0) {
-              return { data: filterCouponsForZone(list as EligibleCoupon[], cleanZone) };
+        // Also query remote backend if BFF is unreachable
+        if (fetchedCoupons.length === 0) {
+          try {
+            const relativeRes = await baseQuery({
+              url: '/api/v1/coupons/eligible',
+              params: {
+                cartTotal,
+                ...(restaurantId ? { restaurantId } : {}),
+                ...(cleanZone ? { zoneId: cleanZone } : {}),
+              },
+              headers: cleanZone ? { 'x-active-zone-id': cleanZone } : undefined,
+            });
+
+            if (relativeRes.data) {
+              const rawList = (relativeRes.data as any)?.data ?? relativeRes.data ?? [];
+              if (Array.isArray(rawList) && rawList.length > 0) {
+                fetchedCoupons = rawList.map((c: any) => ({
+                  code: c.code,
+                  discountType: c.discountType || (c.benefitMode === 'FLAT' ? 'FLAT' : 'PERCENT'),
+                  value: Number(c.value ?? c.discountValue ?? 0),
+                  minOrderAmount: Number(c.minOrderAmount ?? c.minPurchase ?? 0),
+                  maxDiscountAmount: c.maxDiscountAmount != null ? Number(c.maxDiscountAmount) : (c.maxDiscount != null ? Number(c.maxDiscount) : null),
+                  expiryDate: c.expiryDate || null,
+                  zoneId: c.zoneId || null,
+                  zoneName: c.zoneName || null,
+                }));
+              }
             }
+          } catch {
+            // Fall through
           }
-        } catch {
-          // Fall through
         }
 
-        return { data: [] };
+        const filtered = filterCouponsForZone(fetchedCoupons, cleanZone);
+        return { data: filtered };
       },
       providesTags: [{ type: 'Coupon', id: 'ELIGIBLE' }],
       keepUnusedDataFor: 0,
     }),
     applyCoupon: builder.mutation<ApplyCouponResult, ApplyCouponRequest>({
-      query: (body) => ({
-        url: '/api/v1/coupons/apply',
-        method: 'POST',
-        body,
-        headers: body.zoneId ? { 'x-active-zone-id': body.zoneId } : undefined,
-      }),
-      transformResponse: (response: unknown) => {
-        return ((response as any)?.data ?? response) as ApplyCouponResult;
+      queryFn: async (body, _queryApi, _extraOptions, baseQuery) => {
+        let hostIp = 'localhost';
+        if (Constants.expoConfig?.hostUri) {
+          hostIp = Constants.expoConfig.hostUri.split(':')[0];
+        } else if (Platform.OS === 'android') {
+          hostIp = '10.0.2.2';
+        }
+
+        const candidateBffUrls = [
+          `http://${hostIp}:3000`,
+          `http://localhost:3000`,
+          `http://127.0.0.1:3000`,
+          `http://10.109.177.186:3000`,
+          `http://${hostIp}:3100`,
+          `http://localhost:3100`,
+        ];
+
+        for (const base of candidateBffUrls) {
+          try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 2000);
+            const res = await fetch(`${base}/api/bff/coupons/apply`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+              signal: controller.signal,
+            });
+            clearTimeout(timer);
+            const json = await res.json();
+            if (res.ok && json?.success && json?.data) {
+              return { data: json.data as ApplyCouponResult };
+            }
+            if (!res.ok && json?.error?.message) {
+              return { error: { status: res.status, data: json } as any };
+            }
+          } catch {
+            // Try next
+          }
+        }
+
+        // Fallback to baseQuery
+        const baseRes = await baseQuery({
+          url: '/api/v1/coupons/apply',
+          method: 'POST',
+          body,
+          headers: body.zoneId ? { 'x-active-zone-id': body.zoneId } : undefined,
+        });
+
+        if (baseRes.data) {
+          return { data: ((baseRes.data as any)?.data ?? baseRes.data) as ApplyCouponResult };
+        }
+        return { error: baseRes.error as any };
       },
       invalidatesTags: [{ type: 'Coupon', id: 'ELIGIBLE' }],
     }),
