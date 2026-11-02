@@ -11,6 +11,46 @@ import { DEFAULT_RESTAURANT_PAGE_SIZE } from '../../features/restaurants/types';
 
 export { hasMoreRestaurantPages } from '../../features/restaurants/types';
 
+function resolveRestaurantCity(item: any): string {
+  if (item.city && typeof item.city === 'string' && item.city.trim().length > 0) {
+    return item.city.trim();
+  }
+  if (item.address && typeof item.address === 'object' && item.address.city && typeof item.address.city === 'string') {
+    return item.address.city.trim();
+  }
+  if (item.zoneName && typeof item.zoneName === 'string' && item.zoneName.trim().length > 0) {
+    return item.zoneName.trim();
+  }
+  const lat = item.latitude ? Number(item.latitude) : null;
+  const lng = item.longitude ? Number(item.longitude) : null;
+  if (lat !== null && lng !== null) {
+    // Tumkur region: ~13.18 to 13.50 N, 76.90 to 77.25 E
+    if (lat >= 13.18 && lat <= 13.50 && lng >= 76.90 && lng <= 77.25) {
+      return 'Tumkur';
+    }
+    // Bengaluru region: ~12.80 to 13.15 N, 77.40 to 77.85 E
+    if (lat >= 12.80 && lat <= 13.15 && lng >= 77.40 && lng <= 77.85) {
+      return 'Bengaluru';
+    }
+    // Mysuru region: ~12.20 to 12.45 N, 76.50 to 76.80 E
+    if (lat >= 12.20 && lat <= 12.45 && lng >= 76.50 && lng <= 76.80) {
+      return 'Mysuru';
+    }
+    // Hubballi region: ~15.20 to 15.50 N, 75.00 to 75.30 E
+    if (lat >= 15.20 && lat <= 15.50 && lng >= 75.00 && lng <= 75.30) {
+      return 'Hubballi';
+    }
+  }
+  if (item.name && typeof item.name === 'string') {
+    const lower = item.name.toLowerCase();
+    if (lower.includes('tumkur')) return 'Tumkur';
+    if (lower.includes('bengaluru') || lower.includes('bangalore')) return 'Bengaluru';
+    if (lower.includes('mysuru') || lower.includes('mysore')) return 'Mysuru';
+    if (lower.includes('hubballi') || lower.includes('hubli')) return 'Hubballi';
+  }
+  return '';
+}
+
 function normalizeRestaurantList(data: unknown): RestaurantSummary[] {
   let list: any[] = [];
   if (Array.isArray(data)) {
@@ -36,7 +76,7 @@ function normalizeRestaurantList(data: unknown): RestaurantSummary[] {
     avgRating: item.avgRating !== undefined && item.avgRating !== null ? Number(item.avgRating) : 4.5,
     ratingCount: item.ratingCount ?? 120,
     imageUrl: item.imageUrl || item.coverImageKey || item.logoImageKey || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=600',
-    city: item.city || 'Bengaluru',
+    city: resolveRestaurantCity(item),
     latitude: item.latitude ? Number(item.latitude) : 12.9716,
     longitude: item.longitude ? Number(item.longitude) : 77.5946,
     isOpen: typeof item.isOpen === 'boolean' ? item.isOpen : true,

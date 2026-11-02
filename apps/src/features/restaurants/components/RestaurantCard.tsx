@@ -203,9 +203,9 @@ export function RestaurantCard({
               📍 {distanceText}
             </Text>
           )}
-          {restaurant.city ? (
+          {restaurant.city && restaurant.city.trim().length > 0 ? (
             <Text style={[styles.cityMeta, isClosed && styles.cityMetaClosed]}>
-              • {restaurant.city}
+              • {restaurant.city.trim()}
             </Text>
           ) : null}
         </View>

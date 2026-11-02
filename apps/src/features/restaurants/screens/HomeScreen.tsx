@@ -579,12 +579,13 @@ export function HomeScreen({ navigation }: Props) {
       });
     }
 
-    // Deduplication required only when no specific filter is active
+    // Deduplication required only when no specific filter is active and zone has plenty of restaurants
     const isAnyFilterActive = activeFilterPill !== null || activeModalFilterCount > 0 || selectedCategoryId !== 'all' || isVegOnly;
-    if (!isAnyFilterActive) {
+    if (!isAnyFilterActive && list.length > 5) {
       const topIds = new Set<string>();
       topRestaurantsList.forEach((r) => topIds.add(r.id));
-      return list.filter((r) => !topIds.has(r.id));
+      const remaining = list.filter((r) => !topIds.has(r.id));
+      if (remaining.length > 0) return remaining;
     }
 
     return list;
@@ -1185,7 +1186,90 @@ export function HomeScreen({ navigation }: Props) {
             </Pressable>
           </View>
 
-          {topFeaturedRestaurant && (
+          {topRestaurantsList.length > 1 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.topRestaurantsScroll}
+            >
+              {topRestaurantsList.map((resto, index) => {
+                const cover = resolveImageUrl(resto.imageUrl);
+                const eta = getEtaText(resto);
+                const isClosed = resto.isOpen === false;
+                const rating = resto.avgRating && Number(resto.avgRating) > 0 ? Number(resto.avgRating).toFixed(1) : null;
+                const rank = resto.topPosition ? `#${resto.topPosition}` : `#${index + 1}`;
+
+                return (
+                  <Pressable
+                    key={resto.id}
+                    onPress={() => navigation.navigate('Menu', { restaurantId: resto.id })}
+                    style={({ pressed }) => [
+                      styles.topRestoCard,
+                      isClosed && styles.cardOffline,
+                      { opacity: pressed ? 0.94 : 1 },
+                    ]}
+                  >
+                    <View style={styles.topRestoImageWrap}>
+                      {cover ? (
+                        <Image
+                          source={{ uri: cover }}
+                          style={[styles.topHeroImage, isClosed && { opacity: 0.25 }]}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={styles.topHeroFallback}>
+                          <Text style={{ fontSize: 36, opacity: isClosed ? 0.3 : 1 }}>🍛</Text>
+                        </View>
+                      )}
+
+                      {/* Top Choice Rank Badge */}
+                      <View style={styles.topChoiceCrownBadge}>
+                        <Text style={styles.topChoiceCrownText}>👑 {rank} TOP CHOICE</Text>
+                      </View>
+
+                      {/* Offer Badge (if open) */}
+                      {!isClosed && (
+                        <View style={styles.heroOfferBadge}>
+                          <Text style={styles.heroOfferBadgeText}>₹75 OFF above ₹149</Text>
+                        </View>
+                      )}
+
+                      {/* Black and white closed banner if closed */}
+                      {isClosed && (
+                        <View style={styles.closedOverlay}>
+                          <View style={styles.closedTagBox}>
+                            <Text style={styles.closedText}>⚫ CLOSED</Text>
+                          </View>
+                        </View>
+                      )}
+
+                      <LinearGradient
+                        colors={['transparent', 'rgba(10, 35, 18, 0.95)']}
+                        style={styles.heroBottomOverlay}
+                      >
+                        <View style={styles.heroBottomRow}>
+                          <View style={{ flex: 1, paddingRight: 6 }}>
+                            <Text style={styles.heroRestoTitle} numberOfLines={1}>
+                              {resto.name}
+                            </Text>
+                            <Text style={styles.heroRestoEta}>
+                              ⏱️ {eta}
+                            </Text>
+                          </View>
+
+                          {rating && (
+                            <View style={styles.heroRatingBadge}>
+                              <Text style={styles.heroRatingText}>★ {rating}</Text>
+                            </View>
+                          )}
+                        </View>
+                      </LinearGradient>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : topFeaturedRestaurant ? (
             <Pressable
               onPress={() => navigation.navigate('Menu', { restaurantId: topFeaturedRestaurant.id })}
               style={({ pressed }) => [
@@ -1248,7 +1332,7 @@ export function HomeScreen({ navigation }: Props) {
                 </LinearGradient>
               </View>
             </Pressable>
-          )}
+          ) : null}
         </View>
       )}
 
@@ -2061,6 +2145,47 @@ const styles = StyleSheet.create({
     color: '#10B981',
     fontSize: 12.5,
     fontWeight: '800',
+  },
+  topRestaurantsScroll: {
+    paddingHorizontal: 16,
+    gap: 14,
+  },
+  topRestoCard: {
+    width: 275,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#131F18',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  topRestoImageWrap: {
+    width: '100%',
+    height: 180,
+    position: 'relative',
+    backgroundColor: '#1A2920',
+  },
+  topChoiceCrownBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(20, 83, 45, 0.92)',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    zIndex: 2,
+  },
+  topChoiceCrownText: {
+    color: '#FCD34D',
+    fontSize: 10.5,
+    fontWeight: '900',
+    letterSpacing: 0.3,
   },
   topHeroCard: {
     marginHorizontal: 16,

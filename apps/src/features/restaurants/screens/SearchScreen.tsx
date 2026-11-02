@@ -1,12 +1,20 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { FlatList, View, StatusBar, Animated, Pressable, ScrollView, Image } from 'react-native';
+import {
+  FlatList,
+  View,
+  StatusBar,
+  Animated,
+  Pressable,
+  ScrollView,
+  Image,
+  TextInput as RNTextInput,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   EmptyState,
   Text,
-  TextInput,
   trackAnalyticsEvent,
   useDebouncedValue,
   useTheme,
@@ -149,14 +157,13 @@ export function SearchScreen({ navigation, route }: Props) {
             }}
           >
             <Text style={{ fontSize: 16, marginRight: 8, color: '#FCD34D' }}>🔍</Text>
-            <TextInput
-              label=""
+            <RNTextInput
               accessibilityLabel="Search restaurants"
               value={query}
               onChangeText={setQuery}
               autoFocus={true}
               placeholder="Search restaurants by name or dish..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="rgba(255, 255, 255, 0.55)"
               autoCorrect={false}
               returnKeyType="search"
               onSubmitEditing={() =>
@@ -164,16 +171,15 @@ export function SearchScreen({ navigation, route }: Props) {
                   queryLength: query.trim().length,
                 })
               }
-              containerStyle={{
-                backgroundColor: 'transparent',
-                borderWidth: 0,
+              style={{
                 flex: 1,
-                height: 44,
-              }}
-              inputStyle={{
                 color: '#FFFFFF',
-                fontSize: 15,
+                fontSize: 14.5,
                 fontWeight: '600',
+                paddingVertical: 0,
+                paddingHorizontal: 0,
+                height: '100%',
+                backgroundColor: 'transparent',
               }}
             />
             {query.length > 0 && (
