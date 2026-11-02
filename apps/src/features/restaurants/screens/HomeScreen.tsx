@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import {
   FlatList,
   Pressable,
@@ -42,7 +42,7 @@ import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
 import { useGetWalletBalanceQuery } from '../../../api/endpoints/walletApi';
 import { GlobalCartBanner } from '../../cart/components/GlobalCartBanner';
 import { useGlobalLocation } from '../../../core/GlobalLocation';
-import { getDistanceKm, getEstimatedTimeMins } from '../types';
+import { getDistanceKm, getEstimatedTimeMins, type RestaurantSummary } from '../types';
 import { isRestaurantInZone, filterFoodItemsForZone } from '../utils/zoneTargeting';
 import {
   syncSupportChatMessages,
@@ -95,6 +95,9 @@ export function HomeScreen({ navigation }: Props) {
 
   // Filters & State
   const [isVegOnly, setIsVegOnly] = useState(false);
+  const [vegFilterMode, setVegFilterMode] = useState<'all_restaurants' | 'pure_veg_only'>('all_restaurants');
+  const [draftVegFilterMode, setDraftVegFilterMode] = useState<'all_restaurants' | 'pure_veg_only'>('all_restaurants');
+  const [isVegModalVisible, setIsVegModalVisible] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
   const [activeFilterPill, setActiveFilterPill] = useState<string | null>(null);
   const [savedFavorites, setSavedFavorites] = useState<Record<string, boolean>>({});
@@ -231,12 +234,81 @@ export function HomeScreen({ navigation }: Props) {
     return rawList.filter((r) => isRestaurantInZone(r, activeZone));
   }, [feed.items, allRestaurants, activeZone]);
 
+  // Pure Veg restaurant detector
+  const isPureVegRestaurant = useCallback((resto: RestaurantSummary): boolean => {
+    if (resto.isPureVeg === true || resto.restaurantType === 'VEGETARIAN') {
+      return true;
+    }
+    const cuisines = Array.isArray(resto.cuisineTypes) ? resto.cuisineTypes : [];
+    const pureVegCuisineKeywords = ['PURE VEG', 'PURE_VEG', 'VEGETARIAN', 'PURE VEGETARIAN', 'JAIN'];
+    if (cuisines.some((c: string) => pureVegCuisineKeywords.some((pvc) => c.toUpperCase().includes(pvc)))) {
+      return true;
+    }
+    const lowerName = (resto.name || '').toLowerCase();
+    const pureVegNameKeywords = [
+      'pure veg',
+      'pure-veg',
+      'vegetarian',
+      'ctr',
+      'dosa',
+      'udupi',
+      'sagar',
+      'bhavan',
+      'kamath',
+      'shanthi',
+      'govinda',
+      'veg treat',
+      'veg point',
+    ];
+    if (pureVegNameKeywords.some((kw) => lowerName.includes(kw))) {
+      return true;
+    }
+    return false;
+  }, []);
+
+  // Determines if restaurant has vegetarian dishes or serves veg options
+  const hasVegDishes = useCallback((resto: RestaurantSummary, foodItems: SearchFoodItemDto[]): boolean => {
+    if (isPureVegRestaurant(resto)) return true;
+    const hasVegItem = foodItems.some(
+      (item) => item.restaurantId === resto.id && item.isVeg
+    );
+    if (hasVegItem) return true;
+    const cuisines = Array.isArray(resto.cuisineTypes) ? resto.cuisineTypes : [];
+    const vegFriendlyCuisines = [
+      'SOUTH INDIAN',
+      'NORTH INDIAN',
+      'INDIAN',
+      'DOSA',
+      'ITALIAN',
+      'PIZZA',
+      'FAST FOOD',
+      'BURGER',
+      'CHINESE',
+      'ASIAN',
+      'BEVERAGES',
+      'DESSERTS',
+    ];
+    if (cuisines.some((c: string) => vegFriendlyCuisines.some((vfc) => c.toUpperCase().includes(vfc)))) {
+      return true;
+    }
+    return true;
+  }, [isPureVegRestaurant]);
+
   // Real Food Items
   const foodItemsQuery = useSearchFoodItemsQuery(
     { isVeg: isVegOnly ? true : undefined },
     { pollingInterval: 30000, refetchOnFocus: true }
   );
   const rawFoodItems = foodItemsQuery.data ?? [];
+
+  // Filtered pool based on veg mode
+  const vegFilteredZoneRestaurants = useMemo(() => {
+    if (!isVegOnly) return zoneRestaurants;
+    if (vegFilterMode === 'pure_veg_only') {
+      return zoneRestaurants.filter((r) => isPureVegRestaurant(r));
+    }
+    return zoneRestaurants.filter((r) => hasVegDishes(r, rawFoodItems));
+  }, [zoneRestaurants, isVegOnly, vegFilterMode, isPureVegRestaurant, hasVegDishes, rawFoodItems]);
 
   // Effective Customer Coordinates for accurate distance and ETA calculation
   const effectiveCoords = useMemo(() => {
@@ -254,19 +326,35 @@ export function HomeScreen({ navigation }: Props) {
 
   // Under ₹250 Food Items strictly from restaurants in this particular zone
   const under250FoodItems = useMemo(() => {
-    const zoneFilteredDishes = filterFoodItemsForZone(rawFoodItems, zoneRestaurants);
+    let zoneFilteredDishes = filterFoodItemsForZone(rawFoodItems, zoneRestaurants);
+    if (isVegOnly) {
+      if (vegFilterMode === 'pure_veg_only') {
+        const pureVegRestoIds = new Set(zoneRestaurants.filter(isPureVegRestaurant).map((r) => r.id));
+        zoneFilteredDishes = zoneFilteredDishes.filter((item) => Boolean(item.isVeg && item.restaurantId && pureVegRestoIds.has(item.restaurantId)));
+      } else {
+        zoneFilteredDishes = zoneFilteredDishes.filter((item) => item.isVeg);
+      }
+    }
     return zoneFilteredDishes
       .filter((item) => Number(item.basePrice) > 0 && Number(item.basePrice) <= 250)
       .slice(0, 15);
-  }, [rawFoodItems, zoneRestaurants]);
+  }, [rawFoodItems, zoneRestaurants, isVegOnly, vegFilterMode, isPureVegRestaurant]);
 
   // Great Offer Food Items strictly from restaurants in this particular zone
   const offerFoodItems = useMemo(() => {
-    const zoneFilteredDishes = filterFoodItemsForZone(rawFoodItems, zoneRestaurants);
+    let zoneFilteredDishes = filterFoodItemsForZone(rawFoodItems, zoneRestaurants);
+    if (isVegOnly) {
+      if (vegFilterMode === 'pure_veg_only') {
+        const pureVegRestoIds = new Set(zoneRestaurants.filter(isPureVegRestaurant).map((r) => r.id));
+        zoneFilteredDishes = zoneFilteredDishes.filter((item) => Boolean(item.isVeg && item.restaurantId && pureVegRestoIds.has(item.restaurantId)));
+      } else {
+        zoneFilteredDishes = zoneFilteredDishes.filter((item) => item.isVeg);
+      }
+    }
     return zoneFilteredDishes
       .filter((item) => Number(item.basePrice) > 0)
       .slice(0, 15);
-  }, [rawFoodItems, zoneRestaurants]);
+  }, [rawFoodItems, zoneRestaurants, isVegOnly, vegFilterMode, isPureVegRestaurant]);
 
   // Restaurant Price Stats Lookup
   const restaurantPriceStats = useMemo(() => {
@@ -294,6 +382,7 @@ export function HomeScreen({ navigation }: Props) {
     setDraftSortBy(sortBy);
     setDraftMinRating(minRating);
     setDraftVegOnly(isVegOnly);
+    setDraftVegFilterMode(vegFilterMode);
     setDraftOffersOnly(filterOffersOnly);
     setIsFilterModalOpen(true);
   };
@@ -304,6 +393,7 @@ export function HomeScreen({ navigation }: Props) {
     setSortBy(draftSortBy);
     setMinRating(draftMinRating);
     setIsVegOnly(draftVegOnly);
+    setVegFilterMode(draftVegFilterMode);
     setFilterOffersOnly(draftOffersOnly);
     setIsFilterModalOpen(false);
   };
@@ -314,6 +404,10 @@ export function HomeScreen({ navigation }: Props) {
     setSortBy('RELEVANCE');
     setMinRating(0);
     setIsVegOnly(false);
+    setDraftVegOnly(false);
+    setVegFilterMode('all_restaurants');
+    setDraftVegFilterMode('all_restaurants');
+    setIsVegModalVisible(false);
     setFilterOffersOnly(false);
     setActiveFilterPill(null);
     setSelectedCategoryId('all');
@@ -321,7 +415,6 @@ export function HomeScreen({ navigation }: Props) {
     setDraftDeliveryTime('ALL');
     setDraftSortBy('RELEVANCE');
     setDraftMinRating(0);
-    setDraftVegOnly(false);
     setDraftOffersOnly(false);
     setIsFilterModalOpen(false);
   };
@@ -379,8 +472,8 @@ export function HomeScreen({ navigation }: Props) {
 
   // RECOMMENDED FOR YOU: Restaurants the user most frequently ordered from, or top rated if fresh user
   const recommendedRestaurants = useMemo(() => {
-    if (!zoneRestaurants || zoneRestaurants.length === 0) return [];
-    const list = [...zoneRestaurants];
+    if (!vegFilteredZoneRestaurants || vegFilteredZoneRestaurants.length === 0) return [];
+    const list = [...vegFilteredZoneRestaurants];
     return list.sort((a, b) => {
       const aCount = userOrderCounts[a.id] || 0;
       const bCount = userOrderCounts[b.id] || 0;
@@ -391,26 +484,26 @@ export function HomeScreen({ navigation }: Props) {
       const bRating = b.avgRating ? Number(b.avgRating) : 0;
       return bRating - aRating;
     }).slice(0, 10);
-  }, [zoneRestaurants, userOrderCounts]);
+  }, [vegFilteredZoneRestaurants, userOrderCounts]);
 
   // TOP RESTAURANTS: Restaurants designated by admin (topPosition != null && topPosition > 0)
   const topRestaurants = useMemo(() => {
-    return zoneRestaurants
+    return vegFilteredZoneRestaurants
       .filter((r) => r.topPosition !== null && r.topPosition !== undefined && Number(r.topPosition) > 0)
       .sort((a, b) => Number(a.topPosition) - Number(b.topPosition));
-  }, [zoneRestaurants]);
+  }, [vegFilteredZoneRestaurants]);
 
   // TOP RESTAURANTS LIST (matching Option 3 screenshot)
   const topRestaurantsList = useMemo(() => {
     if (topRestaurants.length > 0) return topRestaurants;
     // Fallback to highest rated in zone if admin has not set positions yet
-    return [...zoneRestaurants]
+    return [...vegFilteredZoneRestaurants]
       .sort((a, b) => Number(b.avgRating || 0) - Number(a.avgRating || 0))
       .slice(0, 5);
-  }, [topRestaurants, zoneRestaurants]);
+  }, [topRestaurants, vegFilteredZoneRestaurants]);
 
   // Top featured hero restaurant
-  const topFeaturedRestaurant = topRestaurantsList[0] || zoneRestaurants[0];
+  const topFeaturedRestaurant = topRestaurantsList[0] || vegFilteredZoneRestaurants[0];
 
   // Real Categories with genuine min prices
   const computedCategories = useMemo<DynamicCategory[]>(() => {
@@ -478,14 +571,11 @@ export function HomeScreen({ navigation }: Props) {
 
     // 2. Veg filter
     if (isVegOnly) {
-      list = list.filter((r) => {
-        const cuisines = Array.isArray(r.cuisineTypes) ? r.cuisineTypes : [];
-        return cuisines.some((c) =>
-          c.toUpperCase().includes('VEG') ||
-          c.toUpperCase().includes('SOUTH') ||
-          c.toUpperCase().includes('INDIAN')
-        );
-      });
+      if (vegFilterMode === 'pure_veg_only') {
+        list = list.filter((r) => isPureVegRestaurant(r));
+      } else {
+        list = list.filter((r) => hasVegDishes(r, rawFoodItems));
+      }
     }
 
     // 3. Filter Pill: "New to you"
@@ -595,6 +685,9 @@ export function HomeScreen({ navigation }: Props) {
     computedCategories,
     rawFoodItems,
     isVegOnly,
+    vegFilterMode,
+    isPureVegRestaurant,
+    hasVegDishes,
     activeFilterPill,
     selectedPriceRange,
     selectedDeliveryTime,
@@ -784,19 +877,44 @@ export function HomeScreen({ navigation }: Props) {
           <Text style={{ fontSize: 16, marginLeft: 6, color: '#38BDF8' }}>🎙️</Text>
         </Pressable>
 
-        <View style={styles.vegModeContainer}>
-          <Text style={styles.vegModeLabel}>VEG{'\n'}MODE</Text>
+        <Pressable
+          onPress={() => {
+            if (!isVegOnly) {
+              setIsVegOnly(true);
+              setDraftVegFilterMode(vegFilterMode);
+              setIsVegModalVisible(true);
+              trackAnalyticsEvent('filter_applied', { isVeg: true, vegMode: vegFilterMode });
+            } else {
+              setDraftVegFilterMode(vegFilterMode);
+              setIsVegModalVisible(true);
+            }
+          }}
+          style={styles.vegModeContainer}
+          accessibilityRole="button"
+          accessibilityLabel="Veg mode options"
+        >
+          <Text style={[styles.vegModeLabel, isVegOnly && { color: '#34D399' }]}>
+            VEG{'\n'}MODE
+          </Text>
           <Switch
             value={isVegOnly}
             onValueChange={(val) => {
-              setIsVegOnly(val);
-              trackAnalyticsEvent('filter_applied', { isVeg: val });
+              if (val) {
+                setIsVegOnly(true);
+                setDraftVegFilterMode(vegFilterMode);
+                setIsVegModalVisible(true);
+                trackAnalyticsEvent('filter_applied', { isVeg: true, vegMode: vegFilterMode });
+              } else {
+                setIsVegOnly(false);
+                setIsVegModalVisible(false);
+                trackAnalyticsEvent('filter_applied', { isVeg: false });
+              }
             }}
             trackColor={{ false: 'rgba(255, 255, 255, 0.25)', true: '#10B981' }}
             thumbColor={isVegOnly ? '#FFFFFF' : '#9CA3AF'}
             style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
           />
-        </View>
+        </Pressable>
       </View>
 
       {/* Auto-sliding Animated Promotional Banner with vibrant full-width dynamic background synchronization */}
@@ -974,11 +1092,13 @@ export function HomeScreen({ navigation }: Props) {
     <View style={{ backgroundColor: '#0A120E' }}>
 
       {/* ACTIVE FILTER BANNER IF APPLIED */}
-      {(activeFilterPill !== null || activeModalFilterCount > 0) && (
+      {(activeFilterPill !== null || activeModalFilterCount > 0 || isVegOnly) && (
         <View style={styles.activeFilterBanner}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
             <Text style={styles.activeFilterBannerTitle}>
               {(() => {
+                if (isVegOnly && vegFilterMode === 'pure_veg_only') return '🌱 Showing Pure Veg Restaurants Only';
+                if (isVegOnly && vegFilterMode === 'all_restaurants') return '🥗 Showing Veg Dishes From All Restaurants';
                 if (activeFilterPill === 'new') return '✨ Showing New Restaurants for You';
                 if (activeFilterPill === 'offers') return '🔥 Showing Restaurants & Food Deals with Great Offers';
                 if (activeFilterPill === 'under250') return '💰 Showing Restaurants & Dishes Under ₹250';
@@ -988,14 +1108,34 @@ export function HomeScreen({ navigation }: Props) {
               })()}
             </Text>
           </View>
-          <Pressable
-            testID="btn-reset-filters"
-            accessibilityRole="button"
-            onPress={handleClearAllFilters}
-            style={styles.activeFilterClearBtn}
-          >
-            <Text style={styles.activeFilterClearBtnText}>Reset All ✕</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {isVegOnly && (
+              <Pressable
+                onPress={() => {
+                  setDraftVegFilterMode(vegFilterMode);
+                  setIsVegModalVisible(true);
+                }}
+                style={{
+                  backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 6,
+                  borderWidth: 1,
+                  borderColor: '#10B981',
+                }}
+              >
+                <Text style={{ color: '#34D399', fontSize: 11, fontWeight: '700' }}>Change Mode</Text>
+              </Pressable>
+            )}
+            <Pressable
+              testID="btn-reset-filters"
+              accessibilityRole="button"
+              onPress={handleClearAllFilters}
+              style={styles.activeFilterClearBtn}
+            >
+              <Text style={styles.activeFilterClearBtnText}>Reset All ✕</Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -1112,7 +1252,7 @@ export function HomeScreen({ navigation }: Props) {
               return (
                 <Pressable
                   key={resto.id}
-                  onPress={() => navigation.navigate('Menu', { restaurantId: resto.id })}
+                  onPress={() => navigation.navigate('Menu', { restaurantId: resto.id, initialFilter: isVegOnly ? 'veg' : undefined })}
                   style={({ pressed }) => [
                     styles.recommendedCard,
                     isClosed && styles.cardOffline,
@@ -1202,7 +1342,7 @@ export function HomeScreen({ navigation }: Props) {
                 return (
                   <Pressable
                     key={resto.id}
-                    onPress={() => navigation.navigate('Menu', { restaurantId: resto.id })}
+                    onPress={() => navigation.navigate('Menu', { restaurantId: resto.id, initialFilter: isVegOnly ? 'veg' : undefined })}
                     style={({ pressed }) => [
                       styles.topRestoCard,
                       isClosed && styles.cardOffline,
@@ -1271,7 +1411,7 @@ export function HomeScreen({ navigation }: Props) {
             </ScrollView>
           ) : topFeaturedRestaurant ? (
             <Pressable
-              onPress={() => navigation.navigate('Menu', { restaurantId: topFeaturedRestaurant.id })}
+              onPress={() => navigation.navigate('Menu', { restaurantId: topFeaturedRestaurant.id, initialFilter: isVegOnly ? 'veg' : undefined })}
               style={({ pressed }) => [
                 styles.topHeroCard,
                 topFeaturedRestaurant.isOpen === false && styles.cardOffline,
@@ -1340,7 +1480,11 @@ export function HomeScreen({ navigation }: Props) {
       <View style={styles.zoneListHeader}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={styles.zoneCountHeading}>
-            {activeFilterPill === 'new'
+            {isVegOnly
+              ? vegFilterMode === 'pure_veg_only'
+                ? `Pure Veg Restaurants (${displayedRestaurants.length})`
+                : `Restaurants Serving Veg Food (${displayedRestaurants.length})`
+              : activeFilterPill === 'new'
               ? `New Restaurants (${displayedRestaurants.length})`
               : activeFilterPill === 'offers'
               ? `Great Offers (${displayedRestaurants.length})`
@@ -1352,7 +1496,7 @@ export function HomeScreen({ navigation }: Props) {
               ? `${computedCategories.find((c) => c.id === selectedCategoryId)?.name || 'Category'} (${displayedRestaurants.length})`
               : `${displayedRestaurants.length} Restaurants Delivering to You`}
           </Text>
-          {(activeFilterPill !== null || activeModalFilterCount > 0 || selectedCategoryId !== 'all') && (
+          {(activeFilterPill !== null || activeModalFilterCount > 0 || selectedCategoryId !== 'all' || isVegOnly) && (
             <Pressable
               onPress={handleClearAllFilters}
               style={{
@@ -1369,7 +1513,11 @@ export function HomeScreen({ navigation }: Props) {
           )}
         </View>
         <Text style={styles.zoneSubtitle}>
-          {activeFilterPill === 'fastDelivery'
+          {isVegOnly
+            ? vegFilterMode === 'pure_veg_only'
+              ? 'Showing exclusively 100% pure vegetarian partner restaurants • Tap VEG MODE to change'
+              : 'Showing vegetarian dishes and options from partner restaurants • Tap VEG MODE to change'
+            : activeFilterPill === 'fastDelivery'
             ? 'Sorted by nearest distance & fastest delivery time to your location'
             : activeFilterPill === 'under250'
             ? 'Budget-friendly restaurants with items and combos under ₹250'
@@ -1646,6 +1794,100 @@ export function HomeScreen({ navigation }: Props) {
     </RNModal>
   );
 
+  // Floating Veg Mode Preference Modal matching user specification
+  const renderVegModeModal = () => (
+    <RNModal
+      visible={isVegModalVisible}
+      animationType="fade"
+      transparent
+      onRequestClose={() => setIsVegModalVisible(false)}
+    >
+      <Pressable
+        style={styles.vegModalBackdrop}
+        onPress={() => setIsVegModalVisible(false)}
+      >
+        <Pressable
+          style={[
+            styles.vegModalCard,
+            { top: insets.top + (Platform.OS === 'ios' ? 95 : 105) },
+          ]}
+          onPress={(e) => e.stopPropagation()}
+        >
+          <Text style={styles.vegModalTitle}>See veg dishes from</Text>
+
+          {/* Option 1: All restaurants */}
+          <Pressable
+            onPress={() => setDraftVegFilterMode('all_restaurants')}
+            style={styles.vegRadioRow}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: draftVegFilterMode === 'all_restaurants' }}
+          >
+            <View style={styles.vegRadioCircle}>
+              {draftVegFilterMode === 'all_restaurants' && (
+                <View style={styles.vegRadioInnerDot} />
+              )}
+            </View>
+            <Text style={styles.vegRadioLabel}>All restaurants</Text>
+          </Pressable>
+
+          {/* Option 2: Pure Veg restaurants only */}
+          <Pressable
+            onPress={() => setDraftVegFilterMode('pure_veg_only')}
+            style={[styles.vegRadioRow, { marginBottom: 18 }]}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: draftVegFilterMode === 'pure_veg_only' }}
+          >
+            <View style={styles.vegRadioCircle}>
+              {draftVegFilterMode === 'pure_veg_only' && (
+                <View style={styles.vegRadioInnerDot} />
+              )}
+            </View>
+            <Text style={styles.vegRadioLabel}>Pure Veg restaurants only</Text>
+          </Pressable>
+
+          {/* Apply Button */}
+          <Pressable
+            onPress={() => {
+              setVegFilterMode(draftVegFilterMode);
+              setIsVegOnly(true);
+              setIsVegModalVisible(false);
+              setToast({
+                message:
+                  draftVegFilterMode === 'pure_veg_only'
+                    ? 'Showing Pure Veg restaurants only 🌱'
+                    : 'Showing veg dishes from all restaurants 🥗',
+                variant: 'success',
+              });
+              trackAnalyticsEvent('filter_applied', {
+                isVeg: true,
+                vegMode: draftVegFilterMode,
+              });
+            }}
+            style={({ pressed }) => [
+              styles.vegApplyBtn,
+              { opacity: pressed ? 0.88 : 1 },
+            ]}
+          >
+            <Text style={styles.vegApplyBtnText}>Apply</Text>
+          </Pressable>
+
+          {/* More settings Link */}
+          <Pressable
+            onPress={() => {
+              setVegFilterMode(draftVegFilterMode);
+              setIsVegOnly(true);
+              setIsVegModalVisible(false);
+              setIsFilterModalOpen(true);
+            }}
+            style={styles.vegMoreSettingsBtn}
+          >
+            <Text style={styles.vegMoreSettingsText}>More settings</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </RNModal>
+  );
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#012B18' }} edges={['top', 'left', 'right']}>
       <StatusBar backgroundColor="#012B18" barStyle="light-content" />
@@ -1662,6 +1904,7 @@ export function HomeScreen({ navigation }: Props) {
               activeFilterPill,
               activeModalFilterCount,
               isVegOnly,
+              vegFilterMode,
               selectedPriceRange,
               sortBy,
               minRating,
@@ -1698,7 +1941,13 @@ export function HomeScreen({ navigation }: Props) {
                 let badgeText: string | undefined = undefined;
                 let offerText: string | undefined = undefined;
 
-                if (activeFilterPill === 'new') {
+                if (isVegOnly) {
+                  if (isPureVegRestaurant(resto)) {
+                    badgeText = '🌱 PURE VEG';
+                  } else if (vegFilterMode === 'all_restaurants') {
+                    badgeText = '🥗 VEG OPTIONS';
+                  }
+                } else if (activeFilterPill === 'new') {
                   badgeText = '🆕 NEW TO YOU';
                   offerText = 'Welcome Deal: 20% OFF';
                 } else if (activeFilterPill === 'offers' || filterOffersOnly) {
@@ -1726,6 +1975,7 @@ export function HomeScreen({ navigation }: Props) {
                         });
                         navigation.navigate('Menu', {
                           restaurantId: resto.id,
+                          initialFilter: isVegOnly ? 'veg' : undefined,
                         });
                       }}
                     />
@@ -1738,6 +1988,7 @@ export function HomeScreen({ navigation }: Props) {
         )}
 
         {renderFilterModal()}
+        {renderVegModeModal()}
         <GlobalCartBanner />
         <Toast
           visible={Boolean(toast)}
@@ -2669,5 +2920,88 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
     letterSpacing: 0.2,
+  },
+  vegModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+  },
+  vegModalCard: {
+    position: 'absolute',
+    right: 14,
+    width: 295,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 18,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 18,
+    elevation: 16,
+  },
+  vegModalTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
+    letterSpacing: -0.2,
+  },
+  vegRadioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  vegRadioCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  vegRadioInnerDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+  },
+  vegRadioLabel: {
+    color: '#FFFFFF',
+    fontSize: 15.5,
+    fontWeight: '500',
+  },
+  vegApplyBtn: {
+    backgroundColor: '#15803D',
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+    shadowColor: '#15803D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  vegApplyBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  vegMoreSettingsBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    paddingVertical: 4,
+  },
+  vegMoreSettingsText: {
+    color: '#10B981',
+    fontSize: 14.5,
+    fontWeight: '600',
   },
 });

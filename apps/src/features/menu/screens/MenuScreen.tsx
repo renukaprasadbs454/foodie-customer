@@ -122,7 +122,7 @@ export function MenuScreen({ navigation, route }: Props) {
   const [pendingReadd, setPendingReadd] = useState<(AddCartItemRequest & { optimisticUnitPrice: number }) | null>(null);
   const [conflictVisible, setConflictVisible] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: 'info' | 'success' | 'error' | 'warning'; } | null>(null);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'veg' | 'non-veg' | 'egg' | 'recommended'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'veg' | 'non-veg' | 'egg' | 'recommended'>(route.params?.initialFilter ?? 'all');
 
   const handleError = useApiErrorHandler({
     onToast: (error) => setToast({ message: error.message, variant: 'error' }),

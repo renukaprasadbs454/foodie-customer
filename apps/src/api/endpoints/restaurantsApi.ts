@@ -81,6 +81,10 @@ function normalizeRestaurantList(data: unknown): RestaurantSummary[] {
     longitude: item.longitude ? Number(item.longitude) : 77.5946,
     isOpen: typeof item.isOpen === 'boolean' ? item.isOpen : true,
     topPosition: typeof item.topPosition === 'number' ? item.topPosition : null,
+    restaurantType: item.restaurantType || (item.name?.toLowerCase().includes('ctr') ? 'VEGETARIAN' : null),
+    isPureVeg: typeof item.isPureVeg === 'boolean'
+      ? item.isPureVeg
+      : (item.restaurantType === 'VEGETARIAN' || Boolean(item.name?.toLowerCase().includes('ctr'))),
   }));
 }
 

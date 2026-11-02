@@ -49,6 +49,8 @@ export type RestaurantSummary = {
   longitude?: number | string | null;
   isOpen?: boolean;
   topPosition?: number | null;
+  restaurantType?: 'VEGETARIAN' | 'NON_VEGETARIAN' | 'BOTH' | string | null;
+  isPureVeg?: boolean | null;
 };
 
 /** §3.2 public profile — never commissionPct. */

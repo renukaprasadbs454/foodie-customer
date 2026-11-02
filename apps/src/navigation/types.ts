@@ -26,7 +26,7 @@ export type BrowseStackParamList = {
   } | undefined;
   Search: { initialQuery?: string } | undefined;
   RestaurantDetails: { restaurantId: string };
-  Menu: { restaurantId: string };
+  Menu: { restaurantId: string; initialFilter?: 'all' | 'veg' | 'non-veg' | 'egg' | 'recommended' };
   Cart: undefined;
   Checkout: undefined;
   /** UI-API Payment — P2-CUS-05. */
