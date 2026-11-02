@@ -153,7 +153,7 @@ export function CartScreen({ navigation, route }: Props) {
   }
 
   const { zone: globalZone } = useGlobalLocation();
-  const currentActiveZoneId = globalZone?.zoneId || (restaurant as any)?.zoneId || null;
+  const currentActiveZoneId = globalZone?.zoneId || null;
 
   const couponsQuery = useGetEligibleCouponsQuery({
     restaurantId: restaurantId || '',
