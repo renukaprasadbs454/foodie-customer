@@ -1,4 +1,6 @@
 import { baseApi } from '../baseApi';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 export interface PromotionBannerResponse {
     id: string;
@@ -68,11 +70,11 @@ export function filterBannersForZone(banners: PromotionBannerResponse[], zoneId?
         }
 
         // 1. Explicit All Zones check (Admin created banner for All Zones)
-        const isAll = b.isAllZones === true ||
+        const isExplicitAll = b.isAllZones === true ||
             (Array.isArray(b.targetZoneIds) && b.targetZoneIds.includes('ALL')) ||
             (Array.isArray(b.targetZoneNames) && b.targetZoneNames.includes('All Zones'));
 
-        if (isAll) {
+        if (isExplicitAll) {
             return true;
         }
 
@@ -86,9 +88,29 @@ export function filterBannersForZone(banners: PromotionBannerResponse[], zoneId?
             return allTargets.some((t) => isZoneMatching(t, cleanZone));
         }
 
-        // 3. Reject any banner without explicit admin zone targeting
-        // Legacy/unregistered banners from remote DB lack targetZoneIds/isAllZones and must NEVER be displayed!
-        return false;
+        // 3. Fallback for remote backend banners without explicit targetZoneIds array
+        const text = `${b.title || ''} ${b.subtitle || ''} ${b.ctaTarget || ''}`.toLowerCase();
+        const hasBlr = text.includes('bangalore') || text.includes('bengaluru') || text.includes('blr');
+        const hasTmk = text.includes('tumkur') || text.includes('tumakuru') || text.includes('tmk');
+        const hasHub = text.includes('hubballi') || text.includes('hubli') || text.includes('hbl');
+        const hasMys = text.includes('mysore') || text.includes('mysuru');
+        const hasHas = text.includes('hassan');
+
+        const isBlrCustomer = isZoneMatching('bangalore', cleanZone);
+        const isTmkCustomer = isZoneMatching('tumkur', cleanZone);
+        const isHubCustomer = isZoneMatching('hubballi', cleanZone);
+        const isMysCustomer = isZoneMatching('mysore', cleanZone);
+        const isHasCustomer = isZoneMatching('hassan', cleanZone);
+
+        // If the banner mentions a specific zone in title/subtitle, only show it to customers in that zone
+        if (hasHub) return isHubCustomer;
+        if (hasTmk) return isTmkCustomer;
+        if (hasBlr) return isBlrCustomer;
+        if (hasMys) return isMysCustomer;
+        if (hasHas) return isHasCustomer;
+
+        // If no specific city is in title/subtitle, it is a platform-wide / All-Zones banner
+        return true;
     });
 }
 
@@ -98,11 +120,40 @@ export const bannersApi = baseApi.injectEndpoints({
             queryFn: async (zoneId, _queryApi, _extraOptions, baseQuery) => {
                 const cleanZone = zoneId ? zoneId.trim() : '';
 
-                // Try 1: Fetch from Admin BFF dev server (direct port 3000 / 3100)
+                // Try 1: Standard API query /api/v1/banners/active
+                try {
+                    const relativeRes = await baseQuery({
+                        url: '/api/v1/banners/active',
+                        params: cleanZone ? { zoneId: cleanZone } : undefined,
+                        headers: cleanZone ? { 'x-active-zone-id': cleanZone } : undefined,
+                    });
+
+                    if (relativeRes.data) {
+                        const rawList = (relativeRes.data as any)?.data ?? relativeRes.data ?? [];
+                        if (Array.isArray(rawList) && rawList.length > 0) {
+                            const filtered = filterBannersForZone(rawList as PromotionBannerResponse[], cleanZone);
+                            if (filtered.length > 0) {
+                                return { data: filtered };
+                            }
+                        }
+                    }
+                } catch {
+                    // Fall through
+                }
+
+                // Try 2: Fetch from Admin BFF dev server (host LAN IP or localhost port 3000)
+                let hostIp = 'localhost';
+                if (Constants.expoConfig?.hostUri) {
+                    hostIp = Constants.expoConfig.hostUri.split(':')[0];
+                } else if (Platform.OS === 'android') {
+                    hostIp = '10.0.2.2';
+                }
+
                 const hostCandidates = [
+                    `http://${hostIp}:3000/api/bff/banners/active${cleanZone ? `?zoneId=${encodeURIComponent(cleanZone)}` : ''}`,
                     `http://localhost:3000/api/bff/banners/active${cleanZone ? `?zoneId=${encodeURIComponent(cleanZone)}` : ''}`,
                     `http://127.0.0.1:3000/api/bff/banners/active${cleanZone ? `?zoneId=${encodeURIComponent(cleanZone)}` : ''}`,
-                    `http://localhost:3100/api/bff/banners/active${cleanZone ? `?zoneId=${encodeURIComponent(cleanZone)}` : ''}`,
+                    `http://10.109.177.186:3000/api/bff/banners/active${cleanZone ? `?zoneId=${encodeURIComponent(cleanZone)}` : ''}`,
                 ];
 
                 for (const url of hostCandidates) {
@@ -114,31 +165,13 @@ export const bannersApi = baseApi.injectEndpoints({
                         if (res.ok) {
                             const json = await res.json();
                             const list = json?.data ?? json;
-                            if (Array.isArray(list)) {
+                            if (Array.isArray(list) && list.length > 0) {
                                 return { data: filterBannersForZone(list as PromotionBannerResponse[], cleanZone) };
                             }
                         }
                     } catch {
                         // try next
                     }
-                }
-
-                // Try 2: Standard API query /api/v1/banners/active
-                try {
-                    const relativeRes = await baseQuery({
-                        url: '/api/v1/banners/active',
-                        params: cleanZone ? { zoneId: cleanZone } : undefined,
-                        headers: cleanZone ? { 'x-active-zone-id': cleanZone } : undefined,
-                    });
-
-                    if (relativeRes.data) {
-                        const rawList = (relativeRes.data as any)?.data ?? relativeRes.data ?? [];
-                        if (Array.isArray(rawList)) {
-                            return { data: filterBannersForZone(rawList as PromotionBannerResponse[], cleanZone) };
-                        }
-                    }
-                } catch {
-                    // Fall through
                 }
 
                 return { data: [] };

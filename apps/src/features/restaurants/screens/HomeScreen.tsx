@@ -1670,9 +1670,9 @@ export function HomeScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   heroTopContainer: {
     paddingTop: 8,
-    paddingBottom: 8,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingBottom: 0,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
     overflow: 'hidden',
   },
   headerTopRow: {

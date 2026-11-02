@@ -78,6 +78,14 @@ export const PROMO_BANNER_THEMES: PromoBannerTheme[] = [
   },
 ];
 
+const FALLBACK_DISH_IMAGES = [
+  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
+  'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500&q=80',
+  'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=500&q=80',
+  'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80',
+  'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&q=80',
+];
+
 interface PromoBannerItem {
   id: string;
   badge?: string;
@@ -110,17 +118,21 @@ export function PromotionalBannerCarousel({
   const displayBanners: PromoBannerItem[] = useMemo(() => {
     if (!apiBanners || apiBanners.length === 0) return [];
     return apiBanners.map((b, idx) => {
+      const fallbackImage = FALLBACK_DISH_IMAGES[idx % FALLBACK_DISH_IMAGES.length];
       const resolvedImg = b.imageUrl?.startsWith('/api')
         ? `${ENV.apiBaseUrl}${b.imageUrl}`
-        : (b.imageUrl && b.imageUrl !== 'auto-generated' ? b.imageUrl : undefined);
+        : (b.imageUrl && b.imageUrl !== 'auto-generated' ? b.imageUrl : fallbackImage);
 
       let top = 'SPECIAL OFFER';
       let highlight = b.title || 'UP TO 50% OFF';
-      if (b.title && b.title.length > 12) {
+      if (b.title && b.title.length > 10) {
         const words = b.title.split(' ');
-        if (words.length > 2) {
+        if (words.length >= 3) {
           top = words.slice(0, 2).join(' ').toUpperCase();
           highlight = words.slice(2).join(' ').toUpperCase();
+        } else if (words.length === 2) {
+          top = words[0].toUpperCase();
+          highlight = words[1].toUpperCase();
         }
       }
 
@@ -143,7 +155,17 @@ export function PromotionalBannerCarousel({
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Auto-scroll loop every 3.5s with smooth animation
+  // Sync header gradient with active banner
+  useEffect(() => {
+    if (displayBanners.length > 0 && onBannerChange) {
+      const initialTheme = displayBanners[currentIndex]?.theme || displayBanners[0]?.theme;
+      if (initialTheme) {
+        onBannerChange(initialTheme.gradient);
+      }
+    }
+  }, [displayBanners, onBannerChange]);
+
+  // Auto-scroll loop every 3.8s with smooth animation
   useEffect(() => {
     if (displayBanners.length <= 1) return;
     const interval = setInterval(() => {
@@ -160,7 +182,7 @@ export function PromotionalBannerCarousel({
         }
         return nextIndex;
       });
-    }, 3600);
+    }, 3800);
     return () => clearInterval(interval);
   }, [displayBanners, width, onBannerChange]);
 
@@ -168,13 +190,13 @@ export function PromotionalBannerCarousel({
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.06,
-          duration: 1300,
+          toValue: 1.05,
+          duration: 1400,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1300,
+          duration: 1400,
           useNativeDriver: true,
         }),
       ])
@@ -236,7 +258,7 @@ export function PromotionalBannerCarousel({
           const hasValidImage = Boolean(item.imageUrl && !failedImages[item.id]);
 
           return (
-            <View style={{ width, paddingHorizontal: 16 }}>
+            <View style={{ width, paddingHorizontal: 18 }}>
               <Pressable
                 onPress={() => handleBannerPress(item)}
                 style={({ pressed }) => [
@@ -261,8 +283,8 @@ export function PromotionalBannerCarousel({
                     {item.topTitle}
                   </Text>
 
-                  {/* Big Hero Text */}
-                  <Text style={[styles.bigHighlightText, { color: item.theme.bigHighlightColor }]} numberOfLines={1}>
+                  {/* Big Hero Headline Text */}
+                  <Text style={[styles.bigHighlightText, { color: item.theme.bigHighlightColor }]} numberOfLines={2}>
                     {item.bigHighlight}
                   </Text>
 
@@ -272,7 +294,7 @@ export function PromotionalBannerCarousel({
                     </Text>
                   ) : null}
 
-                  {/* Order Now Button with Gold Styling */}
+                  {/* Order Now Button with Gold Accent Styling */}
                   <View style={[styles.orderNowPill, { backgroundColor: item.theme.ctaBg }]}>
                     <Text style={[styles.orderNowText, { color: item.theme.ctaTextColor }]}>
                       {item.ctaText}
@@ -280,7 +302,7 @@ export function PromotionalBannerCarousel({
                   </View>
                 </View>
 
-                {/* Right Dish Visual with floating animated round frame */}
+                {/* Right Dish Visual with floating animated frame */}
                 {hasValidImage ? (
                   <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
                     <View style={[styles.dishFrame, { borderColor: item.theme.badgeBorder }]}>
@@ -328,130 +350,134 @@ export function PromotionalBannerCarousel({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    paddingTop: 6,
-    paddingBottom: 4,
+    paddingTop: 4,
+    paddingBottom: 2,
     overflow: 'visible',
   },
   bannerContentRow: {
-    minHeight: 175,
+    minHeight: 220,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 14,
-    paddingBottom: 8,
+    paddingTop: 16,
+    paddingBottom: 14,
     overflow: 'visible',
   },
   leftContent: {
-    flex: 1.25,
+    flex: 1.35,
     justifyContent: 'center',
-    paddingRight: 10,
-    paddingTop: 4,
+    paddingRight: 12,
     zIndex: 2,
     overflow: 'visible',
   },
   badgePill: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 9,
-    paddingVertical: 3.5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 8,
-    marginTop: 4,
     marginBottom: 6,
     borderWidth: 1,
   },
   badgeText: {
-    fontSize: 9.5,
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   topTitleText: {
-    fontSize: 21,
+    fontSize: 22,
     fontWeight: '900',
     fontStyle: 'italic',
-    letterSpacing: 0.3,
-    lineHeight: 25,
+    letterSpacing: 0.4,
+    lineHeight: 26,
     marginTop: 2,
   },
   bigHighlightText: {
-    fontSize: 22,
+    fontSize: 25,
     fontWeight: '900',
-    letterSpacing: -0.3,
-    lineHeight: 27,
-    marginTop: 1,
+    letterSpacing: -0.4,
+    lineHeight: 30,
+    marginTop: 2,
   },
   subtitleText: {
-    fontSize: 12,
+    fontSize: 13.5,
     fontWeight: '500',
-    marginTop: 3,
-    marginBottom: 8,
+    marginTop: 4,
+    marginBottom: 10,
+    lineHeight: 18,
   },
   orderNowPill: {
     alignSelf: 'flex-start',
     backgroundColor: '#000000',
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 8.5,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 4,
   },
   orderNowText: {
     fontWeight: '800',
-    fontSize: 12,
-    letterSpacing: 0.3,
+    fontSize: 12.5,
+    letterSpacing: 0.4,
   },
   dishFrame: {
-    width: 120,
-    height: 115,
-    borderRadius: 24,
+    width: 140,
+    height: 135,
+    borderRadius: 28,
     overflow: 'hidden',
     position: 'relative',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+    borderWidth: 2.5,
   },
   dishImage: {
     width: '100%',
     height: '100%',
   },
   discountBadgeVisual: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FFFFFF',
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 2.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
   discountBadgeIcon: {
-    fontSize: 28,
+    fontSize: 32,
     marginBottom: 2,
   },
   discountBadgeHighlight: {
     fontWeight: '900',
-    fontSize: 11,
-    letterSpacing: 0.5,
+    fontSize: 11.5,
+    letterSpacing: 0.6,
   },
   dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 6,
-    marginBottom: 4,
+    marginBottom: 12,
     gap: 6,
   },
   dot: {
-    height: 4,
-    borderRadius: 2,
+    height: 4.5,
+    borderRadius: 2.5,
   },
   activeDot: {
-    width: 22,
+    width: 24,
     backgroundColor: '#FCD34D',
   },
   inactiveDot: {
