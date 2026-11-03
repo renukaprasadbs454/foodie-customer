@@ -51,6 +51,9 @@ export type RestaurantSummary = {
   topPosition?: number | null;
   restaurantType?: 'VEGETARIAN' | 'NON_VEGETARIAN' | 'BOTH' | string | null;
   isPureVeg?: boolean | null;
+  zoneId?: string | null;
+  zoneName?: string | null;
+  enabledCouponIds?: string[] | null;
 };
 
 /** §3.2 public profile — never commissionPct. */

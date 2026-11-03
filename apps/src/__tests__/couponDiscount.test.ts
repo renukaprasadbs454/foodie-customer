@@ -1,4 +1,3 @@
-import { describe, it, expect } from '@jest/globals';
 import { calculateCouponDiscount } from '../features/checkout/couponUtils';
 import type { EligibleCoupon } from '../features/checkout/types';
 

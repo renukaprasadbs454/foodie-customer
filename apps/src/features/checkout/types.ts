@@ -16,14 +16,22 @@ export type CustomerAddress = {
 };
 
 export type EligibleCoupon = {
+  couponId?: string;
   code: string;
+  title?: string;
   discountType: string;
   value: number | string;
   minOrderAmount?: number | string | null;
   maxDiscountAmount?: number | string | null;
   expiryDate?: string | null;
+  restaurantId?: string | null;
+  restaurantName?: string | null;
+  isActive?: boolean;
+  status?: string;
+  approvalStatus?: string;
   zoneId?: string | null;
   zoneName?: string | null;
+  isAllZones?: boolean;
 };
 
 export type ApplyCouponRequest = {

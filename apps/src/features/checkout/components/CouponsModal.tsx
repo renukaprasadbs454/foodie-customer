@@ -35,7 +35,6 @@ export function CouponsModal({ visible, onClose, coupons, selectedCode, orderAmo
         }
     }, [visible, selectedCode]);
 
-
     const renderSubtitle = (coupon: EligibleCoupon) => {
         const { isEligible, amountNeeded } = getCouponEligibility(coupon, orderAmount);
 
@@ -128,7 +127,7 @@ export function CouponsModal({ visible, onClose, coupons, selectedCode, orderAmo
                         <View style={{ alignItems: 'center', marginTop: 40 }}>
                             <Text style={{ fontSize: 40 }}>🎫</Text>
                             <Text style={{ fontSize: 16, fontWeight: '700', color: '#374151', marginTop: 12 }}>
-                                No active coupons available
+                                No coupons available for this restaurant.
                             </Text>
                         </View>
                     ) : (
@@ -141,72 +140,72 @@ export function CouponsModal({ visible, onClose, coupons, selectedCode, orderAmo
                                     <Pressable
                                         key={coupon.code}
                                         onPress={() => {
-                                            if (isEligible) {
-                                                setLocalSelection(coupon.code);
-                                            } else {
-                                                setToast({
-                                                    message: `Add eligible items worth ₹${formatCouponAmount(amountNeeded)} more to unlock`,
-                                                    variant: 'warning',
-                                                });
-                                            }
+                                             if (isEligible) {
+                                                 setLocalSelection(coupon.code);
+                                             } else {
+                                                 setToast({
+                                                     message: `Add eligible items worth ₹${formatCouponAmount(amountNeeded)} more to unlock`,
+                                                     variant: 'warning',
+                                                 });
+                                             }
                                         }}
                                         style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'flex-start',
-                                            backgroundColor: 'transparent',
-                                            opacity: isEligible ? 1 : 0.85,
+                                             flexDirection: 'row',
+                                             alignItems: 'flex-start',
+                                             backgroundColor: 'transparent',
+                                             opacity: isEligible ? 1 : 0.85,
                                         }}
                                     >
                                         {/* Left Icon */}
                                         <View style={{
-                                            width: 24,
-                                            height: 24,
-                                            borderRadius: 12,
-                                            backgroundColor: isEligible ? '#DBEAFE' : '#F3F4F6',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            marginTop: 2,
-                                            marginRight: 12
+                                             width: 24,
+                                             height: 24,
+                                             borderRadius: 12,
+                                             backgroundColor: isEligible ? '#DBEAFE' : '#F3F4F6',
+                                             alignItems: 'center',
+                                             justifyContent: 'center',
+                                             marginTop: 2,
+                                             marginRight: 12
                                         }}>
-                                            <Text style={{ color: isEligible ? '#1D4ED8' : '#9CA3AF', fontSize: 12, fontWeight: 'bold' }}>%</Text>
+                                             <Text style={{ color: isEligible ? '#1D4ED8' : '#9CA3AF', fontSize: 12, fontWeight: 'bold' }}>%</Text>
                                         </View>
 
                                         {/* Center Details */}
                                         <View style={{ flex: 1, marginRight: 12 }}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                <Text style={{ fontSize: 16, fontWeight: '800', color: isEligible ? '#111827' : '#374151' }}>
-                                                    {getTitle(coupon)}
-                                                </Text>
-                                                <Text style={{ marginLeft: 6, fontSize: 13, color: '#6B7280' }}>ⓘ</Text>
-                                            </View>
+                                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                 <Text style={{ fontSize: 16, fontWeight: '800', color: isEligible ? '#111827' : '#374151' }}>
+                                                     {getTitle(coupon)}
+                                                 </Text>
+                                                 <Text style={{ marginLeft: 6, fontSize: 13, color: '#6B7280' }}>ⓘ</Text>
+                                             </View>
 
-                                            <Text style={{ fontSize: 13, color: subInfo.color, fontWeight: '700', marginTop: 4, marginBottom: 8 }}>
-                                                {subInfo.text}
-                                            </Text>
+                                             <Text style={{ fontSize: 13, color: subInfo.color, fontWeight: '700', marginTop: 4, marginBottom: 8 }}>
+                                                 {subInfo.text}
+                                             </Text>
 
-                                            <View style={{
-                                                alignSelf: 'flex-start',
-                                                backgroundColor: '#FFFFFF',
-                                                borderWidth: 1,
-                                                borderColor: isEligible ? '#E5E7EB' : '#F3F4F6',
-                                                borderRadius: 6,
-                                                paddingHorizontal: 8,
-                                                paddingVertical: 4,
-                                            }}>
-                                                <Text style={{ fontSize: 12, fontWeight: '700', color: isEligible ? '#374151' : '#9CA3AF', letterSpacing: 0.5 }}>
-                                                    {coupon.code}
-                                                </Text>
-                                            </View>
+                                             <View style={{
+                                                 alignSelf: 'flex-start',
+                                                 backgroundColor: '#FFFFFF',
+                                                 borderWidth: 1,
+                                                 borderColor: isEligible ? '#E5E7EB' : '#F3F4F6',
+                                                 borderRadius: 6,
+                                                 paddingHorizontal: 8,
+                                                 paddingVertical: 4,
+                                             }}>
+                                                 <Text style={{ fontSize: 12, fontWeight: '700', color: isEligible ? '#374151' : '#9CA3AF', letterSpacing: 0.5 }}>
+                                                     {coupon.code}
+                                                 </Text>
+                                             </View>
                                         </View>
 
                                         {/* Right Radio Button */}
                                         <View style={{
-                                            width: 20, height: 20, borderRadius: 10, borderWidth: 2,
-                                            borderColor: isSelected ? '#14532D' : (isEligible ? '#D1D5DB' : '#E5E7EB'),
-                                            justifyContent: 'center', alignItems: 'center',
-                                            marginTop: 4
+                                             width: 20, height: 20, borderRadius: 10, borderWidth: 2,
+                                             borderColor: isSelected ? '#14532D' : (isEligible ? '#D1D5DB' : '#E5E7EB'),
+                                             justifyContent: 'center', alignItems: 'center',
+                                             marginTop: 4
                                         }}>
-                                            {isSelected && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#14532D' }} />}
+                                             {isSelected && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#14532D' }} />}
                                         </View>
                                     </Pressable>
                                 );

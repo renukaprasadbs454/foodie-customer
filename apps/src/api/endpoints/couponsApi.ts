@@ -1,19 +1,36 @@
 import { baseApi } from '../baseApi';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   ApplyCouponRequest,
   ApplyCouponResult,
   EligibleCoupon,
 } from '../../features/checkout/types';
-import { isZoneMatching } from './bannersApi';
+import {
+  isCouponExpired,
+  filterCouponsForRestaurant,
+  isCouponInRestaurantZone,
+  normalizeZoneId,
+  isZoneMatching,
+} from '../../features/checkout/couponUtils';
+
+export { isCouponExpired, filterCouponsForRestaurant, isCouponInRestaurantZone, normalizeZoneId };
 
 export type EligibleCouponsArg = {
   restaurantId?: string;
-  cartTotal?: number | string;
+  restaurantZoneId?: string | null;
   zoneId?: string | null;
+  restaurantName?: string | null;
+  cartTotal?: number | string;
+  enabledCouponIds?: string[] | null;
 };
 
+const STORAGE_KEY_PREFIX = '@foodie:restaurant_coupons:';
+
+/**
+ * Filter coupons for customer zone (backward-compatible helper).
+ */
 export function filterCouponsForZone(coupons: EligibleCoupon[], zoneId?: string | null): EligibleCoupon[] {
   if (!Array.isArray(coupons)) return [];
   const cleanZone = zoneId ? zoneId.trim() : '';
@@ -44,17 +61,81 @@ export function filterCouponsForZone(coupons: EligibleCoupon[], zoneId?: string 
   });
 }
 
+function mapRawCoupon(c: any, isExplicitRestaurantSource?: boolean, restaurantId?: string): EligibleCoupon {
+  const isAct =
+    c.isActive !== false &&
+    String(c.status || '').toUpperCase() !== 'DEACTIVATED' &&
+    String(c.status || '').toUpperCase() !== 'DISABLED';
+
+  const couponRestId = c.restaurantId
+    ? String(c.restaurantId).trim()
+    : isExplicitRestaurantSource && restaurantId
+    ? restaurantId
+    : null;
+
+  return {
+    couponId: String(c.couponId || c.id || c.code || ''),
+    code: String(c.code || '').trim().toUpperCase(),
+    title: c.title || undefined,
+    discountType: c.discountType || (c.benefitMode === 'FLAT' ? 'FLAT' : 'PERCENT'),
+    value: Number(c.value ?? c.discountValue ?? 0),
+    minOrderAmount: Number(c.minOrderAmount ?? c.minPurchase ?? 0),
+    maxDiscountAmount:
+      c.maxDiscountAmount != null
+        ? Number(c.maxDiscountAmount)
+        : c.maxDiscount != null
+        ? Number(c.maxDiscount)
+        : null,
+    expiryDate: c.expiryDate || null,
+    restaurantId: couponRestId,
+    restaurantName: c.restaurantName || null,
+    isActive: isAct,
+    status: c.status || (isAct ? 'ACTIVE' : 'DEACTIVATED'),
+    approvalStatus: c.approvalStatus || 'APPROVED',
+    zoneId: c.zoneId || null,
+    zoneName: c.zoneName || null,
+    isAllZones: Boolean(c.isAllZones || (c.zoneName && String(c.zoneName).toLowerCase().includes('all'))),
+  };
+}
+
+function mergeUniqueCoupons(primary: EligibleCoupon[], secondary: EligibleCoupon[]): EligibleCoupon[] {
+  const seen = new Set<string>();
+  const merged: EligibleCoupon[] = [];
+  for (const c of primary) {
+    const key = (c.code || c.couponId || '').toUpperCase();
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      merged.push(c);
+    }
+  }
+  for (const c of secondary) {
+    const key = (c.code || c.couponId || '').toUpperCase();
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      merged.push(c);
+    }
+  }
+  return merged;
+}
+
 /**
- * P2-CUS-04 coupons on Checkout — eligible list + apply preview (no redeem).
- * Fetches admin-created coupons in real time from Admin BFF with fallback to remote backend.
+ * P2-CUS-04 coupons on Checkout / Cart — restaurant-specific eligible list + apply preview.
+ * Fetches and displays ONLY the enabled coupons of the selected restaurant.
  */
 export const couponsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getEligibleCoupons: builder.query<EligibleCoupon[], EligibleCouponsArg | void>({
       queryFn: async (arg, _queryApi, _extraOptions, baseQuery) => {
-        const restaurantId = arg?.restaurantId || '';
+        const restaurantId = (arg?.restaurantId || '').trim();
+        const restaurantZoneId = (arg?.restaurantZoneId || arg?.zoneId || '').trim();
+        const restaurantName = (arg?.restaurantName || '').trim();
         const cartTotal = Number(arg?.cartTotal || 0);
-        const cleanZone = arg?.zoneId ? arg.zoneId.trim() : '';
+        const enabledCouponIds = arg?.enabledCouponIds || null;
+
+        // If no restaurant is selected, no restaurant-specific coupons can be shown
+        if (!restaurantId) {
+          return { data: [] };
+        }
 
         // Determine host IP (for mobile emulator / web / LAN dev server)
         let hostIp = 'localhost';
@@ -75,73 +156,115 @@ export const couponsApi = baseApi.injectEndpoints({
 
         let fetchedCoupons: EligibleCoupon[] = [];
 
-        // Try candidate Admin BFF endpoints (where admin creates coupons in real-time)
+        // 1. Try candidate Admin/Restaurant BFF endpoints with restaurantId
         for (const base of candidateBffUrls) {
           try {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 1800);
-            const targetUrl = `${base}/api/bff/coupons/eligible?cartTotal=${cartTotal}${cleanZone ? `&zoneId=${encodeURIComponent(cleanZone)}` : ''}`;
-            const res = await fetch(targetUrl, { signal: controller.signal });
-            clearTimeout(timer);
-            if (res.ok) {
-              const json = await res.json();
-              const list = json?.data ?? json;
-              if (Array.isArray(list) && list.length > 0) {
-                fetchedCoupons = list.map((c: any) => ({
-                  code: c.code,
-                  discountType: c.discountType || (c.benefitMode === 'FLAT' ? 'FLAT' : 'PERCENT'),
-                  value: Number(c.value ?? c.discountValue ?? 0),
-                  minOrderAmount: Number(c.minOrderAmount ?? c.minPurchase ?? 0),
-                  maxDiscountAmount: c.maxDiscountAmount != null ? Number(c.maxDiscountAmount) : (c.maxDiscount != null ? Number(c.maxDiscount) : null),
-                  expiryDate: c.expiryDate || null,
-                  zoneId: c.zoneId || null,
-                  zoneName: c.zoneName || null,
-                }));
-                break;
+            const endpoints = [
+              `${base}/api/bff/restaurant/coupons?restaurantId=${encodeURIComponent(restaurantId)}${restaurantZoneId ? `&zoneId=${encodeURIComponent(restaurantZoneId)}` : ''}&_t=${Date.now()}`,
+              `${base}/api/bff/coupons/eligible?restaurantId=${encodeURIComponent(restaurantId)}&cartTotal=${cartTotal}${restaurantZoneId ? `&zoneId=${encodeURIComponent(restaurantZoneId)}` : ''}`,
+            ];
+
+            for (const targetUrl of endpoints) {
+              try {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 1500);
+                const res = await fetch(targetUrl, { signal: controller.signal });
+                clearTimeout(timer);
+                if (res.ok) {
+                  const json = await res.json();
+                  const list = json?.data ?? json;
+                  if (Array.isArray(list) && list.length > 0) {
+                    const mapped = list.map((item: any) => mapRawCoupon(item, true, restaurantId));
+                    fetchedCoupons = mergeUniqueCoupons(fetchedCoupons, mapped);
+                  }
+                }
+              } catch {
+                // Next candidate
               }
             }
+            if (fetchedCoupons.length > 0) {
+              break;
+            }
           } catch {
-            // Try next candidate
+            // Next base URL
           }
         }
 
-        // Also query remote backend if BFF is unreachable
-        if (fetchedCoupons.length === 0) {
-          try {
-            const relativeRes = await baseQuery({
-              url: '/api/v1/coupons/eligible',
-              params: {
-                cartTotal,
-                ...(restaurantId ? { restaurantId } : {}),
-                ...(cleanZone ? { zoneId: cleanZone } : {}),
-              },
-              headers: cleanZone ? { 'x-active-zone-id': cleanZone } : undefined,
-            });
-
-            if (relativeRes.data) {
-              const rawList = (relativeRes.data as any)?.data ?? relativeRes.data ?? [];
-              if (Array.isArray(rawList) && rawList.length > 0) {
-                fetchedCoupons = rawList.map((c: any) => ({
-                  code: c.code,
-                  discountType: c.discountType || (c.benefitMode === 'FLAT' ? 'FLAT' : 'PERCENT'),
-                  value: Number(c.value ?? c.discountValue ?? 0),
-                  minOrderAmount: Number(c.minOrderAmount ?? c.minPurchase ?? 0),
-                  maxDiscountAmount: c.maxDiscountAmount != null ? Number(c.maxDiscountAmount) : (c.maxDiscount != null ? Number(c.maxDiscount) : null),
-                  expiryDate: c.expiryDate || null,
-                  zoneId: c.zoneId || null,
-                  zoneName: c.zoneName || null,
-                }));
-              }
+        // 2. Query remote backend endpoints with restaurantId
+        try {
+          const restRes = await baseQuery({
+            url: '/api/v1/restaurant/coupons',
+            params: {
+              restaurantId,
+              ...(restaurantZoneId ? { zoneId: restaurantZoneId } : {}),
+            },
+          });
+          if (restRes.data) {
+            const rawList = (restRes.data as any)?.data ?? restRes.data ?? [];
+            if (Array.isArray(rawList) && rawList.length > 0) {
+              const mapped = rawList.map((item: any) => mapRawCoupon(item, true, restaurantId));
+              fetchedCoupons = mergeUniqueCoupons(fetchedCoupons, mapped);
             }
-          } catch {
-            // Fall through
           }
+        } catch {
+          // Fall through
         }
 
-        const filtered = filterCouponsForZone(fetchedCoupons, cleanZone);
+        try {
+          const relativeRes = await baseQuery({
+            url: '/api/v1/coupons/eligible',
+            params: {
+              restaurantId,
+              cartTotal,
+              ...(restaurantZoneId ? { zoneId: restaurantZoneId } : {}),
+            },
+            headers: restaurantZoneId ? { 'x-active-zone-id': restaurantZoneId } : undefined,
+          });
+
+          if (relativeRes.data) {
+            const rawList = (relativeRes.data as any)?.data ?? relativeRes.data ?? [];
+            if (Array.isArray(rawList) && rawList.length > 0) {
+              const mapped = rawList.map((item: any) => mapRawCoupon(item, false, restaurantId));
+              fetchedCoupons = mergeUniqueCoupons(fetchedCoupons, mapped);
+            }
+          }
+        } catch {
+          // Fall through
+        }
+
+        // 3. Check local AsyncStorage for restaurant-specific cached coupons
+        try {
+          const storageKey = `${STORAGE_KEY_PREFIX}${restaurantId}`;
+          const cached = await AsyncStorage.getItem(storageKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const mapped = parsed.map((item: any) => mapRawCoupon(item, true, restaurantId));
+              // AsyncStorage reflects restaurant's immediate toggle changes
+              fetchedCoupons = mergeUniqueCoupons(mapped, fetchedCoupons);
+            }
+          }
+        } catch {
+          // Ignore storage read error
+        }
+
+        // 4. Strict Restaurant Scoping and Zone Verification
+        const filtered = filterCouponsForRestaurant(
+          fetchedCoupons,
+          restaurantId,
+          restaurantZoneId,
+          {
+            restaurantName,
+            enabledCouponIds,
+          }
+        );
+
         return { data: filtered };
       },
-      providesTags: [{ type: 'Coupon', id: 'ELIGIBLE' }],
+      providesTags: (_result, _error, arg) => [
+        { type: 'Coupon', id: 'ELIGIBLE' },
+        { type: 'Coupon', id: `RESTAURANT-${arg?.restaurantId || 'ALL'}` },
+      ],
       keepUnusedDataFor: 0,
     }),
     applyCoupon: builder.mutation<ApplyCouponResult, ApplyCouponRequest>({

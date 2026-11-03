@@ -152,23 +152,49 @@ export function CartScreen({ navigation, route }: Props) {
     });
   }
 
+  const restaurantDetailsQuery = useGetRestaurantQuery(restaurantId || '', {
+    skip: !restaurantId || isDarkStoreMock || isMock,
+  });
+  const currentRestaurant = restaurantDetailsQuery.data || mockRestaurant || (cartQuery.data?.restaurantName ? { id: restaurantId || undefined, name: cartQuery.data.restaurantName } : null);
+  const restoZone = currentRestaurant ? getRestaurantZone(currentRestaurant) : null;
+  const selectedRestaurantZoneId = (currentRestaurant as any)?.zoneId || (currentRestaurant as any)?.zone?.id || restoZone?.zoneId || null;
+
   const { zone: globalZone } = useGlobalLocation();
   const currentActiveZoneId = globalZone?.zoneId || null;
 
+  const prevRestaurantIdRef = useRef<string | null>(restaurantId || null);
+
+  // Clear previous restaurant coupons and selection immediately upon restaurant switch
+  useEffect(() => {
+    if (restaurantId !== prevRestaurantIdRef.current) {
+      prevRestaurantIdRef.current = restaurantId || null;
+      setSelectedCouponCode(null);
+      setAppliedCoupon(null);
+    }
+  }, [restaurantId]);
+
   const couponsQuery = useGetEligibleCouponsQuery({
     restaurantId: restaurantId || '',
+    restaurantZoneId: selectedRestaurantZoneId,
+    zoneId: selectedRestaurantZoneId,
+    restaurantName: currentRestaurant?.name || cartQuery.data?.restaurantName || null,
     cartTotal: subtotalAmt,
-    zoneId: currentActiveZoneId,
+    enabledCouponIds: (currentRestaurant as any)?.enabledCouponIds || (currentRestaurant as any)?.enabledCoupons,
   });
 
   useEffect(() => {
     if (selectedCouponCode && restaurantId) {
       const localCouponObj = (couponsQuery.data || []).find(c => c.code === selectedCouponCode);
+      if (couponsQuery.isSuccess && !localCouponObj) {
+        setSelectedCouponCode(null);
+        setAppliedCoupon(null);
+        return;
+      }
       applyCouponMutation({
         code: selectedCouponCode,
         restaurantId,
         cartTotal: subtotalAmt,
-        zoneId: currentActiveZoneId,
+        zoneId: selectedRestaurantZoneId || currentActiveZoneId,
       })
         .unwrap()
         .then((res) => {
@@ -198,13 +224,7 @@ export function CartScreen({ navigation, route }: Props) {
     } else {
       setAppliedCoupon(null);
     }
-  }, [selectedCouponCode, subtotalAmt, restaurantId, couponsQuery.data]);
-
-  const restaurantDetailsQuery = useGetRestaurantQuery(restaurantId || '', {
-    skip: !restaurantId || isDarkStoreMock || isMock,
-  });
-  const currentRestaurant = restaurantDetailsQuery.data || mockRestaurant || (cartQuery.data?.restaurantName ? { id: restaurantId || undefined, name: cartQuery.data.restaurantName } : null);
-  const restoZone = currentRestaurant ? getRestaurantZone(currentRestaurant) : null;
+  }, [selectedCouponCode, subtotalAmt, restaurantId, couponsQuery.data, couponsQuery.isSuccess]);
 
   const defaultAddress = addresses?.find(a => a.isDefault) || addresses?.[0];
   const isDefaultAddressInZone = Boolean(defaultAddress && currentRestaurant && isAddressInRestaurantZone(defaultAddress, currentRestaurant));
@@ -550,7 +570,7 @@ export function CartScreen({ navigation, route }: Props) {
                       ) : (
                         <>
                           <Text style={{ fontWeight: '800', fontSize: 14, color: '#FFFFFF' }}>
-                            Apply a coupon
+                            {restaurantId ? 'No coupons available for this restaurant.' : 'Apply a coupon'}
                           </Text>
                           <Pressable onPress={() => setShowCouponsModal(true)} style={{ marginTop: 2 }}>
                             <Text style={{ color: '#10B981', fontSize: 13, fontWeight: '700' }}>View all coupons ▸</Text>

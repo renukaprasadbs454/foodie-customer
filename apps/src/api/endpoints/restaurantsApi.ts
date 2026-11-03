@@ -85,6 +85,13 @@ function normalizeRestaurantList(data: unknown): RestaurantSummary[] {
     isPureVeg: typeof item.isPureVeg === 'boolean'
       ? item.isPureVeg
       : (item.restaurantType === 'VEGETARIAN' || Boolean(item.name?.toLowerCase().includes('ctr'))),
+    zoneId: item.zoneId || item.zone_id || (item.zone && typeof item.zone === 'object' ? item.zone.id : null) || null,
+    zoneName: item.zoneName || item.zone_name || (item.zone && typeof item.zone === 'object' ? item.zone.name : null) || null,
+    enabledCouponIds: Array.isArray(item.enabledCouponIds)
+      ? item.enabledCouponIds
+      : Array.isArray(item.enabledCoupons)
+        ? item.enabledCoupons.map((c: any) => typeof c === 'string' ? c : c.id || c.code)
+        : null,
   }));
 }
 
@@ -160,7 +167,31 @@ export const restaurantsApi = baseApi.injectEndpoints({
 
         const result = await baseQuery(`/api/v1/restaurants/${restaurantId}`);
         if (result.data) {
-          return { data: (result.data as any).data ?? result.data };
+          const raw = (result.data as any).data ?? result.data;
+          const resolvedZoneId =
+            raw.zoneId ||
+            raw.zone_id ||
+            (raw.zone && typeof raw.zone === 'object' ? raw.zone.id : null) ||
+            null;
+          const resolvedZoneName =
+            raw.zoneName ||
+            raw.zone_name ||
+            (raw.zone && typeof raw.zone === 'object' ? raw.zone.name : null) ||
+            null;
+          const resolvedEnabledCoupons = Array.isArray(raw.enabledCouponIds)
+            ? raw.enabledCouponIds
+            : Array.isArray(raw.enabledCoupons)
+              ? raw.enabledCoupons.map((c: any) => typeof c === 'string' ? c : c.id || c.code)
+              : null;
+
+          return {
+            data: {
+              ...raw,
+              zoneId: resolvedZoneId,
+              zoneName: resolvedZoneName,
+              enabledCouponIds: resolvedEnabledCoupons,
+            } as RestaurantPublicProfile,
+          };
         }
 
         // Fallback if network/backend returns error
