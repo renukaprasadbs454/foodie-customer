@@ -274,22 +274,22 @@ export function RefundStatusScreen({ navigation, route }: Props) {
           }}>
             {refundStatus === 'PENDING_ADMIN' && (
               <Text style={{ fontSize: 13, color: '#92400E', lineHeight: 20, fontWeight: '600' }}>
-                🛡️ <Text style={{ fontWeight: '800' }}>Admin Verification in Progress:</Text> For online payment orders, the refund amount of ₹{formatMoney(numericAmount)} will be initiated as soon as the Admin approves the cancellation in the Admin Portal.
+                🛡️ <Text style={{ fontWeight: '800' }}>Admin Verification in Progress:</Text> The refund amount of ₹{formatMoney(numericAmount)} will be credited to your Delimo App Wallet as soon as Admin confirms the cancellation.
               </Text>
             )}
             {refundStatus === 'IN_PROCESS' && (
               <Text style={{ fontSize: 13, color: '#1E40AF', lineHeight: 20, fontWeight: '600' }}>
-                🛡️ <Text style={{ fontWeight: '800' }}>Approved by Admin:</Text> The Delimo Admin has approved your order cancellation. A refund of ₹{formatMoney(numericAmount)} was initiated to your payment gateway (Cashfree/Bank). It usually takes 2-4 business days to reflect in your account.
+                🛡️ <Text style={{ fontWeight: '800' }}>Approved by Admin:</Text> The Delimo Admin has approved your order cancellation. A refund of ₹{formatMoney(numericAmount)} is being credited to your Delimo App Wallet.
               </Text>
             )}
             {refundStatus === 'DONE' && (
               <Text style={{ fontSize: 13, color: '#166534', lineHeight: 20, fontWeight: '600' }}>
-                🎉 <Text style={{ fontWeight: '800' }}>Admin Approved & Refund Done:</Text> Great news! The refund of ₹{formatMoney(numericAmount)} was approved by admin and successfully credited back to your original payment method (UPI / Bank Account).
+                🎉 <Text style={{ fontWeight: '800' }}>Refund Deposited to App Wallet:</Text> Great news! The refund of ₹{formatMoney(numericAmount)} was approved and instantly credited to your Delimo App Wallet. You can use it anytime for future orders!
               </Text>
             )}
             {refundStatus === 'FAILED' && (
               <Text style={{ fontSize: 13, color: '#991B1B', lineHeight: 20, fontWeight: '600' }}>
-                ⚠️ <Text style={{ fontWeight: '800' }}>Action Required:</Text> The refund could not be completed automatically by the banking partner. Our operations team is available to assist with manual bank payout.
+                ⚠️ <Text style={{ fontWeight: '800' }}>Action Required:</Text> The refund could not be completed automatically. Our operations team is available to assist with manual wallet credit.
               </Text>
             )}
           </View>
@@ -331,14 +331,14 @@ export function RefundStatusScreen({ navigation, route }: Props) {
             </View>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ fontSize: 13, color: '#6B7280', fontWeight: '600' }}>Payment Mode</Text>
-              <Text style={{ fontSize: 13, color: '#111827', fontWeight: '700' }}>Online Payment (UPI / NetBanking)</Text>
+              <Text style={{ fontSize: 13, color: '#6B7280', fontWeight: '600' }}>Refund Destination</Text>
+              <Text style={{ fontSize: 13, color: '#15803D', fontWeight: '800' }}>Delimo App Wallet (Instant)</Text>
             </View>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ fontSize: 13, color: '#6B7280', fontWeight: '600' }}>Expected By</Text>
               <Text style={{ fontSize: 13, color: '#14532D', fontWeight: '800' }}>
-                {refundStatus === 'DONE' ? 'Credited Today' : (refundStatus === 'PENDING_ADMIN' ? 'Awaiting Admin Approval' : 'Within 2-4 business days')}
+                {refundStatus === 'DONE' ? 'Credited Instantly to Wallet' : (refundStatus === 'PENDING_ADMIN' ? 'Awaiting Admin Approval' : 'Instant in Delimo Wallet')}
               </Text>
             </View>
           </View>
@@ -390,33 +390,33 @@ export function RefundStatusScreen({ navigation, route }: Props) {
               time={refundStatus === 'PENDING_ADMIN' ? 'In Review' : 'Approved ✓'}
             />
 
-            {/* Step 3: Refund Initiated */}
+            {/* Step 3: Refund Deposited to Wallet */}
             <TimelineItem
               isCompleted={refundStatus === 'DONE'}
               isCurrent={refundStatus === 'IN_PROCESS'}
-              title="Refund Initiated to Gateway"
+              title="Refund Deposited to Wallet"
               desc={
                 refundStatus === 'PENDING_ADMIN'
-                  ? 'Will be initiated immediately once Admin approves.'
-                  : 'Reversal request dispatched to Cashfree / banking partner.'
+                  ? 'Will be deposited into app wallet immediately once Admin approves.'
+                  : 'Refund credited directly to your Delimo App Wallet balance.'
               }
-              time={refundStatus === 'PENDING_ADMIN' ? 'Pending Approval' : 'Dispatched'}
+              time={refundStatus === 'PENDING_ADMIN' ? 'Pending Approval' : 'Deposited ✓'}
             />
 
-            {/* Step 4: Bank Processing & Credit */}
+            {/* Step 4: Available in Wallet */}
             <TimelineItem
               isLast
               isCompleted={refundStatus === 'DONE'}
               isFailed={refundStatus === 'FAILED'}
-              title={refundStatus === 'FAILED' ? 'Refund Paused' : 'Refund Credited to Source'}
+              title={refundStatus === 'FAILED' ? 'Refund Paused' : 'Available in App Wallet'}
               desc={
                 refundStatus === 'DONE'
-                  ? 'Funds successfully posted into your original payment account.'
+                  ? 'Funds are immediately available in your wallet to order food anytime.'
                   : refundStatus === 'FAILED'
-                  ? 'Customer support assistance required for manual payout.'
-                  : 'Estimated arrival in 2-4 business days.'
+                  ? 'Customer support assistance required for manual wallet credit.'
+                  : 'Instant upon completion.'
               }
-              time={refundStatus === 'DONE' ? 'Credited' : 'Pending Bank Sync'}
+              time={refundStatus === 'DONE' ? 'Credited ✓' : 'Instant in Wallet'}
             />
           </View>
         </View>

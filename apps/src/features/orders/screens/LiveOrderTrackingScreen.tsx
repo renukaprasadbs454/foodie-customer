@@ -333,7 +333,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
       trackAnalyticsEvent('cancel_tapped', { orderId });
       setCancelVisible(false);
       setCancelReason('');
-      setToast({ message: 'Order cancelled.', variant: 'success' });
+      setToast({ message: 'Order cancelled. Refund credited to your Delimo Wallet.', variant: 'success' });
       navigation.navigate('MyOrders' as never);
     } catch (error) {
       handleError(toUnwrappedApiError(error));

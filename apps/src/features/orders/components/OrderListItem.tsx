@@ -160,7 +160,7 @@ export function OrderListItem({ order, onPress, onReorder, onRate, onRefundStatu
                 : isApproved
                 ? '🛡️ Approved by Admin • Refund in process'
                 : isRefunded
-                ? '✓ Refund credited to source account'
+                ? '✓ Refund credited to Delimo Wallet'
                 : isRejected
                 ? '✕ Cancellation declined by Admin'
                 : '⏳ In Admin review for refund approval')
