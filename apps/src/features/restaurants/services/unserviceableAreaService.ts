@@ -106,37 +106,51 @@ export async function submitCustomerUnserviceableAreaRequest(
     rawAddress = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
   }
 
-  const addressDedupeKey = `${dedupeKey}_${rawAddress.slice(0, 18)}`;
+  const isRealUser = Boolean(
+    data.customerName &&
+    data.customerName !== 'Customer' &&
+    data.customerName !== 'Customer User' &&
+    data.phone &&
+    data.phone !== '+91 98765 43210'
+  );
+
+  const contactEmail = (data.email || 'customer@foodie.com').trim();
+  const contactPhone = (data.phone || '+91 98765 43210').trim();
+  const cleanPhone = contactPhone.replace(/\D/g, '');
+
+  const userDedupeKey = `${dedupeKey}_${cleanPhone || rawAddress.slice(0, 18)}`;
 
   // 1. In-memory deduplication check
-  if (reportedKeysInMemory.has(addressDedupeKey)) {
+  if (reportedKeysInMemory.has(userDedupeKey)) {
     return { success: true, alreadyReported: true };
   }
 
   // 2. Session / Persistent storage deduplication check
   try {
-    const stored = await AsyncStorage.getItem(`${STORAGE_KEY_PREFIX}${addressDedupeKey}`);
+    const stored = await AsyncStorage.getItem(`${STORAGE_KEY_PREFIX}${userDedupeKey}`);
     if (stored) {
-      reportedKeysInMemory.add(addressDedupeKey);
-      return { success: true, alreadyReported: true };
+      const parsed = JSON.parse(stored);
+      // If previously submitted with placeholder and now we have real user details, allow sending real details!
+      if (!parsed.isRealUser && isRealUser) {
+        // Upgrade request with authentic customer details
+      } else {
+        reportedKeysInMemory.add(userDedupeKey);
+        return { success: true, alreadyReported: true };
+      }
     }
   } catch {
     // Ignore storage read errors
   }
 
-  reportedKeysInMemory.add(addressDedupeKey);
-  reportedKeysInMemory.add(dedupeKey);
+  reportedKeysInMemory.add(userDedupeKey);
   try {
     await AsyncStorage.setItem(
-      `${STORAGE_KEY_PREFIX}${addressDedupeKey}`,
-      JSON.stringify({ timestamp: Date.now(), lat, lng, address: rawAddress })
+      `${STORAGE_KEY_PREFIX}${userDedupeKey}`,
+      JSON.stringify({ timestamp: Date.now(), lat, lng, address: rawAddress, phone: contactPhone, isRealUser })
     );
   } catch {
     // Ignore storage write errors
   }
-
-  const contactEmail = (data.email || 'customer@foodie.com').trim();
-  const contactPhone = (data.phone || '+91 98765 43210').trim();
 
   // Infer city name
   let cityName = data.cityName?.trim() || '';

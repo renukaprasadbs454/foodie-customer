@@ -65,6 +65,8 @@ export function useRestaurantFeed(args: FeedArgs) {
       lat: args.userLatitude,
       lng: args.userLongitude,
       zoneId: args.zoneId,
+      phone: args.phone,
+      email: args.email,
     },
     {
       skip: isUnserviceable,
@@ -87,6 +89,8 @@ export function useRestaurantFeed(args: FeedArgs) {
       search: args.search,
       lat: args.userLatitude,
       lng: args.userLongitude,
+      phone: args.phone,
+      email: args.email,
     },
     {
       skip: !shouldFetchNearbyFallback,
@@ -115,16 +119,19 @@ export function useRestaurantFeed(args: FeedArgs) {
         const nLng = Number(r.longitude);
         return !isNaN(nLat) && !isNaN(nLng) && (nLat !== 0 || nLng !== 0);
       });
-      // Strictly isolate restaurants to customer's target zone!
-      if (args.zoneId) {
-        list = list.filter((r) => isRestaurantInZone(r, {
+      // Strictly isolate restaurants to customer's target zone if in-zone restaurants exist
+      if (args.zoneId && !isExpandedFromNearby) {
+        const inZoneList = list.filter((r) => isRestaurantInZone(r, {
           zoneId: args.zoneId,
           latitude: args.userLatitude,
           longitude: args.userLongitude,
         }));
+        if (inZoneList.length > 0) {
+          list = inZoneList;
+        }
       }
 
-      // Proximity check for fallback items
+      // Proximity check for fallback items (nearest restaurants within 35 km)
       if (isExpandedFromNearby && args.userLatitude !== undefined && args.userLongitude !== undefined) {
         const uLat = args.userLatitude;
         const uLng = args.userLongitude;
@@ -133,7 +140,7 @@ export function useRestaurantFeed(args: FeedArgs) {
           const lng = typeof r.longitude === 'number' ? r.longitude : parseFloat(String(r.longitude ?? 0));
           if (!lat || !lng) return false;
           const dist = getDistanceKm(uLat, uLng, lat, lng);
-          return dist <= 25.0; // Strictly only restaurants from nearby zones, not all restaurants
+          return dist <= 35.0; // Strictly nearest restaurants from nearby zones
         });
       }
     } else {

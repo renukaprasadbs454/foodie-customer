@@ -21,6 +21,8 @@ export type RestaurantListParams = {
   page?: number;
   size?: number;
   sort?: RestaurantSort;
+  phone?: string;
+  email?: string;
 };
 
 export type CustomerZoneInfo = {

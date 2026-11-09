@@ -122,6 +122,8 @@ export const restaurantsApi = baseApi.injectEndpoints({
         page = 0,
         size = DEFAULT_RESTAURANT_PAGE_SIZE,
         sort,
+        phone,
+        email,
       }) => ({
         url: '/api/v1/restaurants',
         params: {
@@ -130,6 +132,8 @@ export const restaurantsApi = baseApi.injectEndpoints({
           ...(lng !== undefined ? { lng } : {}),
           ...(zoneId ? { zoneId } : {}),
           ...(cuisineType ? { cuisineType } : {}),
+          ...(phone ? { phone } : {}),
+          ...(email ? { email } : {}),
           page,
           size: Math.min(size, 100),
           ...(sort && sort !== 'nearby' ? { sort } : {}),
@@ -236,10 +240,15 @@ export const restaurantsApi = baseApi.injectEndpoints({
       ],
       keepUnusedDataFor: 120,
     }),
-    detectZone: builder.query<CustomerZoneInfo, { lat: number; lng: number }>({
-      query: ({ lat, lng }) => ({
+    detectZone: builder.query<CustomerZoneInfo, { lat: number; lng: number; phone?: string; email?: string }>({
+      query: ({ lat, lng, phone, email }) => ({
         url: '/api/v1/restaurants/zone-detect',
-        params: { lat, lng },
+        params: {
+          lat,
+          lng,
+          ...(phone ? { phone } : {}),
+          ...(email ? { email } : {}),
+        },
       }),
       transformResponse: (response: any) => {
         const d = response?.data ?? response;

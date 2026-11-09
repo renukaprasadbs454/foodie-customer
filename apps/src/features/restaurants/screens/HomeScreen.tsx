@@ -167,11 +167,16 @@ export function HomeScreen({ navigation }: Props) {
   // Zone Detection
   const [isZoneServiceable, setIsZoneServiceable] = useState(false);
   const zoneQuery = useDetectZoneQuery(
-    { lat: userCoords?.latitude ?? 0, lng: userCoords?.longitude ?? 0 },
+    {
+      lat: userCoords?.latitude ?? 0,
+      lng: userCoords?.longitude ?? 0,
+      phone: currentUserPhone || undefined,
+      email: currentUserEmail || undefined,
+    },
     {
       skip: !userCoords?.latitude || !userCoords?.longitude,
       refetchOnFocus: true,
-      pollingInterval: isZoneServiceable ? 0 : 6000,
+      pollingInterval: isZoneServiceable ? 0 : 4000,
     }
   );
   const detectedZone = zoneQuery.data;
@@ -184,33 +189,8 @@ export function HomeScreen({ navigation }: Props) {
       setZone(detectedZone);
       const serviceable = Boolean(detectedZone.serviceable && detectedZone.zoneId);
       setIsZoneServiceable(serviceable);
-
-      // If out of zone, automatically transmit request to admin panel
-      if (!serviceable && userCoords?.latitude && userCoords?.longitude) {
-        void submitCustomerUnserviceableAreaRequest({
-          customerName: currentUserName,
-          email: currentUserEmail,
-          phone: currentUserPhone,
-          address: currentAddress,
-          coords: {
-            latitude: userCoords.latitude,
-            longitude: userCoords.longitude,
-          },
-          cityName: detectedZone.cityName,
-          zoneId: detectedZone.zoneId,
-          zoneName: detectedZone.zoneName,
-        });
-      }
     }
-  }, [
-    detectedZone,
-    userCoords?.latitude,
-    userCoords?.longitude,
-    currentAddress,
-    currentUserName,
-    currentUserEmail,
-    currentUserPhone,
-  ]);
+  }, [detectedZone, setZone]);
 
   // Real Restaurant Feed strictly scoped to active customer zone
   const feed = useRestaurantFeed({
@@ -219,20 +199,69 @@ export function HomeScreen({ navigation }: Props) {
     userLongitude: userCoords?.longitude,
     zoneId: currentActiveZoneId ?? undefined,
     isServiceable: isAreaServiceable,
+    phone: currentUserPhone || undefined,
+    email: currentUserEmail || undefined,
   });
 
   const allNearbyQuery = useGetRestaurantsQuery({
     zoneId: currentActiveZoneId ?? undefined,
     lat: userCoords?.latitude,
     lng: userCoords?.longitude,
+    phone: currentUserPhone || undefined,
+    email: currentUserEmail || undefined,
+  }, {
+    skip: !isAreaServiceable,
   });
   const allRestaurants = allNearbyQuery.data ?? [];
 
   // Available restaurants pool strictly filtered to the customer's active zone
   const zoneRestaurants = useMemo(() => {
+    if (!isAreaServiceable) {
+      return [];
+    }
     const rawList = feed.items && feed.items.length > 0 ? feed.items : allRestaurants;
-    return rawList.filter((r) => isRestaurantInZone(r, activeZone));
-  }, [feed.items, allRestaurants, activeZone]);
+    const filtered = rawList.filter((r) => isRestaurantInZone(r, activeZone));
+    // When area is approved by admin and strict in-zone filter yields 0,
+    // display nearest restaurants from the raw feed!
+    if (filtered.length === 0 && rawList.length > 0) {
+      return rawList;
+    }
+    return filtered;
+  }, [feed.items, allRestaurants, activeZone, isAreaServiceable]);
+
+  // Transmit unserviceable area request when customer location is unserviceable or has no restaurants available
+  useEffect(() => {
+    const isFeedFinished = !feed.isLoading && !allNearbyQuery.isLoading;
+    const noRestaurantsInLocation = !isAreaServiceable || (isFeedFinished && zoneRestaurants.length === 0);
+
+    if (noRestaurantsInLocation && userCoords?.latitude && userCoords?.longitude) {
+      void submitCustomerUnserviceableAreaRequest({
+        customerName: currentUserName,
+        email: currentUserEmail,
+        phone: currentUserPhone,
+        address: currentAddress,
+        coords: {
+          latitude: userCoords.latitude,
+          longitude: userCoords.longitude,
+        },
+        cityName: detectedZone?.cityName,
+        zoneId: detectedZone?.zoneId,
+        zoneName: detectedZone?.zoneName,
+      });
+    }
+  }, [
+    isAreaServiceable,
+    feed.isLoading,
+    allNearbyQuery.isLoading,
+    zoneRestaurants.length,
+    userCoords?.latitude,
+    userCoords?.longitude,
+    currentAddress,
+    currentUserName,
+    currentUserEmail,
+    currentUserPhone,
+    detectedZone,
+  ]);
 
   // Pure Veg restaurant detector
   const isPureVegRestaurant = useCallback((resto: RestaurantSummary): boolean => {
@@ -1494,6 +1523,8 @@ export function HomeScreen({ navigation }: Props) {
               ? `Fast Delivery Under 30 Mins (${displayedRestaurants.length})`
               : selectedCategoryId !== 'all'
               ? `${computedCategories.find((c) => c.id === selectedCategoryId)?.name || 'Category'} (${displayedRestaurants.length})`
+              : feed.isExpandedFromNearby || (zoneRestaurants.length > 0 && !isRestaurantInZone(zoneRestaurants[0], activeZone))
+              ? `${displayedRestaurants.length} Nearest Restaurants Delivering to You`
               : `${displayedRestaurants.length} Restaurants Delivering to You`}
           </Text>
           {(activeFilterPill !== null || activeModalFilterCount > 0 || selectedCategoryId !== 'all' || isVegOnly) && (
@@ -1527,20 +1558,34 @@ export function HomeScreen({ navigation }: Props) {
             ? 'Discover recently onboarded restaurants you have not ordered from yet'
             : selectedCategoryId !== 'all'
             ? `Filtered by ${computedCategories.find((c) => c.id === selectedCategoryId)?.name} • Tap category again to clear`
+            : feed.isExpandedFromNearby || (zoneRestaurants.length > 0 && !isRestaurantInZone(zoneRestaurants[0], activeZone))
+            ? 'Serving from nearest operating restaurants'
             : 'Featured & Nearby'}
         </Text>
       </View>
 
       {displayedRestaurants.length === 0 ? (
         <View style={{ paddingHorizontal: 16, paddingVertical: 24, alignItems: 'center' }}>
-          {detectedZone && !isAreaServiceable ? (
+          {!isAreaServiceable || zoneRestaurants.length === 0 ? (
             <View style={styles.unserviceableEmptyBox}>
-              <Text style={{ fontSize: 44, marginBottom: 8 }}>📍</Text>
+              <Text style={{ fontSize: 44, marginBottom: 8 }}>
+                {detectedZone?.message?.toLowerCase().includes('reject') ? '🚫' : '📍'}
+              </Text>
               <Text style={styles.unserviceableEmptyTitle}>
-                Not Serviceable to Your Location
+                {detectedZone?.message?.toLowerCase().includes('reject')
+                  ? 'Area Expansion Request Rejected'
+                  : !isAreaServiceable
+                  ? 'Not Serviceable to Your Location'
+                  : 'No Restaurants Available in This Location'}
               </Text>
               <Text style={styles.unserviceableEmptyDesc}>
-                We do not currently deliver to this area. Your request has been automatically sent to our administration team for coverage expansion. Please change your delivery address to order now.
+                {detectedZone?.message?.toLowerCase().includes('reject')
+                  ? 'Your location expansion request was reviewed and rejected by Admin. We do not deliver to this area at this time.'
+                  : detectedZone?.message && detectedZone.message.includes('Super Admin')
+                  ? detectedZone.message
+                  : !isAreaServiceable
+                  ? 'We do not currently deliver to this area. Your request has been automatically sent to our administration team for coverage expansion. Once approved, the nearest restaurants will be displayed here.'
+                  : 'There are currently no restaurants available in your location. Your expansion request has been sent to admin in the unserviceable area portal. Once approved, the nearest restaurants will appear automatically.'}
               </Text>
               <Pressable
                 onPress={() => navigation.navigate('Addresses', { selectMode: true })}

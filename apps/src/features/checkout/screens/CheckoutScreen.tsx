@@ -61,9 +61,11 @@ export function CheckoutScreen({ navigation, route }: any) {
   const [addressId, setAddressId] = useState<string | null>(null);
   const [useWallet, setUseWallet] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'COD'>('ONLINE');
-  const profileQuery = useGetMyProfileQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true });
-  const [directCodDisabled, setDirectCodDisabled] = useState<boolean>(false);
-  const isCodDisabled = Boolean(profileQuery.data?.isCodDisabled || directCodDisabled);
+  const profileQuery = useGetMyProfileQuery(undefined, { pollingInterval: 2000, refetchOnFocus: true });
+  const [directCodDisabled, setDirectCodDisabled] = useState<boolean | null>(null);
+  const isCodDisabled = directCodDisabled !== null
+    ? directCodDisabled
+    : Boolean(profileQuery.data?.isCodDisabled);
   const isSuspended = Boolean(profileQuery.data?.isSuspended || profileQuery.data?.accountStatus === 'SUSPENDED');
   const suspensionReason = profileQuery.data?.suspensionReason;
   const placeAttemptKey = useRef<string | null>(null);
@@ -80,12 +82,16 @@ export function CheckoutScreen({ navigation, route }: any) {
       if (!p?.customerId && !p?.phoneNumber && !p?.email) return;
 
       const endpoints = [
-        `http://localhost:3000/api/bff/customer/status?${params.toString()}`,
         `http://localhost:3100/api/bff/customer/status?${params.toString()}`,
+        `http://localhost:8082/api/v1/admin/customers/status-check?${params.toString()}`,
+        `http://localhost:3000/api/bff/customer/status?${params.toString()}`,
       ];
       for (const ep of endpoints) {
         try {
-          const res = await fetch(ep);
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 1200);
+          const res = await fetch(ep, { signal: controller.signal });
+          clearTimeout(timer);
           if (res.ok) {
             const json = await res.json();
             if (isMounted && json?.data?.isCodDisabled !== undefined) {
@@ -96,8 +102,13 @@ export function CheckoutScreen({ navigation, route }: any) {
         } catch {}
       }
     };
+
     void checkDirectCod();
-    return () => { isMounted = false; };
+    const interval = setInterval(checkDirectCod, 2000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [profileQuery.data?.customerId, profileQuery.data?.phoneNumber, profileQuery.data?.email]);
 
   useEffect(() => {
@@ -275,6 +286,7 @@ export function CheckoutScreen({ navigation, route }: any) {
       const order = await createOrder({
         addressId,
         couponCode: route.params?.couponCode || undefined,
+        paymentMethod,
         idempotencyKey: placeAttemptKey.current,
       }).unwrap();
       await saveOrderPaymentMethod(order.orderId, paymentMethod);

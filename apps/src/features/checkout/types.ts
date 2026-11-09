@@ -50,6 +50,7 @@ export type ApplyCouponResult = {
 export type CreateOrderRequest = {
   addressId: string;
   couponCode?: string | null;
+  paymentMethod?: string | null;
 };
 
 export type Order = {

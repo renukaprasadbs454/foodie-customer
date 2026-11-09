@@ -92,6 +92,7 @@ export const ordersApi = baseApi.injectEndpoints({
             body: {
               addressId: arg.addressId,
               couponCode: arg.couponCode,
+              paymentMethod: arg.paymentMethod,
             },
           });
 

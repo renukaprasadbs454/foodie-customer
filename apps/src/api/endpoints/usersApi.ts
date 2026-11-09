@@ -25,14 +25,15 @@ export const usersApi = baseApi.injectEndpoints({
           if (profile?.email) params.set('email', String(profile.email));
 
           const endpoints = [
-            `http://localhost:3000/api/bff/customer/status?${params.toString()}`,
             `http://localhost:3100/api/bff/customer/status?${params.toString()}`,
+            `http://localhost:8082/api/v1/admin/customers/status-check?${params.toString()}`,
+            `http://localhost:3000/api/bff/customer/status?${params.toString()}`,
           ];
 
           for (const ep of endpoints) {
             try {
               const controller = new AbortController();
-              const timer = setTimeout(() => controller.abort(), 1800);
+              const timer = setTimeout(() => controller.abort(), 1200);
               const res = await fetch(ep, { signal: controller.signal });
               clearTimeout(timer);
               if (res.ok) {
@@ -45,7 +46,7 @@ export const usersApi = baseApi.injectEndpoints({
                     accountStatus: isSusp ? 'SUSPENDED' : 'ACTIVE',
                     isSuspended: isSusp,
                     suspensionReason: isSusp ? (bffData.suspensionReason || profile.suspensionReason || 'Account suspended by security administration') : null,
-                    isCodDisabled: bffData.isCodDisabled !== undefined ? bffData.isCodDisabled : profile.isCodDisabled,
+                    isCodDisabled: bffData.isCodDisabled !== undefined ? Boolean(bffData.isCodDisabled) : Boolean(profile.isCodDisabled),
                   };
                   break;
                 }
