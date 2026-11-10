@@ -356,9 +356,8 @@ export function CheckoutScreen({ navigation, route }: any) {
   const baseTotal = Math.max(0, subtotal + deliveryFee + platformFee + routeTaxes - totalDiscount);
   const isCod = paymentMethod === 'COD';
   const codHandlingFee = isCod ? 5 : 0;
-  // If COD: add ₹5 handling charge and round to upper whole rupee (no paisa, e.g. 56.23 + 5 = 61.23 -> 62)
+  // If COD: add ₹5 handling charge and round to upper whole rupee (no paisa, e.g. 56.23 + 5 = 61.23 -> 62) in background
   const orderTotal = isCod ? Math.ceil(baseTotal + codHandlingFee) : baseTotal;
-  const codRoundOff = isCod ? Math.max(0, Math.round((orderTotal - (baseTotal + codHandlingFee)) * 100) / 100) : 0;
   const walletApplied = useWallet ? Math.min(walletBalance, orderTotal) : 0;
   const grandTotal = Math.max(0, orderTotal - walletApplied);
 
@@ -751,13 +750,6 @@ export function CheckoutScreen({ navigation, route }: any) {
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                           <Text style={{ color: '#FCD34D', fontWeight: '600' }}>Handling Charge (COD)</Text>
                           <Text style={{ color: '#FCD34D', fontWeight: '700' }}>₹5.00</Text>
-                        </View>
-                      )}
-
-                      {isCod && codRoundOff > 0 && (
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                          <Text style={{ color: '#9CA3AF', fontWeight: '600' }}>Round Off</Text>
-                          <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>+₹{formatMoney(codRoundOff)}</Text>
                         </View>
                       )}
 

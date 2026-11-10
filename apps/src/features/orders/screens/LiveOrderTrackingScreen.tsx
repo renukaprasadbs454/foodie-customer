@@ -195,16 +195,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
         });
         setPaymentModalVisible(true);
       } else {
-        const verified = await verifyPayment({
-          orderId: order.orderId,
-          cashfreeOrderId: res.cfOrderId || `CF_LOCAL_${order.orderId.substring(0, 8)}`,
-        }).unwrap();
-        if (verified) {
-          setToast({ message: 'Payment verified! Marked as PAID online.', variant: 'success' });
-          void orderQuery.refetch();
-        } else {
-          setToast({ message: 'Could not complete online payment.', variant: 'error' });
-        }
+        setToast({ message: 'Unable to start online payment session. Please try again.', variant: 'error' });
       }
     } catch (err: any) {
       const unwrapped = toUnwrappedApiError(err);
@@ -221,7 +212,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
         cashfreeOrderId: data.cashfreeOrderId || orderId,
       }).unwrap();
       if (verified) {
-        setToast({ message: 'Payment successful! Order paid online via Cashfree.', variant: 'success' });
+        setToast({ message: 'Payment successful! Marked as PAID.', variant: 'success' });
         void orderQuery.refetch();
       } else {
         setToast({ message: 'Payment status pending verification.', variant: 'warning' });
@@ -643,42 +634,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
             {/* Live Payment Status & Online Pay Option */}
             {order.status !== 'CANCELLED' && (
               <View style={{ paddingHorizontal: tokens.spacing.md, marginTop: tokens.spacing.md }}>
-                {isPaidOnline ? (
-                  <View style={{
-                    backgroundColor: '#064E3B',
-                    borderRadius: 16,
-                    padding: 16,
-                    borderWidth: 1.5,
-                    borderColor: '#10B981',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.25,
-                    shadowRadius: 4,
-                    elevation: 3,
-                  }}>
-                    <View style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 21,
-                      backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      <Feather name="check-circle" size={24} color="#34D399" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>
-                        Paid Online via Cashfree
-                      </Text>
-                      <Text style={{ fontSize: 12, color: '#A7F3D0', marginTop: 2, fontWeight: '500' }}>
-                        ₹{Number(order.totalAmount).toFixed(2)} received • No cash collection needed at delivery
-                      </Text>
-                    </View>
-                  </View>
-                ) : isCodPending && order.status !== 'DELIVERED' ? (
+                {isPaidOnline ? null : isCodPending && order.status !== 'DELIVERED' ? (
                   <View style={{
                     backgroundColor: '#1E1B18',
                     borderRadius: 16,
@@ -697,16 +653,6 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                         <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>
                           Cash on Delivery (Pending)
                         </Text>
-                      </View>
-                      <View style={{
-                        backgroundColor: 'rgba(245, 158, 11, 0.2)',
-                        paddingHorizontal: 8,
-                        paddingVertical: 3,
-                        borderRadius: 6,
-                        borderWidth: 1,
-                        borderColor: '#F59E0B'
-                      }}>
-                        <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '800' }}>PAY TO RIDER</Text>
                       </View>
                     </View>
                     <Text style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 12, lineHeight: 17 }}>
@@ -733,7 +679,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                         <>
                           <Feather name="credit-card" size={18} color="#012B18" />
                           <Text style={{ color: '#012B18', fontWeight: '900', fontSize: 14 }}>
-                            Pay ₹{Number(order.totalAmount).toFixed(2)} Online via Cashfree
+                            Pay ₹{Number(order.totalAmount).toFixed(2)} Online
                           </Text>
                         </>
                       )}
@@ -1061,26 +1007,17 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
         </View>
       </Modal>
 
-      {paymentModalVisible && cashfreeSession && (
-        <Modal
-          visible={paymentModalVisible}
-          onRequestClose={handleCashfreeCancel}
-          title="Pay Online via Cashfree"
-          accessibilityLabel="Cashfree payment gateway modal"
-        >
-          <View style={{ height: 500, borderRadius: 16, overflow: 'hidden' }}>
-            <CashfreeWebView
-              options={{
-                paymentSessionId: cashfreeSession.paymentSessionId,
-                orderId: cashfreeSession.cfOrderId,
-                environment: 'sandbox',
-              }}
-              onSuccess={handleCashfreeSuccess}
-              onCancel={handleCashfreeCancel}
-              onError={handleCashfreeError}
-            />
-          </View>
-        </Modal>
+      {Boolean(cashfreeSession) && (
+        <CashfreeWebView
+          options={{
+            paymentSessionId: cashfreeSession!.paymentSessionId,
+            orderId: cashfreeSession!.cfOrderId,
+            environment: 'sandbox',
+          }}
+          onSuccess={handleCashfreeSuccess}
+          onCancel={handleCashfreeCancel}
+          onError={handleCashfreeError}
+        />
       )}
 
       <Toast
