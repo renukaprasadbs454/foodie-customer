@@ -861,17 +861,23 @@ export function HomeScreen({ navigation }: Props) {
       </View>
 
 
-      {/* Out-of-Zone Notification Banner */}
+      {/* Out-of-Zone / Maintenance Notification Banner */}
       {detectedZone && !isAreaServiceable && (
         <View style={styles.outOfZoneCard}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ fontSize: 18 }}>📍</Text>
+            <Text style={{ fontSize: 18 }}>
+              {detectedZone?.message?.toLowerCase().includes('maintenance') ? '🛠️' : '📍'}
+            </Text>
             <Text style={styles.outOfZoneTitle}>
-              Not Serviceable to Your Location
+              {detectedZone?.message?.toLowerCase().includes('maintenance')
+                ? 'Customer Service Under Maintenance'
+                : 'Not Serviceable to Your Location'}
             </Text>
           </View>
           <Text style={styles.outOfZoneDesc}>
-            We are currently not serviceable to your location. Change your delivery address to explore active restaurants.
+            {detectedZone?.message?.toLowerCase().includes('maintenance')
+              ? 'Customer service is temporarily under maintenance for this zone. Please check back later.'
+              : 'We are currently not serviceable to your location. Change your delivery address to explore active restaurants.'}
           </Text>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
             <Pressable
@@ -1569,17 +1575,21 @@ export function HomeScreen({ navigation }: Props) {
           {!isAreaServiceable || zoneRestaurants.length === 0 ? (
             <View style={styles.unserviceableEmptyBox}>
               <Text style={{ fontSize: 44, marginBottom: 8 }}>
-                {detectedZone?.message?.toLowerCase().includes('reject') ? '🚫' : '📍'}
+                {detectedZone?.message?.toLowerCase().includes('maintenance') ? '🛠️' : detectedZone?.message?.toLowerCase().includes('reject') ? '🚫' : '📍'}
               </Text>
               <Text style={styles.unserviceableEmptyTitle}>
-                {detectedZone?.message?.toLowerCase().includes('reject')
+                {detectedZone?.message?.toLowerCase().includes('maintenance')
+                  ? 'Customer Service Under Maintenance'
+                  : detectedZone?.message?.toLowerCase().includes('reject')
                   ? 'Area Expansion Request Rejected'
                   : !isAreaServiceable
                   ? 'Not Serviceable to Your Location'
                   : 'No Restaurants Available in This Location'}
               </Text>
               <Text style={styles.unserviceableEmptyDesc}>
-                {detectedZone?.message?.toLowerCase().includes('reject')
+                {detectedZone?.message?.toLowerCase().includes('maintenance')
+                  ? 'Customer service is temporarily under maintenance for this zone. Please check back later.'
+                  : detectedZone?.message?.toLowerCase().includes('reject')
                   ? 'Your location expansion request was reviewed and rejected by Admin. We do not deliver to this area at this time.'
                   : detectedZone?.message && detectedZone.message.includes('Super Admin')
                   ? detectedZone.message
