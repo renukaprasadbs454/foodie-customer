@@ -49,6 +49,7 @@ export type OrderDetail = {
   totalAmount: number | string;
   placedAt?: string;
   paymentMethod?: string;
+  paymentStatus?: string;
   items?: OrderLineItem[];
   orderStatusEvents?: OrderStatusEvent[];
 };

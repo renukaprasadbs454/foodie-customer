@@ -23,6 +23,11 @@ import {
   useGetDeliveryPartnerQuery,
   useGetDeliveryLocationQuery,
 } from '../../../api/endpoints/ordersApi';
+import {
+  useInitiatePaymentMutation,
+  useVerifyPaymentMutation,
+} from '../../../api/endpoints/paymentsApi';
+import { CashfreeWebView } from '../../payment/components/CashfreeWebView';
 import { useGetRestaurantQuery } from '../../../api/endpoints/restaurantsApi';
 import { useGetMenuQuery } from '../../../api/endpoints/menuApi';
 import { useGetAddressesQuery } from '../../../api/endpoints/addressesApi';
@@ -64,6 +69,13 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
   } | null>(null);
 
   const [transitionStatus, transitionState] = useTransitionOrderStatusMutation();
+  const [initiatePayment, { isLoading: isInitiatingPayment }] = useInitiatePaymentMutation();
+  const [verifyPayment, { isLoading: isVerifyingPayment }] = useVerifyPaymentMutation();
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [cashfreeSession, setCashfreeSession] = useState<{
+    paymentSessionId: string;
+    cfOrderId: string;
+  } | null>(null);
 
   const partnerQuery = useGetDeliveryPartnerQuery(validId ? orderId : '', {
     skip: !validId, // We could refine skip based on order status, but validId is fine
@@ -151,6 +163,86 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
     if (orderQuery.refetch) {
       void orderQuery.refetch();
     }
+  };
+
+  const paymentStatus = orderQuery.data?.paymentStatus;
+  const paymentMethod = orderQuery.data?.paymentMethod;
+  const isPaidOnline = paymentStatus === 'PAID' || paymentStatus === 'CAPTURED' ||
+    ((paymentMethod === 'ONLINE' || paymentMethod === 'UPI' || paymentMethod === 'CARD' || paymentMethod === 'NET_BANKING' || paymentMethod === 'WALLET') && paymentStatus !== 'FAILED');
+  const isCodPending = (paymentMethod === 'COD' || paymentMethod === 'CASH_ON_DELIVERY' || paymentMethod === 'CASH') && !isPaidOnline;
+
+  const handlePayOnline = async () => {
+    if (!orderQuery.data || terminal) return;
+    try {
+      const order = orderQuery.data;
+      const key = `payment_track_${order.orderId}_${Date.now()}`;
+      const res = await initiatePayment({
+        orderId: order.orderId,
+        idempotencyKey: key,
+        amount: Number(order.totalAmount),
+      }).unwrap();
+
+      if (res.status === 'CAPTURED') {
+        setToast({ message: 'Order already paid online!', variant: 'success' });
+        void orderQuery.refetch();
+        return;
+      }
+
+      if (res.paymentSessionId) {
+        setCashfreeSession({
+          paymentSessionId: res.paymentSessionId,
+          cfOrderId: res.cfOrderId || order.orderId,
+        });
+        setPaymentModalVisible(true);
+      } else {
+        const verified = await verifyPayment({
+          orderId: order.orderId,
+          cashfreeOrderId: res.cfOrderId || `CF_LOCAL_${order.orderId.substring(0, 8)}`,
+        }).unwrap();
+        if (verified) {
+          setToast({ message: 'Payment verified! Marked as PAID online.', variant: 'success' });
+          void orderQuery.refetch();
+        } else {
+          setToast({ message: 'Could not complete online payment.', variant: 'error' });
+        }
+      }
+    } catch (err: any) {
+      const unwrapped = toUnwrappedApiError(err);
+      setToast({ message: unwrapped.message || 'Payment initiation failed.', variant: 'error' });
+    }
+  };
+
+  const handleCashfreeSuccess = async (data: { orderId: string; cashfreeOrderId: string }) => {
+    setPaymentModalVisible(false);
+    setCashfreeSession(null);
+    try {
+      const verified = await verifyPayment({
+        orderId: orderId,
+        cashfreeOrderId: data.cashfreeOrderId || orderId,
+      }).unwrap();
+      if (verified) {
+        setToast({ message: 'Payment successful! Order paid online via Cashfree.', variant: 'success' });
+        void orderQuery.refetch();
+      } else {
+        setToast({ message: 'Payment status pending verification.', variant: 'warning' });
+        void orderQuery.refetch();
+      }
+    } catch {
+      setToast({ message: 'Payment completed. Updating status...', variant: 'info' });
+      void orderQuery.refetch();
+    }
+  };
+
+  const handleCashfreeCancel = () => {
+    setPaymentModalVisible(false);
+    setCashfreeSession(null);
+    setToast({ message: 'Payment cancelled.', variant: 'info' });
+  };
+
+  const handleCashfreeError = (err: string) => {
+    setPaymentModalVisible(false);
+    setCashfreeSession(null);
+    setToast({ message: err || 'Payment failed.', variant: 'error' });
   };
 
   const { data: restaurant } = useGetRestaurantQuery(orderQuery.data?.restaurantId ?? '', { skip: !orderQuery.data?.restaurantId });
@@ -548,6 +640,109 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
               <OrderStatusStepper status={order.status} />
             </View>
 
+            {/* Live Payment Status & Online Pay Option */}
+            {order.status !== 'CANCELLED' && (
+              <View style={{ paddingHorizontal: tokens.spacing.md, marginTop: tokens.spacing.md }}>
+                {isPaidOnline ? (
+                  <View style={{
+                    backgroundColor: '#064E3B',
+                    borderRadius: 16,
+                    padding: 16,
+                    borderWidth: 1.5,
+                    borderColor: '#10B981',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 4,
+                    elevation: 3,
+                  }}>
+                    <View style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 21,
+                      backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <Feather name="check-circle" size={24} color="#34D399" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>
+                        Paid Online via Cashfree
+                      </Text>
+                      <Text style={{ fontSize: 12, color: '#A7F3D0', marginTop: 2, fontWeight: '500' }}>
+                        ₹{Number(order.totalAmount).toFixed(2)} received • No cash collection needed at delivery
+                      </Text>
+                    </View>
+                  </View>
+                ) : isCodPending && order.status !== 'DELIVERED' ? (
+                  <View style={{
+                    backgroundColor: '#1E1B18',
+                    borderRadius: 16,
+                    padding: 16,
+                    borderWidth: 1.5,
+                    borderColor: '#F59E0B',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 4,
+                    elevation: 3,
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ fontSize: 20 }}>💵</Text>
+                        <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>
+                          Cash on Delivery (Pending)
+                        </Text>
+                      </View>
+                      <View style={{
+                        backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 6,
+                        borderWidth: 1,
+                        borderColor: '#F59E0B'
+                      }}>
+                        <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '800' }}>PAY TO RIDER</Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 12, lineHeight: 17 }}>
+                      Avoid handling cash! Pay ₹{Number(order.totalAmount).toFixed(2)} securely online with UPI, Cards, or Netbanking anytime before your food arrives.
+                    </Text>
+                    <Pressable
+                      disabled={isInitiatingPayment || isVerifyingPayment}
+                      onPress={handlePayOnline}
+                      style={({ pressed }) => ({
+                        backgroundColor: '#FCD34D',
+                        borderRadius: 12,
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        opacity: (pressed || isInitiatingPayment || isVerifyingPayment) ? 0.75 : 1,
+                      })}
+                    >
+                      {isInitiatingPayment || isVerifyingPayment ? (
+                        <ActivityIndicator size="small" color="#012B18" />
+                      ) : (
+                        <>
+                          <Feather name="credit-card" size={18} color="#012B18" />
+                          <Text style={{ color: '#012B18', fontWeight: '900', fontSize: 14 }}>
+                            Pay ₹{Number(order.totalAmount).toFixed(2)} Online via Cashfree
+                          </Text>
+                        </>
+                      )}
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
             {order.status === 'DELIVERED' ? (
               <View style={{ paddingHorizontal: tokens.spacing.md, marginTop: tokens.spacing.md }}>
                 <View style={{
@@ -865,6 +1060,28 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
           <OrderChat orderId={orderId} senderRole="CUSTOMER" />
         </View>
       </Modal>
+
+      {paymentModalVisible && cashfreeSession && (
+        <Modal
+          visible={paymentModalVisible}
+          onRequestClose={handleCashfreeCancel}
+          title="Pay Online via Cashfree"
+          accessibilityLabel="Cashfree payment gateway modal"
+        >
+          <View style={{ height: 500, borderRadius: 16, overflow: 'hidden' }}>
+            <CashfreeWebView
+              options={{
+                paymentSessionId: cashfreeSession.paymentSessionId,
+                orderId: cashfreeSession.cfOrderId,
+                environment: 'sandbox',
+              }}
+              onSuccess={handleCashfreeSuccess}
+              onCancel={handleCashfreeCancel}
+              onError={handleCashfreeError}
+            />
+          </View>
+        </Modal>
+      )}
 
       <Toast
         visible={Boolean(toast)}

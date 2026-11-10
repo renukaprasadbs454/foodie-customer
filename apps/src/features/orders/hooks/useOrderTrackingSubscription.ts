@@ -71,6 +71,18 @@ export function useOrderTrackingSubscription(
             }),
           );
         }
+        if (
+          (message.type as string) === 'PAYMENT_CAPTURED' ||
+          (message as any).paymentStatus === 'PAID'
+        ) {
+          dispatch(
+            ordersApi.util.updateQueryData('getOrder', orderId, (draft) => {
+              draft.paymentStatus = 'PAID';
+              draft.paymentMethod = 'ONLINE';
+            }),
+          );
+          dispatch(ordersApi.util.invalidateTags([{ type: 'Order', id: orderId }]));
+        }
         const nextLocation = parseLocation(message);
         if (nextLocation) {
           setLocation(nextLocation);
