@@ -23,6 +23,11 @@ export type EligibleCoupon = {
   value: number | string;
   minOrderAmount?: number | string | null;
   maxDiscountAmount?: number | string | null;
+  maxDiscount?: number | string | null;
+  couponType?: string;
+  funderType?: string;
+  adminDiscount?: number | string | null;
+  restaurantDiscount?: number | string | null;
   expiryDate?: string | null;
   restaurantId?: string | null;
   restaurantName?: string | null;

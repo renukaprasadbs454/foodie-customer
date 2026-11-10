@@ -86,6 +86,16 @@ function mapRawCoupon(c: any, isExplicitRestaurantSource?: boolean, restaurantId
         : c.maxDiscount != null
         ? Number(c.maxDiscount)
         : null,
+    maxDiscount:
+      c.maxDiscount != null
+        ? Number(c.maxDiscount)
+        : c.maxDiscountAmount != null
+        ? Number(c.maxDiscountAmount)
+        : null,
+    couponType: c.couponType || c.type || (couponRestId ? 'RESTAURANT' : undefined),
+    funderType: c.funderType || (c.adminDiscount != null && c.restaurantDiscount != null ? 'SHARED' : undefined),
+    adminDiscount: c.adminDiscount != null ? Number(c.adminDiscount) : null,
+    restaurantDiscount: c.restaurantDiscount != null ? Number(c.restaurantDiscount) : null,
     expiryDate: c.expiryDate || null,
     restaurantId: couponRestId,
     restaurantName: c.restaurantName || null,

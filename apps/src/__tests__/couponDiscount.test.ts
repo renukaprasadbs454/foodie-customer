@@ -45,6 +45,34 @@ describe('calculateCouponDiscount', () => {
     expect(result.discountAmount).toBe(60);
     expect(result.finalTotal).toBe(140);
   });
+
+  it('caps restaurant coupon discount to maxDiscount when calculated discount exceeds maxDiscount (e.g. 50% of ₹300 = ₹150 capped to ₹90)', () => {
+    const coupon: EligibleCoupon = {
+      code: 'REST50',
+      discountType: 'PERCENT',
+      value: 50,
+      maxDiscountAmount: 90,
+      couponType: 'RESTAURANT',
+      funderType: 'SHARED',
+    };
+    const result = calculateCouponDiscount(coupon, 300);
+    expect(result.discountAmount).toBe(90);
+    expect(result.finalTotal).toBe(210);
+  });
+
+  it('applies exact percentage discount for restaurant coupon when calculated discount is less than maxDiscount (e.g. 50% of ₹100 = ₹50 < ₹90)', () => {
+    const coupon: EligibleCoupon = {
+      code: 'REST50',
+      discountType: 'PERCENT',
+      value: 50,
+      maxDiscountAmount: 90,
+      couponType: 'RESTAURANT',
+      funderType: 'SHARED',
+    };
+    const result = calculateCouponDiscount(coupon, 100);
+    expect(result.discountAmount).toBe(50);
+    expect(result.finalTotal).toBe(50);
+  });
 });
 
 describe('getCouponEligibility', () => {

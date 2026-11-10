@@ -31,6 +31,27 @@ export function calculateCouponDiscount(
         discountAmount = (orderAmount * val) / 100;
     }
 
+    // Check if this is a restaurant coupon:
+    // Only cap restaurant coupons; do not touch platform / other coupons!
+    const isRestaurantCoupon =
+        coupon.couponType === 'RESTAURANT' ||
+        coupon.couponType === 'RESTAURANT_COUPON' ||
+        coupon.couponType === 'RESTAURANT_FIRST_ORDER' ||
+        coupon.funderType === 'SHARED' ||
+        coupon.funderType === 'RESTAURANT' ||
+        coupon.funderType === 'MERCHANT' ||
+        Boolean(coupon.restaurantId && String(coupon.restaurantId).trim() !== '' && String(coupon.restaurantId) !== 'null') ||
+        (coupon.restaurantDiscount != null && Number(coupon.restaurantDiscount) > 0);
+
+    if (isRestaurantCoupon) {
+        const rawMax = coupon.maxDiscountAmount != null && coupon.maxDiscountAmount !== ''
+            ? Number(coupon.maxDiscountAmount)
+            : (coupon.maxDiscount != null && coupon.maxDiscount !== '' ? Number(coupon.maxDiscount) : null);
+        if (rawMax != null && rawMax > 0 && !isNaN(rawMax)) {
+            discountAmount = Math.min(discountAmount, rawMax);
+        }
+    }
+
     if (orderAmount > 0) {
         discountAmount = Math.min(discountAmount, orderAmount);
     }

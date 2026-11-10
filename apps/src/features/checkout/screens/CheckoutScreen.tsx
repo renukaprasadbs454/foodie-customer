@@ -251,7 +251,7 @@ export function CheckoutScreen({ navigation, route }: any) {
     }
     if (isCodDisabled && paymentMethod === 'COD') {
       setToast({
-        message: 'Cash on Delivery is disabled for your account. Please select Online Payment.',
+        message: 'Cash on Delivery is unavailable. Please select Online Payment.',
         variant: 'error',
       });
       return;
@@ -651,7 +651,7 @@ export function CheckoutScreen({ navigation, route }: any) {
                       onPress={() => {
                         if (isCodDisabled) {
                           setToast({
-                            message: 'Cash on Delivery is disabled for your account by administrator. Please use Online Payment.',
+                            message: 'Cash on Delivery is unavailable. Please select Online Payment.',
                             variant: 'error',
                           });
                           return;
@@ -662,45 +662,28 @@ export function CheckoutScreen({ navigation, route }: any) {
                         flexDirection: 'row',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        opacity: isCodDisabled ? 0.7 : (pressed ? 0.8 : 1),
+                        opacity: isCodDisabled ? 0.5 : (pressed ? 0.8 : 1),
                         paddingVertical: 10,
-                        backgroundColor: isCodDisabled ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
                         borderRadius: 10,
-                        paddingHorizontal: isCodDisabled ? 8 : 0,
                       })}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
                         <View style={{
                           width: 20, height: 20, borderRadius: 10, borderWidth: 2,
-                          borderColor: isCodDisabled ? '#6B7280' : (paymentMethod === 'COD' ? '#FCD34D' : '#4B5563'),
+                          borderColor: isCodDisabled ? '#4B5563' : (paymentMethod === 'COD' ? '#FCD34D' : '#4B5563'),
                           justifyContent: 'center', alignItems: 'center',
-                          backgroundColor: isCodDisabled ? 'rgba(107, 114, 128, 0.2)' : 'transparent',
+                          backgroundColor: 'transparent',
                         }}>
                           {!isCodDisabled && paymentMethod === 'COD' && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#FCD34D' }} />}
-                          {isCodDisabled && <Text style={{ fontSize: 10, color: '#EF4444', fontWeight: '900' }}>✕</Text>}
                         </View>
                         <View style={{ flex: 1 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                             <Text style={{ fontWeight: '700', fontSize: 15, color: isCodDisabled ? '#9CA3AF' : '#FFFFFF' }}>
                               Cash on Delivery (COD)
                             </Text>
-                            {isCodDisabled && (
-                              <View style={{
-                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                                borderWidth: 1,
-                                borderColor: '#EF4444',
-                                borderRadius: 4,
-                                paddingHorizontal: 6,
-                                paddingVertical: 1,
-                              }}>
-                                <Text style={{ color: '#EF4444', fontSize: 10, fontWeight: '800' }}>
-                                  DISABLED BY ADMIN
-                                </Text>
-                              </View>
-                            )}
                           </View>
-                          <Text style={{ fontSize: 13, color: isCodDisabled ? '#EF4444' : '#9CA3AF', fontWeight: isCodDisabled ? '600' : '400', marginTop: 2 }}>
-                            {isCodDisabled ? 'Disabled for your account. Please pay online via UPI or Cards.' : 'Pay directly at your doorstep'}
+                          <Text style={{ fontSize: 13, color: isCodDisabled ? '#6B7280' : '#9CA3AF', fontWeight: '400', marginTop: 2 }}>
+                            {isCodDisabled ? 'COD unavailable. Please pay online via Cards, UPI, or Netbanking.' : 'Pay directly at your doorstep'}
                           </Text>
                         </View>
                       </View>
