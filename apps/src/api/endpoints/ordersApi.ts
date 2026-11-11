@@ -38,6 +38,24 @@ let mockCounter = 1000;
 const mockOrdersStore: Record<string, OrderDetail> = {};
 const ORDERS_STORAGE_KEY = 'foodie_customer_orders_v1';
 export const ORDER_PAYMENT_METHODS_KEY = 'foodie_orders_payment_methods_map';
+export const ORDER_TOTAL_AMOUNT_KEY_PREFIX = 'order_total_amount_';
+
+export async function saveOrderTotalAmount(orderIdOrNumber: string, amount: number | string) {
+  try {
+    await AsyncStorage.setItem(`${ORDER_TOTAL_AMOUNT_KEY_PREFIX}${orderIdOrNumber}`, String(amount));
+  } catch (e) { }
+}
+
+export async function getOrderTotalAmount(orderIdOrNumber: string): Promise<number | null> {
+  try {
+    const raw = await AsyncStorage.getItem(`${ORDER_TOTAL_AMOUNT_KEY_PREFIX}${orderIdOrNumber}`);
+    if (raw) {
+      const parsed = parseFloat(raw);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+  } catch (e) { }
+  return null;
+}
 
 export async function saveOrderPaymentMethod(orderIdOrNumber: string, method: string) {
   try {
@@ -93,6 +111,9 @@ export const ordersApi = baseApi.injectEndpoints({
               addressId: arg.addressId,
               couponCode: arg.couponCode,
               paymentMethod: arg.paymentMethod,
+              totalAmount: arg.totalAmount,
+              deliveryFee: arg.deliveryFee,
+              taxAmount: arg.taxAmount,
             },
           });
 
@@ -163,7 +184,9 @@ export const ordersApi = baseApi.injectEndpoints({
           const stored = mockOrdersStore[orderId];
           if (stored) {
             const pm = pmMap[stored.orderId] || pmMap[stored.orderNumber] || (stored.orderNumber?.includes('000006') ? 'COD' : (stored.paymentMethod || 'ONLINE'));
-            return { data: { ...stored, paymentMethod: pm } };
+            const storedTotal = await getOrderTotalAmount(stored.orderId || stored.orderNumber || orderId);
+            const totalAmount = storedTotal != null ? storedTotal : stored.totalAmount;
+            return { data: { ...stored, paymentMethod: pm, totalAmount } };
           }
         } else {
           try {
@@ -172,13 +195,16 @@ export const ordersApi = baseApi.injectEndpoints({
               const apiRes = result.data as any;
               const detail = apiRes.data || apiRes;
               const pm = pmMap[detail.orderId] || pmMap[detail.orderNumber] || (detail.orderNumber?.includes('000006') ? 'COD' : (detail.paymentMethod || 'ONLINE'));
-              return { data: { ...detail, paymentMethod: pm } };
+              const storedTotal = await getOrderTotalAmount(detail.orderId || detail.orderNumber || orderId);
+              const totalAmount = storedTotal != null ? storedTotal : detail.totalAmount;
+              return { data: { ...detail, paymentMethod: pm, totalAmount } };
             }
           } catch { }
         }
 
         const stored = mockOrdersStore[orderId];
         const pm = stored ? (pmMap[stored.orderId] || pmMap[stored.orderNumber]) : (pmMap[orderId] || (orderId?.includes('000006') ? 'COD' : 'ONLINE'));
+        const storedTotal = await getOrderTotalAmount(orderId);
         const fallbackOrder: OrderDetail = {
           orderId,
           orderNumber: `ORD-${orderId.substring(0, 6).toUpperCase()}`,
@@ -188,7 +214,7 @@ export const ordersApi = baseApi.injectEndpoints({
           deliveryFee: 25,
           taxAmount: 18,
           discountAmount: 0,
-          totalAmount: 393,
+          totalAmount: storedTotal != null ? storedTotal : 393,
           placedAt: new Date().toISOString(),
           addressId: 'addr-default',
           items: [],

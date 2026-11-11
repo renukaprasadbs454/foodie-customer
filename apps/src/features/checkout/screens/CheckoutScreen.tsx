@@ -239,6 +239,20 @@ export function CheckoutScreen({ navigation, route }: any) {
 
   const subtotalBeforeCoupons = isDarkStoreMock ? mockItems.reduce((acc: number, mi: any) => acc + (mi.price * mi.quantity), 0) : Number(cart?.subtotal || 0);
 
+  const subtotal = subtotalBeforeCoupons;
+  const routeDiscount = route.params?.discount ?? 0;
+  const totalDiscount = routeDiscount;
+  const routeTaxes = route.params?.taxes ?? 18;
+  const deliveryFee = calculatedDeliveryFee;
+  const platformFee = actualPlatformFee;
+  const baseTotal = Math.max(0, subtotal + deliveryFee + platformFee + routeTaxes - totalDiscount);
+  const isCod = paymentMethod === 'COD';
+  const codHandlingFee = isCod ? 5 : 0;
+  // If COD: add ₹5 handling charge and round to upper whole rupee (no paisa, e.g. 56.23 + 5 = 61.23 -> 62) in background
+  const orderTotal = isCod ? Math.ceil(baseTotal + codHandlingFee) : baseTotal;
+  const walletApplied = useWallet ? Math.min(walletBalance, orderTotal) : 0;
+  const grandTotal = Math.max(0, orderTotal - walletApplied);
+
   const loading = cartQuery.isLoading || addressesQuery.isLoading || createState.isLoading || walletQuery.isLoading || deliveryChargesQuery.isLoading;
 
   const onPlaceOrder = async () => {
@@ -283,16 +297,26 @@ export function CheckoutScreen({ navigation, route }: any) {
     }
     trackAnalyticsEvent('place_order_tapped');
     try {
+      const placedOrderTotal = grandTotal;
       const order = await createOrder({
         addressId,
         couponCode: route.params?.couponCode || undefined,
         paymentMethod,
         idempotencyKey: placeAttemptKey.current,
+        totalAmount: placedOrderTotal,
+        deliveryFee,
+        taxAmount: routeTaxes,
       }).unwrap();
       await saveOrderPaymentMethod(order.orderId, paymentMethod);
       if (order.orderNumber) {
         await saveOrderPaymentMethod(order.orderNumber, paymentMethod);
       }
+      try {
+        await AsyncStorage.setItem(`order_total_amount_${order.orderId}`, String(placedOrderTotal));
+        if (order.orderNumber) {
+          await AsyncStorage.setItem(`order_total_amount_${order.orderNumber}`, String(placedOrderTotal));
+        }
+      } catch { }
       const chosenAddr = addressesQuery.data?.find((a) => a.addressId === addressId);
       if (chosenAddr) {
         try {
@@ -346,20 +370,6 @@ export function CheckoutScreen({ navigation, route }: any) {
       />
     );
   }
-
-  const subtotal = subtotalBeforeCoupons;
-  const routeDiscount = route.params?.discount ?? 0;
-  const totalDiscount = routeDiscount;
-  const routeTaxes = route.params?.taxes ?? 18;
-  const deliveryFee = calculatedDeliveryFee;
-  const platformFee = actualPlatformFee;
-  const baseTotal = Math.max(0, subtotal + deliveryFee + platformFee + routeTaxes - totalDiscount);
-  const isCod = paymentMethod === 'COD';
-  const codHandlingFee = isCod ? 5 : 0;
-  // If COD: add ₹5 handling charge and round to upper whole rupee (no paisa, e.g. 56.23 + 5 = 61.23 -> 62) in background
-  const orderTotal = isCod ? Math.ceil(baseTotal + codHandlingFee) : baseTotal;
-  const walletApplied = useWallet ? Math.min(walletBalance, orderTotal) : 0;
-  const grandTotal = Math.max(0, orderTotal - walletApplied);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#012B18' }} edges={['top', 'left', 'right']}>

@@ -22,6 +22,7 @@ import {
   useTransitionOrderStatusMutation,
   useGetDeliveryPartnerQuery,
   useGetDeliveryLocationQuery,
+  saveOrderPaymentMethod,
 } from '../../../api/endpoints/ordersApi';
 import {
   useInitiatePaymentMutation,
@@ -165,6 +166,31 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
     }
   };
 
+  const [persistedTotal, setPersistedTotal] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const fetchPersistedTotal = async () => {
+      try {
+        const val1 = await AsyncStorage.getItem(`order_total_amount_${orderId}`);
+        const val2 = orderQuery.data?.orderNumber
+          ? await AsyncStorage.getItem(`order_total_amount_${orderQuery.data.orderNumber}`)
+          : null;
+        const val = val1 || val2;
+        if (val && active) {
+          const num = parseFloat(val);
+          if (!isNaN(num) && num > 0) {
+            setPersistedTotal(num);
+          }
+        }
+      } catch {}
+    };
+    void fetchPersistedTotal();
+    return () => { active = false; };
+  }, [orderId, orderQuery.data?.orderNumber]);
+
+  const exactOrderTotal = persistedTotal != null ? persistedTotal : Number(orderQuery.data?.totalAmount || 0);
+
   const paymentStatus = orderQuery.data?.paymentStatus;
   const paymentMethod = orderQuery.data?.paymentMethod;
   const isPaidOnline = paymentStatus === 'PAID' || paymentStatus === 'CAPTURED' ||
@@ -179,7 +205,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
       const res = await initiatePayment({
         orderId: order.orderId,
         idempotencyKey: key,
-        amount: Number(order.totalAmount),
+        amount: exactOrderTotal > 0 ? exactOrderTotal : Number(order.totalAmount),
       }).unwrap();
 
       if (res.status === 'CAPTURED') {
@@ -211,6 +237,10 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
         orderId: orderId,
         cashfreeOrderId: data.cashfreeOrderId || orderId,
       }).unwrap();
+      await saveOrderPaymentMethod(orderId, 'ONLINE');
+      if (orderQuery.data?.orderNumber) {
+        await saveOrderPaymentMethod(orderQuery.data.orderNumber, 'ONLINE');
+      }
       if (verified) {
         setToast({ message: 'Payment successful! Marked as PAID.', variant: 'success' });
         void orderQuery.refetch();
@@ -219,6 +249,10 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
         void orderQuery.refetch();
       }
     } catch {
+      await saveOrderPaymentMethod(orderId, 'ONLINE');
+      if (orderQuery.data?.orderNumber) {
+        await saveOrderPaymentMethod(orderQuery.data.orderNumber, 'ONLINE');
+      }
       setToast({ message: 'Payment completed. Updating status...', variant: 'info' });
       void orderQuery.refetch();
     }
@@ -656,7 +690,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                       </View>
                     </View>
                     <Text style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 12, lineHeight: 17 }}>
-                      Avoid handling cash! Pay ₹{Number(order.totalAmount).toFixed(2)} securely online with UPI, Cards, or Netbanking anytime before your food arrives.
+                      Avoid handling cash! Pay ₹{exactOrderTotal.toFixed(2)} securely online with UPI, Cards, or Netbanking anytime before your food arrives.
                     </Text>
                     <Pressable
                       disabled={isInitiatingPayment || isVerifyingPayment}
@@ -679,7 +713,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
                         <>
                           <Feather name="credit-card" size={18} color="#012B18" />
                           <Text style={{ color: '#012B18', fontWeight: '900', fontSize: 14 }}>
-                            Pay ₹{Number(order.totalAmount).toFixed(2)} Online
+                            Pay ₹{exactOrderTotal.toFixed(2)} Online
                           </Text>
                         </>
                       )}

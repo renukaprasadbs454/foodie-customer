@@ -56,6 +56,9 @@ export type CreateOrderRequest = {
   addressId: string;
   couponCode?: string | null;
   paymentMethod?: string | null;
+  totalAmount?: number | null;
+  deliveryFee?: number | null;
+  taxAmount?: number | null;
 };
 
 export type Order = {
