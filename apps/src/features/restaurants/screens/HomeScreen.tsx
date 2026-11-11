@@ -229,38 +229,56 @@ export function HomeScreen({ navigation }: Props) {
     return filtered;
   }, [feed.items, allRestaurants, activeZone, isAreaServiceable]);
 
-  // Transmit unserviceable area request when customer location is unserviceable or has no restaurants available
+  // Transmit unserviceable area request ONLY when customer location is confirmed unserviceable
   useEffect(() => {
-    const isFeedFinished = !feed.isLoading && !allNearbyQuery.isLoading;
-    const noRestaurantsInLocation = !isAreaServiceable || (isFeedFinished && zoneRestaurants.length === 0);
-
-    if (noRestaurantsInLocation && userCoords?.latitude && userCoords?.longitude) {
-      void submitCustomerUnserviceableAreaRequest({
-        customerName: currentUserName,
-        email: currentUserEmail,
-        phone: currentUserPhone,
-        address: currentAddress,
-        coords: {
-          latitude: userCoords.latitude,
-          longitude: userCoords.longitude,
-        },
-        cityName: detectedZone?.cityName,
-        zoneId: detectedZone?.zoneId,
-        zoneName: detectedZone?.zoneName,
-      });
+    // 1. If location is still acquiring, or zone query is loading/fetching, do NOT submit
+    if (isLocating || zoneQuery.isLoading || zoneQuery.isFetching) {
+      return;
     }
+    // 2. If the user is inside a serviceable zone, never send an unserviceable request
+    if (isAreaServiceable || activeZone?.serviceable || detectedZone?.serviceable) {
+      return;
+    }
+    // 3. If zone resolution has not returned any data yet, do NOT submit
+    if (!detectedZone) {
+      return;
+    }
+    // 4. If request is already under review or rejected or system is in maintenance, do NOT re-submit
+    const msg = (detectedZone?.message || '').toLowerCase();
+    if (msg.includes('review') || msg.includes('rejected') || msg.includes('maintenance')) {
+      return;
+    }
+    // 5. Coordinates required
+    if (!userCoords?.latitude || !userCoords?.longitude) {
+      return;
+    }
+
+    void submitCustomerUnserviceableAreaRequest({
+      customerName: currentUserName,
+      email: currentUserEmail,
+      phone: currentUserPhone,
+      address: currentAddress,
+      coords: {
+        latitude: userCoords.latitude,
+        longitude: userCoords.longitude,
+      },
+      cityName: detectedZone?.cityName,
+      zoneId: detectedZone?.zoneId,
+      zoneName: detectedZone?.zoneName,
+    });
   }, [
+    isLocating,
+    zoneQuery.isLoading,
+    zoneQuery.isFetching,
     isAreaServiceable,
-    feed.isLoading,
-    allNearbyQuery.isLoading,
-    zoneRestaurants.length,
+    activeZone?.serviceable,
+    detectedZone,
     userCoords?.latitude,
     userCoords?.longitude,
     currentAddress,
     currentUserName,
     currentUserEmail,
     currentUserPhone,
-    detectedZone,
   ]);
 
   // Pure Veg restaurant detector

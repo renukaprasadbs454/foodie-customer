@@ -131,13 +131,18 @@ export function isCouponInRestaurantZone(
     const isExplicitAll =
         isAllZones === true ||
         (couponZoneId && String(couponZoneId).trim().toUpperCase() === 'ALL') ||
-        (couponZoneName && (couponZoneName.trim().toLowerCase() === 'all zones' || couponZoneName.trim().toUpperCase() === 'ALL'));
+        (couponZoneId && String(couponZoneId).trim().toUpperCase() === 'ALL_LOCATIONS') ||
+        (couponZoneName && (
+            couponZoneName.trim().toLowerCase() === 'all zones' ||
+            couponZoneName.trim().toLowerCase() === 'all locations' ||
+            couponZoneName.trim().toUpperCase() === 'ALL'
+        ));
 
     if (isExplicitAll) {
         return true;
     }
 
-    // 2. Missing zone information must not be treated as All Locations
+    // 2. Missing zone information must not be treated as All Locations unless isAllZones is true
     if (!couponZoneId && !couponZoneName) {
         return false;
     }
@@ -148,7 +153,7 @@ export function isCouponInRestaurantZone(
         return false;
     }
 
-    return normCouponZone === normRestZone;
+    return normCouponZone === normRestZone || isZoneMatching(normCouponZone, normRestZone);
 }
 
 export function isZoneMatching(target: string, customerZone: string): boolean {
@@ -248,22 +253,40 @@ export function filterCouponsForRestaurant(
             return false;
         }
 
-        // 4. Zone Validation:
-        // Must belong to the selected restaurant's assigned zone
-        // Compare: Selected Restaurant Zone ID = Coupon Zone ID
+        // 4. Restaurant Assignment & Enable Validation:
+        const couponRestId = c.restaurantId ? String(c.restaurantId).trim().toLowerCase() : '';
+        const couponId = c.couponId ? String(c.couponId).trim().toLowerCase() : '';
+        const couponCode = c.code ? String(c.code).trim().toLowerCase() : '';
+        const cType = String(c.couponType || '').toUpperCase();
+        const fType = String(c.funderType || '').toUpperCase();
+
+        const isPlatformPromo =
+            cType === 'PROMO_COUPON' ||
+            cType === 'PROMO' ||
+            cType === 'CUSTOMER' ||
+            cType === 'NEW_USER' ||
+            cType === 'FIRST_ORDER' ||
+            fType === 'FOODIE';
+
+        if (isPlatformPromo) {
+            // Platform promo coupons: if coupon has a specific zone, it must match restaurant zone
+            if (c.zoneId && String(c.zoneId).toUpperCase() !== 'ALL') {
+                if (resolvedZoneId && !isCouponInRestaurantZone(c.zoneId, c.zoneName, c.isAllZones, resolvedZoneId)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Zone validation for restaurant coupons
         if (resolvedZoneId) {
             if (!isCouponInRestaurantZone(c.zoneId, c.zoneName, c.isAllZones, resolvedZoneId)) {
                 return false;
             }
         }
 
-        // 5. Restaurant Assignment & Enable Validation:
-        const couponRestId = c.restaurantId ? String(c.restaurantId).trim().toLowerCase() : '';
-        const couponId = c.couponId ? String(c.couponId).trim().toLowerCase() : '';
-        const couponCode = c.code ? String(c.code).trim().toLowerCase() : '';
-
         if (couponRestId) {
-            // Belongs to a restaurant: strictly match the selected restaurant
+            // Belongs to a specific restaurant: strictly match the selected restaurant
             if (
                 couponRestId !== cleanRestId &&
                 !cleanRestId.includes(couponRestId) &&
@@ -282,7 +305,6 @@ export function filterCouponsForRestaurant(
                     return false;
                 }
             } else {
-                // Do not show coupons just because they exist in the global coupon list
                 return false;
             }
         }

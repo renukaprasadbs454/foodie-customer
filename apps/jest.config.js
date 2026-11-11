@@ -5,6 +5,7 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.ts'],
   moduleNameMapper: {
     '^foodie-shared-rn$': '<rootDir>/packages/shared-rn/src/index.ts',
+    '^expo-secure-store$': '<rootDir>/src/__mocks__/expo-secure-store.ts',
   },
   transform: {
     '^.+\\.tsx?$': [

@@ -20,6 +20,12 @@ jest.mock('expo-notifications', () => ({
   getDevicePushTokenAsync: jest.fn(),
 }));
 
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: { appOwnership: 'standalone' },
+  appOwnership: 'standalone',
+}));
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import {

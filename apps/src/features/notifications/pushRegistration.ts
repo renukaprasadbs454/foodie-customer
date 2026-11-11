@@ -1,8 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { isRunningInExpoGo } from 'expo';
 
 /** Avoid importing react-native here — keeps Jest/node suites loadable. */
 function isWebRuntime(): boolean {
@@ -10,11 +8,6 @@ function isWebRuntime(): boolean {
 }
 
 export function isExpoGo(): boolean {
-  try {
-    if (typeof isRunningInExpoGo === 'function' && isRunningInExpoGo()) {
-      return true;
-    }
-  } catch {}
   try {
     if (
       Constants.appOwnership === 'expo' ||
@@ -26,15 +19,16 @@ export function isExpoGo(): boolean {
   return false;
 }
 
-if (Platform.OS === 'android' && !isExpoGo() && !isWebRuntime()) {
-  try {
+try {
+  const RN = require('react-native');
+  if (RN?.Platform?.OS === 'android' && !isExpoGo() && !isWebRuntime()) {
     void Notifications.setNotificationChannelAsync('default', {
       name: 'default',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
     }).catch(() => {});
-  } catch {}
-}
+  }
+} catch {}
 
 const KEY = 'foodie.customer.pushRegistration.v1';
 

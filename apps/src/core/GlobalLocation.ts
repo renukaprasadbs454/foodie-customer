@@ -20,6 +20,7 @@ const STORAGE_KEYS = {
   SELECTED_ADDRESS: 'foodie_active_selected_address',
   LAST_COORDS: 'foodie_last_known_coords',
   LAST_ADDRESS: 'foodie_last_known_address',
+  LAST_ZONE: 'foodie_last_known_zone',
 };
 
 export const globalLocation: GlobalLocationData = {
@@ -341,6 +342,15 @@ async function loadCachedCoordsFallback() {
   try {
     const cached = await AsyncStorage.getItem(STORAGE_KEYS.LAST_COORDS);
     const cachedAddr = await AsyncStorage.getItem(STORAGE_KEYS.LAST_ADDRESS);
+    const cachedZone = await AsyncStorage.getItem(STORAGE_KEYS.LAST_ZONE);
+    if (cachedZone && !globalLocation.zone) {
+      try {
+        const parsedZone = JSON.parse(cachedZone);
+        if (parsedZone && parsedZone.zoneId) {
+          globalLocation.zone = parsedZone;
+        }
+      } catch {}
+    }
     if (cached) {
       const parsed = JSON.parse(cached);
       if (parsed?.latitude && parsed?.longitude) {
@@ -448,6 +458,9 @@ export function setGlobalZone(zone: CustomerZoneInfo | null) {
     return;
   }
   globalLocation.zone = zone;
+  if (zone) {
+    void AsyncStorage.setItem(STORAGE_KEYS.LAST_ZONE, JSON.stringify(zone)).catch(() => {});
+  }
   notifyListeners();
 }
 
@@ -458,6 +471,17 @@ export function setGlobalZone(zone: CustomerZoneInfo | null) {
  */
 export async function initGlobalLocation(forceGps: boolean = false) {
   setupLocationAppStateListener();
+
+  // Pre-load cached zone into memory so initial render on restart is instantly serviceable
+  try {
+    const cachedZone = await AsyncStorage.getItem(STORAGE_KEYS.LAST_ZONE);
+    if (cachedZone && !globalLocation.zone) {
+      const parsedZone = JSON.parse(cachedZone);
+      if (parsedZone && parsedZone.zoneId) {
+        globalLocation.zone = parsedZone;
+      }
+    }
+  } catch {}
 
   if (forceGps) {
     sessionSelectedAddress = null;

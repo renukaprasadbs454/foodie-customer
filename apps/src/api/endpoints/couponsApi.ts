@@ -67,7 +67,16 @@ function mapRawCoupon(c: any, isExplicitRestaurantSource?: boolean, restaurantId
     String(c.status || '').toUpperCase() !== 'DEACTIVATED' &&
     String(c.status || '').toUpperCase() !== 'DISABLED';
 
-  const couponRestId = c.restaurantId
+  const isPromo =
+    String(c.couponType || '').toUpperCase() === 'PROMO_COUPON' ||
+    String(c.couponType || '').toUpperCase() === 'PROMO' ||
+    String(c.couponType || '').toUpperCase() === 'NEW_USER' ||
+    String(c.couponType || '').toUpperCase() === 'FIRST_ORDER' ||
+    String(c.funderType || '').toUpperCase() === 'FOODIE';
+
+  const couponRestId = isPromo
+    ? null
+    : c.restaurantId
     ? String(c.restaurantId).trim()
     : isExplicitRestaurantSource && restaurantId
     ? restaurantId
@@ -92,8 +101,8 @@ function mapRawCoupon(c: any, isExplicitRestaurantSource?: boolean, restaurantId
         : c.maxDiscountAmount != null
         ? Number(c.maxDiscountAmount)
         : null,
-    couponType: c.couponType || c.type || (couponRestId ? 'RESTAURANT' : undefined),
-    funderType: c.funderType || (c.adminDiscount != null && c.restaurantDiscount != null ? 'SHARED' : undefined),
+    couponType: c.couponType || c.type || (isPromo ? 'PROMO_COUPON' : (couponRestId ? 'RESTAURANT' : undefined)),
+    funderType: c.funderType || (isPromo ? 'FOODIE' : (c.adminDiscount != null && c.restaurantDiscount != null ? 'SHARED' : undefined)),
     adminDiscount: c.adminDiscount != null ? Number(c.adminDiscount) : null,
     restaurantDiscount: c.restaurantDiscount != null ? Number(c.restaurantDiscount) : null,
     expiryDate: c.expiryDate || null,
@@ -104,7 +113,7 @@ function mapRawCoupon(c: any, isExplicitRestaurantSource?: boolean, restaurantId
     approvalStatus: c.approvalStatus || 'APPROVED',
     zoneId: c.zoneId || null,
     zoneName: c.zoneName || null,
-    isAllZones: Boolean(c.isAllZones || (c.zoneName && String(c.zoneName).toLowerCase().includes('all'))),
+    isAllZones: Boolean(c.isAllZones || !c.zoneId || c.zoneId === 'ALL' || (c.zoneName && String(c.zoneName).toLowerCase().includes('all'))),
   };
 }
 
@@ -234,7 +243,7 @@ export const couponsApi = baseApi.injectEndpoints({
           if (relativeRes.data) {
             const rawList = (relativeRes.data as any)?.data ?? relativeRes.data ?? [];
             if (Array.isArray(rawList) && rawList.length > 0) {
-              const mapped = rawList.map((item: any) => mapRawCoupon(item, false, restaurantId));
+              const mapped = rawList.map((item: any) => mapRawCoupon(item, true, restaurantId));
               fetchedCoupons = mergeUniqueCoupons(fetchedCoupons, mapped);
             }
           }
