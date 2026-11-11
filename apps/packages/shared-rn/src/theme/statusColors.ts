@@ -11,8 +11,10 @@ export type OrderStatus =
   | 'PREPARING'
   | 'READY_FOR_PICKUP'
   | 'ASSIGNED'
+  | 'REACHED_RESTAURANT'
   | 'PICKED_UP'
   | 'OUT_FOR_DELIVERY'
+  | 'REACHED_CUSTOMER'
   | 'DELIVERED'
   | 'REJECTED'
   | 'CANCELLED';
@@ -36,8 +38,10 @@ const ORDER_STATUS_COLOR: Record<OrderStatus, StatusColorRole> = {
   PREPARING: 'inProgress',
   READY_FOR_PICKUP: 'inProgress',
   ASSIGNED: 'inProgress',
+  REACHED_RESTAURANT: 'inProgress',
   PICKED_UP: 'inProgress',
   OUT_FOR_DELIVERY: 'inProgress',
+  REACHED_CUSTOMER: 'inProgress',
   DELIVERED: 'success',
   REJECTED: 'error',
   CANCELLED: 'error',

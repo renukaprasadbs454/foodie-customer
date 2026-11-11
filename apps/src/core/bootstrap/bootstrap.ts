@@ -80,22 +80,23 @@ export async function runBootstrap(dispatch: AppDispatch): Promise<void> {
         onTokenReuseDetected: async () => {
           await terminateSession(dispatch);
         },
-        onRefreshFailed: async () => {
-          await terminateSession(dispatch);
+        onRefreshFailed: async (reason?: string) => {
+          if (reason === 'TOKEN_REUSE_DETECTED' || reason === 'UNAUTHORIZED') {
+            await terminateSession(dispatch);
+          }
         },
       },
     });
 
-    const refreshTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+    const refreshTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
     const pair = await Promise.race([pairPromise, refreshTimeout]);
 
     if (!pair) {
-      await terminateSession(dispatch);
+      logger.warn('Bootstrap: token refresh not completed immediately, preserving session');
     }
   } catch (error) {
     logger.error('Bootstrap failed', {
       message: error instanceof Error ? error.message : 'unknown',
     });
-    await terminateSession(dispatch);
   }
 }

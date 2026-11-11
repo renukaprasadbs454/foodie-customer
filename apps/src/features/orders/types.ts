@@ -84,6 +84,7 @@ export const TRACKING_STEPPER_STATUSES: readonly OrderStatus[] = [
   'ASSIGNED',
   'PICKED_UP',
   'OUT_FOR_DELIVERY',
+  'REACHED_CUSTOMER',
   'DELIVERED',
 ] as const;
 

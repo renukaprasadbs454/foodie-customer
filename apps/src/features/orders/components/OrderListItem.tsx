@@ -41,7 +41,8 @@ function isKnownStatus(status: string): status is OrderStatus {
     status === 'DELIVERED' ||
     status === 'REJECTED' ||
     status === 'CANCELLED' ||
-    status === 'REACHED_RESTAURANT'
+    status === 'REACHED_RESTAURANT' ||
+    status === 'REACHED_CUSTOMER'
   );
 }
 
@@ -65,6 +66,8 @@ function getFriendlyStatusText(status: string): string {
       return 'Food Picked Up';
     case 'OUT_FOR_DELIVERY':
       return 'Out for Delivery';
+    case 'REACHED_CUSTOMER':
+      return 'Rider at your location';
     case 'DELIVERED':
       return 'Delivered Successfully';
     case 'REJECTED':

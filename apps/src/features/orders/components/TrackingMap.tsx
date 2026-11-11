@@ -70,7 +70,7 @@ export function TrackingMap({
   const { tokens } = useTheme();
 
   const normalizedStatus = (orderStatus || '').trim().toUpperCase();
-  const isCollected = ['REACHED_RESTAURANT', 'READY_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(normalizedStatus);
+  const isCollected = ['REACHED_RESTAURANT', 'READY_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'REACHED_CUSTOMER', 'DELIVERED'].includes(normalizedStatus);
 
   const driverLiveLocation = useMemo(() => {
     if (driverLocation && driverLocation.latitude !== 0 && !isNaN(driverLocation.latitude)) {

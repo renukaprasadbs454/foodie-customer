@@ -115,13 +115,22 @@ async function finalizeRegistration(
     lastUserId: userId,
   };
 
-  if (permissionStatus === 'granted' && !isExpoGo() && !isWebRuntime()) {
+  if (permissionStatus === 'granted' && !isWebRuntime()) {
     try {
-      next.deviceToken = extractDeviceToken(
-        await Notifications.getDevicePushTokenAsync(),
-      );
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ??
+        Constants?.easConfig?.projectId ??
+        'e84e44c1-3f95-4707-9027-2e0b4fb10820';
+      const tokenObj = await Notifications.getExpoPushTokenAsync({ projectId });
+      next.deviceToken = tokenObj.data;
     } catch {
-      next.deviceToken = current.deviceToken;
+      try {
+        next.deviceToken = extractDeviceToken(
+          await Notifications.getDevicePushTokenAsync(),
+        );
+      } catch {
+        next.deviceToken = current.deviceToken;
+      }
     }
   }
 
@@ -132,8 +141,8 @@ async function finalizeRegistration(
 export async function requestLocalPushRegistration(
   userId: string,
 ): Promise<LocalPushRegistration> {
-  // Push device APIs are native-oriented and unsupported in Expo Go (SDK 53)
-  if (isWebRuntime() || isExpoGo()) {
+  // Push device APIs are native-oriented and unsupported on web
+  if (isWebRuntime()) {
     const current = await loadLocalPushRegistration();
     const next: LocalPushRegistration = {
       ...current,
@@ -175,7 +184,7 @@ export async function requestLocalPushRegistration(
 export async function ensureLocalPushRegistration(
   userId: string,
 ): Promise<LocalPushRegistration> {
-  if (isWebRuntime() || isExpoGo()) {
+  if (isWebRuntime()) {
     return requestLocalPushRegistration(userId);
   }
 

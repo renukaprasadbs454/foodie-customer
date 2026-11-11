@@ -14,6 +14,21 @@ import { ThemeProvider } from './providers/ThemeProvider';
 import * as Notifications from 'expo-notifications';
 import { initGlobalLocation } from './GlobalLocation';
 import { isExpoGo } from '../features/notifications/pushRegistration';
+import { useAppStateChange } from 'foodie-shared-rn';
+import { useAppDispatch } from '../store/hooks';
+import { baseApi } from '../api/baseApi';
+
+function ForegroundSyncBridge() {
+  const dispatch = useAppDispatch();
+  useAppStateChange((next, previous) => {
+    if (previous?.match(/inactive|background/) && next === 'active') {
+      try {
+        dispatch(baseApi.util.invalidateTags(['Order', 'Cart', 'Restaurant']));
+      } catch {}
+    }
+  });
+  return null;
+}
 
 if (!isExpoGo()) {
   try {
@@ -89,6 +104,7 @@ export default function App() {
               <View style={styles.shell}>
                 <ConnectivityBanner />
                 <PushRegistrationBridge />
+                <ForegroundSyncBridge />
                 <View style={styles.content}>
                   <RootNavigator />
                 </View>

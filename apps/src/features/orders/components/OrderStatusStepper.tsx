@@ -22,6 +22,7 @@ const STATUS_TITLES: Record<string, string> = {
   REACHED_RESTAURANT: 'Rider at Restaurant',
   PICKED_UP: 'Order Picked Up',
   OUT_FOR_DELIVERY: 'Out for Delivery',
+  REACHED_CUSTOMER: 'Rider at Your Location',
   DELIVERED: 'Order Delivered',
 };
 
@@ -35,6 +36,7 @@ const STATUS_DESCRIPTIONS: Record<string, string> = {
   REACHED_RESTAURANT: 'Delivery partner arrived at restaurant',
   PICKED_UP: 'Order collected by delivery partner',
   OUT_FOR_DELIVERY: 'Rider is on the way to your delivery address',
+  REACHED_CUSTOMER: 'Delivery partner has reached your address',
   DELIVERED: 'Meal delivered successfully! Bon appétit!',
 };
 

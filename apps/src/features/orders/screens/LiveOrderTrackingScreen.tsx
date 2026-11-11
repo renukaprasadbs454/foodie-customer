@@ -381,7 +381,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
     };
   }, [geocodedCoord, selectedAddr, orderLat, orderLng, restaurantLocation]);
 
-  const isDeliveryActive = ['ASSIGNED', 'REACHED_RESTAURANT', 'READY_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(orderQuery.data?.status || '');
+  const isDeliveryActive = ['ASSIGNED', 'REACHED_RESTAURANT', 'READY_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'REACHED_CUSTOMER'].includes(orderQuery.data?.status || '');
   const deliveryLocationQuery = useGetDeliveryLocationQuery(validId ? orderId : '', {
     skip: !validId || !isDeliveryActive,
     pollingInterval: 2500,
@@ -527,6 +527,11 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
         title = 'Out for Delivery';
         subtitle = 'Your food is out for delivery to your address!';
         icon = '🛵';
+        break;
+      case 'REACHED_CUSTOMER':
+        title = 'Rider at Your Location!';
+        subtitle = 'Delivery partner has reached your address!';
+        icon = '📍';
         break;
       case 'DELIVERED':
         title = 'Order Delivered';
@@ -889,7 +894,7 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
             )}
 
             {/* Live Delivery Partner Block (Active Deliveries) */}
-            {['ASSIGNED', 'REACHED_RESTAURANT', 'READY_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(order.status) && deliveryPartner && (
+            {['ASSIGNED', 'REACHED_RESTAURANT', 'READY_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'REACHED_CUSTOMER'].includes(order.status) && deliveryPartner && (
               <View style={{
                 flexDirection: 'row',
                 alignItems: 'center',
