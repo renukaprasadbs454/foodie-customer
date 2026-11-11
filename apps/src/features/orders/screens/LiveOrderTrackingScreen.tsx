@@ -72,7 +72,6 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
   const [transitionStatus, transitionState] = useTransitionOrderStatusMutation();
   const [initiatePayment, { isLoading: isInitiatingPayment }] = useInitiatePaymentMutation();
   const [verifyPayment, { isLoading: isVerifyingPayment }] = useVerifyPaymentMutation();
-  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [cashfreeSession, setCashfreeSession] = useState<{
     paymentSessionId: string;
     cfOrderId: string;
@@ -219,7 +218,6 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
           paymentSessionId: res.paymentSessionId,
           cfOrderId: res.cfOrderId || order.orderId,
         });
-        setPaymentModalVisible(true);
       } else {
         setToast({ message: 'Unable to start online payment session. Please try again.', variant: 'error' });
       }
@@ -230,7 +228,6 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
   };
 
   const handleCashfreeSuccess = async (data: { orderId: string; cashfreeOrderId: string }) => {
-    setPaymentModalVisible(false);
     setCashfreeSession(null);
     try {
       const verified = await verifyPayment({
@@ -259,13 +256,11 @@ export function LiveOrderTrackingScreen({ navigation, route }: Props) {
   };
 
   const handleCashfreeCancel = () => {
-    setPaymentModalVisible(false);
     setCashfreeSession(null);
     setToast({ message: 'Payment cancelled.', variant: 'info' });
   };
 
   const handleCashfreeError = (err: string) => {
-    setPaymentModalVisible(false);
     setCashfreeSession(null);
     setToast({ message: err || 'Payment failed.', variant: 'error' });
   };

@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { View, Modal, Platform, Pressable, Text } from 'react-native';
+import { View, Modal, Platform, Pressable, Text, Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 interface CashfreeOptions {
@@ -129,12 +129,32 @@ export function CashfreeWebView({
         </View>
         <WebView
           ref={webViewRef}
-          source={{ html: htmlContext, baseUrl: 'https://sandbox.cashfree.com' }}
+          source={{
+            html: htmlContext,
+            baseUrl: envMode === 'production' ? 'https://payments.cashfree.com' : 'https://sandbox.cashfree.com',
+          }}
           style={{ flex: 1 }}
           javaScriptEnabled={true}
           domStorageEnabled={true}
+          javaScriptCanOpenWindowsAutomatically={true}
+          setSupportMultipleWindows={false}
+          sharedCookiesEnabled={true}
+          thirdPartyCookiesEnabled={true}
           originWhitelist={['*']}
           mixedContentMode="always"
+          userAgent={
+            Platform.OS === 'android'
+              ? 'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36'
+              : undefined
+          }
+          onShouldStartLoadWithRequest={(request) => {
+            const url = request.url || '';
+            if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('about:')) {
+              return true;
+            }
+            Linking.openURL(url).catch(() => {});
+            return false;
+          }}
           onNavigationStateChange={handleNavigationStateChange}
           onMessage={(event) => {
             try {
