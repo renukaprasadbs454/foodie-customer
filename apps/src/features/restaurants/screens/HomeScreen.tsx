@@ -897,7 +897,7 @@ export function HomeScreen({ navigation }: Props) {
               ? 'Customer service is temporarily under maintenance for this zone. Please check back later.'
               : 'We are currently not serviceable to your location. Change your delivery address to explore active restaurants.'}
           </Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+          <View style={styles.outOfZoneActionsRow}>
             <Pressable
               onPress={() => navigation.navigate('Addresses', { selectMode: true })}
               style={({ pressed }) => [
@@ -2639,11 +2639,20 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginTop: 4,
   },
+  outOfZoneActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 10,
+  },
   changeAddressActionBtn: {
     backgroundColor: '#FCD34D',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 8,
+    alignSelf: 'flex-start',
   },
   changeAddressActionBtnText: {
     color: '#022414',
@@ -2651,10 +2660,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   adminNotifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 6,
+    alignSelf: 'flex-start',
   },
   adminNotifiedBadgeText: {
     color: '#86EFAC',
