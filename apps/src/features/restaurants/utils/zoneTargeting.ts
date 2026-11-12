@@ -5,18 +5,30 @@ import type { SearchFoodItemDto } from '../../../api/endpoints/menuApi';
 
 // Hardcoded catalogue of known restaurant IDs per zone (acts as deterministic mapping)
 export const TUMKUR_ZONE_RESTAURANT_IDS = new Set<string>([
+  'd3133510-5295-4753-9418-c06ecb3e962f', // Meghana Foods (Biryani)
+  'af66b57f-f312-4383-a4a8-c714e80946d7', // Empire Restaurant
+  '23d9e052-0047-434b-a839-a124be9e6771', // KFC Tumkur
+  '2854de19-9385-443b-b3d0-9e2223e81b8a', // Leon Grill
+  '68d34ed7-0564-4ec8-b41a-c7ecf5a5440b', // Kritunga
+  'b0b86d29-69f9-4c6f-a4fe-322d17766ee5', // Nandhana Palace
+  '8975ec03-c79e-4c8c-a01a-97920b175d5a', // Oven Story
+  'dab800d2-31cf-4013-a9cf-e3a0bafd9baf', // CTR (Dosa)
+  '77ab61df-76e4-427c-9fe2-c4eedbde98a3', // Burger King
+  '667134bb-d6ce-4124-8435-9e9fe958456c', // Domino's Pizza
   'b0005826-32e2-41ce-bc4e-917f8183707b', // Hotel Mayura
   'b9cc0e0f-8de6-4f2f-b70a-f3d61f86dab5', // Basveshwara kanavali
   '2d11171f-4cd9-4b1a-adab-bc98b888f669', // Rayara mane
   'ed9ac710-9915-4cbc-b3cb-30cd0981dd03', // Tumkur delight
   '5d938f03-719b-48c3-9c57-99b94d14374f', // Madhuvan
-  'd3133510-5295-4753-9418-c06ecb3e962f', // Meghana Foods (Biryani)
-  'dab800d2-31cf-4013-a9cf-e3a0bafd9baf', // CTR (Dosa)
   'ebef972f-8a30-4a57-a2a6-66e3d31d4389', // Shetty biriyani house (Tumakuru)
   '8742d1a6-a93f-4c53-9c71-ed431157888e', // Shetty biriyani 2 (Tumakuru)
 ]);
 
 export const BANGALORE_ZONE_RESTAURANT_IDS = new Set<string>([
+  '1a1da690-8c45-4c01-9216-f331f17a8b8d', // Burger & Bowl Co.
+  'e27b20dc-783b-4aff-8af6-9da360b2ff9f', // Spice Garden Biryani & North Indian
+  'c60181ee-f8e0-4bad-97f0-a917b5f5ef55', // Pizza Horizon & Italian Bistro
+  '533656b2-2c7a-4e39-899b-9b8015cdd8aa', // Asian Wok & Noodle House
   '51081eb4-1441-467b-ac81-5107d15a6731', // Demo
   '1283e199-22f1-4b7f-9bab-930a0d2c4387', // Yiu
   '4be4128c-db89-4e72-8017-fa2c3f6b5d79', // Empire
@@ -24,8 +36,6 @@ export const BANGALORE_ZONE_RESTAURANT_IDS = new Set<string>([
   'b7409190-8c81-44a8-8cee-d817d84df5f0', // Test Restaurant
   '16b86453-52f9-4526-bd76-02234a8478da', // Ganesha Hotel
   '8f1de57c-777a-470c-a8a9-063646a989af', // Royal Hotel
-  'e27b20dc-783b-4aff-8af6-9da360b2ff9f', // Spice Garden Biryani
-  '533656b2-2c7a-4e39-899b-9b8015cdd8aa', // Asian Wok & Noodle House
 ]);
 
 export const HASSAN_ZONE_RESTAURANT_IDS = new Set<string>([
@@ -124,7 +134,11 @@ export function isRestaurantInZone(
     }
   }
 
-  // Fallback: If no discriminating feature found, preserve item
+  // If customer is in a specific zone (Bangalore, Tumkur, Hassan, etc.) and restaurant did not match, strictly isolate!
+  if (isBlrCustomer || isTmkCustomer || isHasCustomer) {
+    return false;
+  }
+
   return true;
 }
 

@@ -73,75 +73,28 @@ export function useRestaurantFeed(args: FeedArgs) {
     }
   );
 
-  // If a dedicated/approved expansion zone has 0 local restaurants, fall back to nearby restaurants from neighboring zones
-  const shouldFetchNearbyFallback = Boolean(
-    !isUnserviceable &&
-    args.zoneId &&
-    !queryResult.isLoading &&
-    !queryResult.isFetching &&
-    Array.isArray(queryResult.data) &&
-    queryResult.data.length === 0
-  );
-
-  const fallbackQuery = useGetRestaurantsQuery(
-    {
-      cuisineType: args.cuisineType,
-      search: args.search,
-      lat: args.userLatitude,
-      lng: args.userLongitude,
-      phone: args.phone,
-      email: args.email,
-    },
-    {
-      skip: !shouldFetchNearbyFallback,
-    }
-  );
-
-  const isExpandedFromNearby = Boolean(
-    shouldFetchNearbyFallback &&
-    Array.isArray(fallbackQuery.data) &&
-    fallbackQuery.data.length > 0
-  );
-
   const items = useMemo(() => {
     if (isUnserviceable) {
       return [];
     }
 
-    const hasPrimaryData = Array.isArray(queryResult.data) && queryResult.data.length > 0;
-    const apiItems = hasPrimaryData ? queryResult.data : fallbackQuery.data;
+    const apiItems = queryResult.data;
     let list: RestaurantSummary[] = [];
 
     if (Array.isArray(apiItems)) {
       list = [...apiItems].filter((r) => {
-        if (!r.latitude || !r.longitude) return !hasPrimaryData ? false : true;
+        if (!r.latitude || !r.longitude) return false;
         const nLat = Number(r.latitude);
         const nLng = Number(r.longitude);
         return !isNaN(nLat) && !isNaN(nLng) && (nLat !== 0 || nLng !== 0);
       });
-      // Strictly isolate restaurants to customer's target zone if in-zone restaurants exist
-      if (args.zoneId && !isExpandedFromNearby) {
-        const inZoneList = list.filter((r) => isRestaurantInZone(r, {
+      // Strictly isolate restaurants to customer's target zone
+      if (args.zoneId) {
+        list = list.filter((r) => isRestaurantInZone(r, {
           zoneId: args.zoneId,
           latitude: args.userLatitude,
           longitude: args.userLongitude,
         }));
-        if (inZoneList.length > 0) {
-          list = inZoneList;
-        }
-      }
-
-      // Proximity check for fallback items (nearest restaurants within 35 km)
-      if (isExpandedFromNearby && args.userLatitude !== undefined && args.userLongitude !== undefined) {
-        const uLat = args.userLatitude;
-        const uLng = args.userLongitude;
-        list = list.filter((r) => {
-          const lat = typeof r.latitude === 'number' ? r.latitude : parseFloat(String(r.latitude ?? 0));
-          const lng = typeof r.longitude === 'number' ? r.longitude : parseFloat(String(r.longitude ?? 0));
-          if (!lat || !lng) return false;
-          const dist = getDistanceKm(uLat, uLng, lat, lng);
-          return dist <= 35.0; // Strictly nearest restaurants from nearby zones
-        });
       }
     } else {
       list = [];
@@ -152,7 +105,7 @@ export function useRestaurantFeed(args: FeedArgs) {
       list.sort((a, b) => (b.avgRating ?? 0) - (a.avgRating ?? 0));
     } else if (args.sort === 'createdAt') {
       list.sort((a, b) => (b.id ?? '').localeCompare(a.id ?? ''));
-    } else if (args.sort === 'nearby' || (!args.sort && args.userLatitude !== undefined && args.userLongitude !== undefined) || isExpandedFromNearby) {
+    } else if (args.sort === 'nearby' || (!args.sort && args.userLatitude !== undefined && args.userLongitude !== undefined)) {
       if (args.userLatitude !== undefined && args.userLongitude !== undefined) {
         const uLat = args.userLatitude;
         const uLng = args.userLongitude;
@@ -172,30 +125,29 @@ export function useRestaurantFeed(args: FeedArgs) {
     return list;
   }, [
     queryResult.data,
-    fallbackQuery.data,
     queryResult.isError,
     args.cuisineType,
     args.search,
     args.sort,
     args.userLatitude,
     args.userLongitude,
-    isExpandedFromNearby,
+    args.zoneId,
+    isUnserviceable,
   ]);
 
   return {
     items,
-    isLoading: queryResult.isLoading || (shouldFetchNearbyFallback && fallbackQuery.isLoading),
-    isFetching: queryResult.isFetching || fallbackQuery.isFetching,
+    isLoading: queryResult.isLoading,
+    isFetching: queryResult.isFetching,
     isUninitialized: queryResult.isUninitialized,
-    isError: queryResult.isError && fallbackQuery.isError,
-    error: queryResult.error || fallbackQuery.error,
+    isError: queryResult.isError,
+    error: queryResult.error,
     refetch: () => {
       void queryResult.refetch();
-      if (shouldFetchNearbyFallback) void fallbackQuery.refetch();
     },
     onLoadMore: () => { },
     hasMore: false,
-    isExpandedFromNearby,
+    isExpandedFromNearby: false,
   };
 }
 

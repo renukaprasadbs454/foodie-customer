@@ -220,13 +220,8 @@ export function HomeScreen({ navigation }: Props) {
       return [];
     }
     const rawList = feed.items && feed.items.length > 0 ? feed.items : allRestaurants;
-    const filtered = rawList.filter((r) => isRestaurantInZone(r, activeZone));
-    // When area is approved by admin and strict in-zone filter yields 0,
-    // display nearest restaurants from the raw feed!
-    if (filtered.length === 0 && rawList.length > 0) {
-      return rawList;
-    }
-    return filtered;
+    // Strictly filter to the customer's active zone only!
+    return rawList.filter((r) => isRestaurantInZone(r, activeZone));
   }, [feed.items, allRestaurants, activeZone, isAreaServiceable]);
 
   // Transmit unserviceable area request ONLY when customer location is confirmed unserviceable
