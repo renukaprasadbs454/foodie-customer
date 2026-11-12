@@ -2643,7 +2643,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 8,
     marginTop: 10,
   },
