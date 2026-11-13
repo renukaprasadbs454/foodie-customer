@@ -2621,11 +2621,13 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.2,
     borderColor: '#EF4444',
+    overflow: 'hidden',
   },
   outOfZoneTitle: {
     color: '#FCD34D',
     fontSize: 14,
     fontWeight: '900',
+    flex: 1,
   },
   outOfZoneDesc: {
     color: '#FEF2F2',
@@ -2647,6 +2649,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 8,
     alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   changeAddressActionBtnText: {
     color: '#022414',
@@ -2661,11 +2664,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   adminNotifiedBadgeText: {
     color: '#86EFAC',
     fontSize: 11,
     fontWeight: '700',
+    flexShrink: 1,
   },
   unserviceableEmptyBox: {
     width: '100%',
