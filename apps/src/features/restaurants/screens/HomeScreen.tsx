@@ -220,9 +220,15 @@ export function HomeScreen({ navigation }: Props) {
       return [];
     }
     const rawList = feed.items && feed.items.length > 0 ? feed.items : allRestaurants;
+    const effectiveZone = {
+      ...activeZone,
+      latitude: userCoords?.latitude ?? activeZone?.latitude,
+      longitude: userCoords?.longitude ?? activeZone?.longitude,
+      serviceable: isAreaServiceable,
+    };
     // Strictly filter to the customer's active zone only!
-    return rawList.filter((r) => isRestaurantInZone(r, activeZone));
-  }, [feed.items, allRestaurants, activeZone, isAreaServiceable]);
+    return rawList.filter((r) => isRestaurantInZone(r, effectiveZone));
+  }, [feed.items, allRestaurants, activeZone, isAreaServiceable, userCoords]);
 
   // Transmit unserviceable area request ONLY when customer location is confirmed unserviceable
   useEffect(() => {

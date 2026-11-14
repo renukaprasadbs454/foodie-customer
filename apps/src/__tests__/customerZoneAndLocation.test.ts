@@ -136,4 +136,73 @@ describe('Customer Zone and Location Engine', () => {
     expect(globalLocation.source).toBe('SELECTED_ADDRESS');
     expect(globalLocation.address).toContain('Indiranagar');
   });
+
+  describe('Live location zone isolation and zero cross-zone leakage', () => {
+    // Import isRestaurantInZone
+    const { isRestaurantInZone } = require('../features/restaurants/utils/zoneTargeting');
+
+    const tumkurCustomerCoords = {
+      latitude: 13.3400,
+      longitude: 77.1000,
+      serviceable: true,
+      zoneId: 'dz-tumkur',
+    };
+
+    const bangaloreCustomerCoords = {
+      latitude: 12.9716,
+      longitude: 77.5946,
+      serviceable: true,
+      zoneId: 'dz-bangalore',
+    };
+
+    const yadiyurCustomerCoords = {
+      latitude: 13.0000,
+      longitude: 76.8500,
+      serviceable: false,
+      zoneId: null,
+    };
+
+    const meghanaFoodsTumkur = {
+      id: 'd3133510-5295-4753-9418-c06ecb3e962f',
+      name: 'Meghana Foods (Biryani)',
+      city: 'Tumkur',
+      latitude: 13.347959,
+      longitude: 77.124886,
+    };
+
+    const burgerAndBowlBangalore = {
+      id: '1a1da690-8c45-4c01-9216-f331f17a8b8d',
+      name: 'Burger & Bowl Co.',
+      city: 'Bengaluru',
+      latitude: 12.9756,
+      longitude: 77.6067,
+    };
+
+    it('displays ONLY Tumkur restaurants when live location is in Tumkur', () => {
+      expect(isRestaurantInZone(meghanaFoodsTumkur, tumkurCustomerCoords)).toBe(true);
+      expect(isRestaurantInZone(burgerAndBowlBangalore, tumkurCustomerCoords)).toBe(false);
+    });
+
+    it('displays ONLY Bangalore restaurants when live location is in Bangalore', () => {
+      expect(isRestaurantInZone(burgerAndBowlBangalore, bangaloreCustomerCoords)).toBe(true);
+      expect(isRestaurantInZone(meghanaFoodsTumkur, bangaloreCustomerCoords)).toBe(false);
+    });
+
+    it('strictly displays ZERO restaurants when live location is unserviceable (e.g. Yadiyur)', () => {
+      expect(isRestaurantInZone(meghanaFoodsTumkur, yadiyurCustomerCoords)).toBe(false);
+      expect(isRestaurantInZone(burgerAndBowlBangalore, yadiyurCustomerCoords)).toBe(false);
+    });
+
+    it('blocks restaurants that are farther than 25 km away', () => {
+      const farRestaurant = {
+        id: 'far-resto-1',
+        name: 'Distant Diner',
+        city: 'Tumkur',
+        latitude: 13.3400,
+        longitude: 77.1000,
+      };
+      // Customer in Bangalore is ~70km from Tumkur
+      expect(isRestaurantInZone(farRestaurant, bangaloreCustomerCoords)).toBe(false);
+    });
+  });
 });
