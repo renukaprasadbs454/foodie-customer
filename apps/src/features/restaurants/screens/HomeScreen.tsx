@@ -2658,20 +2658,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   outOfZoneActionsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 8,
     marginTop: 10,
-    width: '100%',
+    gap: 8,
+    alignItems: 'flex-start',
   },
   changeAddressActionBtn: {
     backgroundColor: '#FCD34D',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 8,
     alignSelf: 'flex-start',
-    maxWidth: '100%',
   },
   changeAddressActionBtnText: {
     color: '#022414',
@@ -2686,13 +2682,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     alignSelf: 'flex-start',
-    maxWidth: '100%',
   },
   adminNotifiedBadgeText: {
     color: '#86EFAC',
     fontSize: 11,
     fontWeight: '700',
-    flexShrink: 1,
   },
   unserviceableEmptyBox: {
     width: '100%',
