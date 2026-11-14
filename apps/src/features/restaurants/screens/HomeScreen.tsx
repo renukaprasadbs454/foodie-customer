@@ -966,22 +966,24 @@ export function HomeScreen({ navigation }: Props) {
       </View>
 
       {/* Auto-sliding Animated Promotional Banner with vibrant full-width dynamic background synchronization */}
-      <PromotionalBannerCarousel
-        zoneId={currentActiveZoneId}
-        onBannerChange={(grad) => setActiveHeaderGradient(grad)}
-        onSelectCategory={(catName) => {
-          const matched = computedCategories.find(
-            (c) => c.name.toLowerCase().includes(catName.toLowerCase()) || catName.toLowerCase().includes(c.name.toLowerCase())
-          );
-          if (matched) {
-            navigation.navigate('RestaurantListing', {
-              categoryId: matched.id,
-              categoryName: matched.name,
-              keywords: matched.keywords,
-            });
-          }
-        }}
-      />
+      {isAreaServiceable && (
+        <PromotionalBannerCarousel
+          zoneId={currentActiveZoneId}
+          onBannerChange={(grad) => setActiveHeaderGradient(grad)}
+          onSelectCategory={(catName) => {
+            const matched = computedCategories.find(
+              (c) => c.name.toLowerCase().includes(catName.toLowerCase()) || catName.toLowerCase().includes(c.name.toLowerCase())
+            );
+            if (matched) {
+              navigation.navigate('RestaurantListing', {
+                categoryId: matched.id,
+                categoryName: matched.name,
+                keywords: matched.keywords,
+              });
+            }
+          }}
+        />
+      )}
     </LinearGradient>
   );
 
@@ -1525,63 +1527,65 @@ export function HomeScreen({ navigation }: Props) {
       )}
 
       {/* RESTAURANTS DELIVERING TO YOU Heading */}
-      <View style={styles.zoneListHeader}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={styles.zoneCountHeading}>
+      {isAreaServiceable && (
+        <View style={styles.zoneListHeader}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.zoneCountHeading}>
+              {isVegOnly
+                ? vegFilterMode === 'pure_veg_only'
+                  ? `Pure Veg Restaurants (${displayedRestaurants.length})`
+                  : `Restaurants Serving Veg Food (${displayedRestaurants.length})`
+                : activeFilterPill === 'new'
+                ? `New Restaurants (${displayedRestaurants.length})`
+                : activeFilterPill === 'offers'
+                ? `Great Offers (${displayedRestaurants.length})`
+                : activeFilterPill === 'under250'
+                ? `Meals Under ₹250 (${displayedRestaurants.length})`
+                : activeFilterPill === 'fastDelivery'
+                ? `Fast Delivery Under 30 Mins (${displayedRestaurants.length})`
+                : selectedCategoryId !== 'all'
+                ? `${computedCategories.find((c) => c.id === selectedCategoryId)?.name || 'Category'} (${displayedRestaurants.length})`
+                : feed.isExpandedFromNearby || (zoneRestaurants.length > 0 && !isRestaurantInZone(zoneRestaurants[0], activeZone))
+                ? `${displayedRestaurants.length} Nearest Restaurants Delivering to You`
+                : `${displayedRestaurants.length} Restaurants Delivering to You`}
+            </Text>
+            {(activeFilterPill !== null || activeModalFilterCount > 0 || selectedCategoryId !== 'all' || isVegOnly) && (
+              <Pressable
+                onPress={handleClearAllFilters}
+                style={{
+                  backgroundColor: 'rgba(252, 211, 77, 0.15)',
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: '#FCD34D',
+                }}
+              >
+                <Text style={{ color: '#FCD34D', fontSize: 11, fontWeight: '800' }}>Clear ✕</Text>
+              </Pressable>
+            )}
+          </View>
+          <Text style={styles.zoneSubtitle}>
             {isVegOnly
               ? vegFilterMode === 'pure_veg_only'
-                ? `Pure Veg Restaurants (${displayedRestaurants.length})`
-                : `Restaurants Serving Veg Food (${displayedRestaurants.length})`
-              : activeFilterPill === 'new'
-              ? `New Restaurants (${displayedRestaurants.length})`
-              : activeFilterPill === 'offers'
-              ? `Great Offers (${displayedRestaurants.length})`
-              : activeFilterPill === 'under250'
-              ? `Meals Under ₹250 (${displayedRestaurants.length})`
+                ? 'Showing exclusively 100% pure vegetarian partner restaurants • Tap VEG MODE to change'
+                : 'Showing vegetarian dishes and options from partner restaurants • Tap VEG MODE to change'
               : activeFilterPill === 'fastDelivery'
-              ? `Fast Delivery Under 30 Mins (${displayedRestaurants.length})`
+              ? 'Sorted by nearest distance & fastest delivery time to your location'
+              : activeFilterPill === 'under250'
+              ? 'Budget-friendly restaurants with items and combos under ₹250'
+              : activeFilterPill === 'offers'
+              ? 'Restaurants offering exclusive discounts, coupon deals & promotions'
+              : activeFilterPill === 'new'
+              ? 'Discover recently onboarded restaurants you have not ordered from yet'
               : selectedCategoryId !== 'all'
-              ? `${computedCategories.find((c) => c.id === selectedCategoryId)?.name || 'Category'} (${displayedRestaurants.length})`
+              ? `Filtered by ${computedCategories.find((c) => c.id === selectedCategoryId)?.name} • Tap category again to clear`
               : feed.isExpandedFromNearby || (zoneRestaurants.length > 0 && !isRestaurantInZone(zoneRestaurants[0], activeZone))
-              ? `${displayedRestaurants.length} Nearest Restaurants Delivering to You`
-              : `${displayedRestaurants.length} Restaurants Delivering to You`}
+              ? 'Serving from nearest operating restaurants'
+              : 'Featured & Nearby'}
           </Text>
-          {(activeFilterPill !== null || activeModalFilterCount > 0 || selectedCategoryId !== 'all' || isVegOnly) && (
-            <Pressable
-              onPress={handleClearAllFilters}
-              style={{
-                backgroundColor: 'rgba(252, 211, 77, 0.15)',
-                paddingHorizontal: 8,
-                paddingVertical: 3,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: '#FCD34D',
-              }}
-            >
-              <Text style={{ color: '#FCD34D', fontSize: 11, fontWeight: '800' }}>Clear ✕</Text>
-            </Pressable>
-          )}
         </View>
-        <Text style={styles.zoneSubtitle}>
-          {isVegOnly
-            ? vegFilterMode === 'pure_veg_only'
-              ? 'Showing exclusively 100% pure vegetarian partner restaurants • Tap VEG MODE to change'
-              : 'Showing vegetarian dishes and options from partner restaurants • Tap VEG MODE to change'
-            : activeFilterPill === 'fastDelivery'
-            ? 'Sorted by nearest distance & fastest delivery time to your location'
-            : activeFilterPill === 'under250'
-            ? 'Budget-friendly restaurants with items and combos under ₹250'
-            : activeFilterPill === 'offers'
-            ? 'Restaurants offering exclusive discounts, coupon deals & promotions'
-            : activeFilterPill === 'new'
-            ? 'Discover recently onboarded restaurants you have not ordered from yet'
-            : selectedCategoryId !== 'all'
-            ? `Filtered by ${computedCategories.find((c) => c.id === selectedCategoryId)?.name} • Tap category again to clear`
-            : feed.isExpandedFromNearby || (zoneRestaurants.length > 0 && !isRestaurantInZone(zoneRestaurants[0], activeZone))
-            ? 'Serving from nearest operating restaurants'
-            : 'Featured & Nearby'}
-        </Text>
-      </View>
+      )}
 
       {displayedRestaurants.length === 0 ? (
         <View style={{ paddingHorizontal: 16, paddingVertical: 24, alignItems: 'center' }}>
@@ -1639,16 +1643,24 @@ export function HomeScreen({ navigation }: Props) {
     | { type: 'MIDDLE_SECTIONS'; id: string }
     | { type: 'RESTAURANT'; id: string; data: any };
 
-  const listData: HomeListItem[] = useMemo(() => [
-    { type: 'HERO', id: 'hero' },
-    { type: 'CATEGORIES', id: 'categories' },
-    { type: 'MIDDLE_SECTIONS', id: `middle-${currentActiveZoneId || 'global'}-${activeFilterPill || 'none'}-${activeModalFilterCount}-${isVegOnly}-${selectedCategoryId || 'none'}` },
-    ...displayedRestaurants.map((resto) => ({
-      type: 'RESTAURANT' as const,
-      id: `${resto.id}-${currentActiveZoneId || 'global'}-${activeFilterPill || 'all'}`,
-      data: resto,
-    })),
-  ], [displayedRestaurants, activeFilterPill, activeModalFilterCount, isVegOnly, selectedCategoryId, currentActiveZoneId]);
+  const listData: HomeListItem[] = useMemo(() => {
+    if (!isAreaServiceable) {
+      return [
+        { type: 'HERO', id: 'hero' },
+        { type: 'MIDDLE_SECTIONS', id: 'middle-unserviceable' },
+      ];
+    }
+    return [
+      { type: 'HERO', id: 'hero' },
+      { type: 'CATEGORIES', id: 'categories' },
+      { type: 'MIDDLE_SECTIONS', id: `middle-${currentActiveZoneId || 'global'}-${activeFilterPill || 'none'}-${activeModalFilterCount}-${isVegOnly}-${selectedCategoryId || 'none'}` },
+      ...displayedRestaurants.map((resto) => ({
+        type: 'RESTAURANT' as const,
+        id: `${resto.id}-${currentActiveZoneId || 'global'}-${activeFilterPill || 'all'}`,
+        data: resto,
+      })),
+    ];
+  }, [displayedRestaurants, isAreaServiceable, activeFilterPill, activeModalFilterCount, isVegOnly, selectedCategoryId, currentActiveZoneId]);
 
   // Filter Preferences & Modal Sheet
   const renderFilterModal = () => (
@@ -2642,6 +2654,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginTop: 10,
+    width: '100%',
   },
   changeAddressActionBtn: {
     backgroundColor: '#FCD34D',
