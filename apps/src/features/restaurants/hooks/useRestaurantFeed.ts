@@ -89,7 +89,7 @@ export function useRestaurantFeed(args: FeedArgs) {
         return !isNaN(nLat) && !isNaN(nLng) && (nLat !== 0 || nLng !== 0);
       });
       // Strictly isolate restaurants to customer's target zone
-      if (args.zoneId || args.userLatitude) {
+      if (args.zoneId) {
         list = list.filter((r) => isRestaurantInZone(r, {
           zoneId: args.zoneId,
           latitude: args.userLatitude,

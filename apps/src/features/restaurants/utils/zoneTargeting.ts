@@ -1,16 +1,7 @@
 import type { CustomerZoneInfo, RestaurantSummary } from '../types';
 import { getDistanceKm } from '../types';
+import { isZoneMatching } from '../../../api/endpoints/bannersApi';
 import type { SearchFoodItemDto } from '../../../api/endpoints/menuApi';
-
-export function isZoneMatching(target: string, customerZone: string): boolean {
-  if (!target || !customerZone) return false;
-  const t = target.trim().toLowerCase();
-  const c = customerZone.trim().toLowerCase();
-  if (t === 'all' || c === 'all') return true;
-  if (t === c) return true;
-  if (c.includes(t) || t.includes(c)) return true;
-  return false;
-}
 
 // Hardcoded catalogue of known restaurant IDs per zone (acts as deterministic mapping)
 export const TUMKUR_ZONE_RESTAURANT_IDS = new Set<string>([
@@ -29,7 +20,6 @@ export const TUMKUR_ZONE_RESTAURANT_IDS = new Set<string>([
   '2d11171f-4cd9-4b1a-adab-bc98b888f669', // Rayara mane
   'ed9ac710-9915-4cbc-b3cb-30cd0981dd03', // Tumkur delight
   '5d938f03-719b-48c3-9c57-99b94d14374f', // Madhuvan
-  'ed4778c5-915b-4249-9bef-98811df4ff76', // cafe
   'ebef972f-8a30-4a57-a2a6-66e3d31d4389', // Shetty biriyani house (Tumakuru)
   '8742d1a6-a93f-4c53-9c71-ed431157888e', // Shetty biriyani 2 (Tumakuru)
 ]);
@@ -71,40 +61,14 @@ export function isRestaurantInZone(
     cityName?: string | null;
     latitude?: number | null;
     longitude?: number | null;
-    serviceable?: boolean;
   } | null
 ): boolean {
   if (!zone) return true;
-  if ((zone as any).serviceable === false) return false;
 
-  // Extract customer coordinates if available
-  const custLat = zone.latitude !== undefined && zone.latitude !== null ? Number(zone.latitude) : null;
-  const custLng = zone.longitude !== undefined && zone.longitude !== null ? Number(zone.longitude) : null;
-  const hasCustCoords = custLat !== null && custLng !== null && !isNaN(custLat) && !isNaN(custLng) && custLat !== 0 && custLng !== 0;
-
-  let isBlrCustomer = false;
-  let isTmkCustomer = false;
-  let isHasCustomer = false;
-
-  if (hasCustCoords && custLat !== null && custLng !== null) {
-    // Exact GPS boundary classification
-    if (custLat >= 12.50 && custLat <= 13.18 && custLng >= 77.35 && custLng <= 77.85) {
-      isBlrCustomer = true;
-    } else if (custLat >= 13.20 && custLat <= 13.55 && custLng >= 76.95 && custLng <= 77.35) {
-      isTmkCustomer = true;
-    } else if (custLat >= 12.90 && custLat <= 13.15 && custLng >= 76.00 && custLng <= 76.25) {
-      isHasCustomer = true;
-    } else {
-      // Customer is located in an unserviceable area outside all operating zones (e.g. Yadiyur)
-      return false;
-    }
-  } else {
-    // Fallback to zone text descriptors
-    const zoneIdStr = (zone.zoneId || zone.zoneName || zone.cityName || '').toLowerCase();
-    isBlrCustomer = isZoneMatching('bangalore', zoneIdStr) || isZoneMatching('bengaluru', zoneIdStr);
-    isTmkCustomer = isZoneMatching('tumkur', zoneIdStr) || isZoneMatching('tumakuru', zoneIdStr);
-    isHasCustomer = isZoneMatching('hassan', zoneIdStr);
-  }
+  const zoneIdStr = (zone.zoneId || zone.zoneName || zone.cityName || '').toLowerCase();
+  const isBlrCustomer = isZoneMatching('bangalore', zoneIdStr) || isZoneMatching('bengaluru', zoneIdStr);
+  const isTmkCustomer = isZoneMatching('tumkur', zoneIdStr) || isZoneMatching('tumakuru', zoneIdStr);
+  const isHasCustomer = isZoneMatching('hassan', zoneIdStr);
 
   const restoId = (restaurant as any).id || (restaurant as any).restaurantId || '';
 
@@ -121,32 +85,18 @@ export function isRestaurantInZone(
     }
   }
 
-  // Maximum food delivery cutoff: 25 km
-  const rLat = restaurant.latitude !== undefined && restaurant.latitude !== null ? Number(restaurant.latitude) : null;
-  const rLng = restaurant.longitude !== undefined && restaurant.longitude !== null ? Number(restaurant.longitude) : null;
-  const hasRestoCoords = rLat !== null && rLng !== null && !isNaN(rLat) && !isNaN(rLng) && rLat !== 0 && rLng !== 0;
-
-  if (hasCustCoords && hasRestoCoords && custLat !== null && custLng !== null && rLat !== null && rLng !== null) {
-    const distKm = getDistanceKm(custLat, custLng, rLat, rLng);
-    if (distKm > 25.0) {
-      return false;
-    }
-  }
-
   const restoName = ((restaurant as any).name || '').toLowerCase();
   if (restoName.includes('shetty') && restoName.includes('biriyani')) {
     return isTmkCustomer;
   }
-  if (restoName.includes('tumkur') || restoName.includes('tumakuru')) {
-    if (!isTmkCustomer) return false;
-  }
 
   // 2. ZoneId field match if present
   if ((restaurant as any).zoneId) {
-    const rZone = String((restaurant as any).zoneId).toLowerCase();
-    if (isZoneMatching('tumkur', rZone) && !isTmkCustomer) return false;
-    if (isZoneMatching('bangalore', rZone) && !isBlrCustomer) return false;
-    if (isZoneMatching('hassan', rZone) && !isHasCustomer) return false;
+    const rZone = String((restaurant as any).zoneId);
+    if (isZoneMatching(rZone, zoneIdStr)) return true;
+    // Explicit foreign zone tag
+    if (isZoneMatching('tumkur', rZone) && isBlrCustomer) return false;
+    if (isZoneMatching('bangalore', rZone) && isTmkCustomer) return false;
   }
 
   // 3. City name check
@@ -155,23 +105,32 @@ export function isRestaurantInZone(
     const isRestoTumkur = c.includes('tumkur') || c.includes('tumakuru') || c.includes('tumakur');
     const isRestoBangalore = c.includes('bangalore') || c.includes('bengaluru') || c.includes('ramapura');
 
-    if (isRestoTumkur && !isTmkCustomer) return false;
-    if (isRestoBangalore && !isBlrCustomer) return false;
+    if (isRestoTumkur && isBlrCustomer) return false;
+    if (isRestoBangalore && isTmkCustomer) return false;
     if (isRestoTumkur && isTmkCustomer) return true;
     if (isRestoBangalore && isBlrCustomer) return true;
   }
 
   // 4. Geographic coordinates boundary check
-  if (hasRestoCoords && rLat !== null && rLng !== null) {
-    // Tumkur latitude is ~13.20 - 13.55, Longitude ~76.95 - 77.35
-    // Bangalore latitude is ~12.50 - 13.18, Longitude ~77.35 - 77.85
+  const lat = Number(restaurant.latitude);
+  const lng = Number(restaurant.longitude);
+
+  if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+    // Tumkur latitude is ~13.31 - 13.36, Longitude ~77.08 - 77.15
+    // Bangalore latitude is ~12.91 - 13.18, Longitude ~77.56 - 77.68
     if (isTmkCustomer) {
-      if (rLat >= 13.20 && rLng <= 77.35) return true;
-      if (rLat < 13.20) return false; // Strictly in Bangalore/south
+      if (lat >= 13.25 && lng <= 77.35) return true;
+      if (lat < 13.20) return false; // Strictly in Bangalore/south
     }
     if (isBlrCustomer) {
-      if (rLat < 13.20 && rLng >= 77.35) return true;
-      if (rLat >= 13.25) return false; // Strictly in Tumkur/north
+      if (lat < 13.25 && lng >= 77.40) return true;
+      if (lat >= 13.28) return false; // Strictly in Tumkur/north
+    }
+
+    // Distance to zone center
+    if (zone.latitude && zone.longitude) {
+      const dist = getDistanceKm(Number(zone.latitude), Number(zone.longitude), lat, lng);
+      return dist <= 30.0;
     }
   }
 

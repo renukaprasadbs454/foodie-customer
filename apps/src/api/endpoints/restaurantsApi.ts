@@ -250,68 +250,8 @@ export const restaurantsApi = baseApi.injectEndpoints({
           ...(email ? { email } : {}),
         },
       }),
-      transformResponse: (response: any, _meta, arg: { lat: number; lng: number }) => {
+      transformResponse: (response: any) => {
         const d = response?.data ?? response;
-        const lat = arg?.lat ?? (d?.latitude ? Number(d.latitude) : null);
-        const lng = arg?.lng ?? (d?.longitude ? Number(d.longitude) : null);
-
-        if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-          // Bengaluru coordinate bounding box
-          if (lat >= 12.50 && lat <= 13.18 && lng >= 77.35 && lng <= 77.85) {
-            return {
-              serviceable: true,
-              zoneId: 'dz-bangalore',
-              zoneName: 'Bangalore Zone',
-              cityName: 'Bengaluru',
-              latitude: lat,
-              longitude: lng,
-              restaurantCount: d?.zoneId === 'dz-bangalore' && d?.restaurantCount ? d.restaurantCount : 4,
-              availableZones: ['Bangalore Zone', 'Tumkur Zone'],
-              message: 'Operating Zone Identified: Bangalore Zone',
-            };
-          }
-          // Tumkur coordinate bounding box
-          if (lat >= 13.20 && lat <= 13.55 && lng >= 76.95 && lng <= 77.35) {
-            return {
-              serviceable: true,
-              zoneId: 'dz-tumkur',
-              zoneName: 'Tumkur Zone',
-              cityName: 'Tumkur',
-              latitude: lat,
-              longitude: lng,
-              restaurantCount: d?.zoneId === 'dz-tumkur' && d?.restaurantCount ? d.restaurantCount : 10,
-              availableZones: ['Tumkur Zone', 'Bangalore Zone'],
-              message: 'Operating Zone Identified: Tumkur Zone',
-            };
-          }
-          // Hassan coordinate bounding box
-          if (lat >= 12.90 && lat <= 13.15 && lng >= 76.00 && lng <= 76.25) {
-            return {
-              serviceable: true,
-              zoneId: 'dz-hassan',
-              zoneName: 'Hassan Zone',
-              cityName: 'Hassan',
-              latitude: lat,
-              longitude: lng,
-              restaurantCount: d?.zoneId === 'dz-hassan' && d?.restaurantCount ? d.restaurantCount : 1,
-              availableZones: ['Tumkur Zone', 'Bangalore Zone', 'Hassan Zone'],
-              message: 'Operating Zone Identified: Hassan Zone',
-            };
-          }
-          // Outside all operating zones (e.g. Yadiyur)
-          return {
-            serviceable: false,
-            zoneId: null,
-            zoneName: null,
-            cityName: null,
-            latitude: lat,
-            longitude: lng,
-            restaurantCount: 0,
-            availableZones: ['Tumkur Zone', 'Bangalore Zone'],
-            message: 'We are currently not serviceable to your location',
-          };
-        }
-
         return {
           serviceable: Boolean(d?.serviceable),
           zoneId: d?.zoneId ?? null,
