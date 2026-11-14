@@ -205,7 +205,7 @@ config.server = {
       }
 
       if (req.url && req.url.startsWith('/api/')) {
-        const targetHost = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.foodie.kwiko.org';
+        const targetHost = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8082';
         const targetUrl = targetHost + req.url;
         const isHttps = targetHost.startsWith('https');
         const httpLib = isHttps ? require('https') : require('http');

@@ -220,9 +220,14 @@ export function HomeScreen({ navigation }: Props) {
       return [];
     }
     const rawList = feed.items && feed.items.length > 0 ? feed.items : allRestaurants;
+    const effectiveZone = {
+      ...activeZone,
+      latitude: userCoords?.latitude ?? activeZone?.latitude,
+      longitude: userCoords?.longitude ?? activeZone?.longitude,
+    };
     // Strictly filter to the customer's active zone only!
-    return rawList.filter((r) => isRestaurantInZone(r, activeZone));
-  }, [feed.items, allRestaurants, activeZone, isAreaServiceable]);
+    return rawList.filter((r) => isRestaurantInZone(r, effectiveZone));
+  }, [feed.items, allRestaurants, activeZone, isAreaServiceable, userCoords]);
 
   // Transmit unserviceable area request ONLY when customer location is confirmed unserviceable
   useEffect(() => {
@@ -363,7 +368,11 @@ export function HomeScreen({ navigation }: Props) {
     if (activeZone?.latitude && activeZone?.longitude) {
       return { latitude: Number(activeZone.latitude), longitude: Number(activeZone.longitude) };
     }
-    return { latitude: 13.3400, longitude: 77.1200 };
+    const zoneName = (activeZone?.zoneName || activeZone?.cityName || '').toLowerCase();
+    if (zoneName.includes('tumkur') || zoneName.includes('tumakuru')) {
+      return { latitude: 13.3400, longitude: 77.1000 };
+    }
+    return { latitude: 12.9716, longitude: 77.5946 };
   }, [userCoords, currentSavedAddress, activeZone]);
 
   // Under ₹250 Food Items strictly from restaurants in this particular zone
