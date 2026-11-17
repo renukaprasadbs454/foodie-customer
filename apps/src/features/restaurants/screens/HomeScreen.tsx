@@ -972,22 +972,25 @@ export function HomeScreen({ navigation }: Props) {
       </View>
 
       {/* Auto-sliding Animated Promotional Banner with vibrant full-width dynamic background synchronization */}
-      <PromotionalBannerCarousel
-        zoneId={currentActiveZoneId}
-        onBannerChange={(grad) => setActiveHeaderGradient(grad)}
-        onSelectCategory={(catName) => {
-          const matched = computedCategories.find(
-            (c) => c.name.toLowerCase().includes(catName.toLowerCase()) || catName.toLowerCase().includes(c.name.toLowerCase())
-          );
-          if (matched) {
-            navigation.navigate('RestaurantListing', {
-              categoryId: matched.id,
-              categoryName: matched.name,
-              keywords: matched.keywords,
-            });
-          }
-        }}
-      />
+      {isAreaServiceable && (
+        <PromotionalBannerCarousel
+          zoneId={currentActiveZoneId}
+          isServiceable={isAreaServiceable}
+          onBannerChange={(grad) => setActiveHeaderGradient(grad)}
+          onSelectCategory={(catName) => {
+            const matched = computedCategories.find(
+              (c) => c.name.toLowerCase().includes(catName.toLowerCase()) || catName.toLowerCase().includes(c.name.toLowerCase())
+            );
+            if (matched) {
+              navigation.navigate('RestaurantListing', {
+                categoryId: matched.id,
+                categoryName: matched.name,
+                keywords: matched.keywords,
+              });
+            }
+          }}
+        />
+      )}
     </LinearGradient>
   );
 

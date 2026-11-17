@@ -101,16 +101,21 @@ interface PromoBannerItem {
 
 export function PromotionalBannerCarousel({
   zoneId,
+  isServiceable = true,
   onSelectCategory,
   onBannerChange,
 }: {
   zoneId?: string | null;
+  isServiceable?: boolean;
   onSelectCategory?: (category: string) => void;
   onBannerChange?: (gradient: [string, string, string]) => void;
 }) {
   const { width } = useWindowDimensions();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
-  const { data: apiBanners } = useGetActiveBannersQuery(zoneId);
+  const effectiveZone = isServiceable ? zoneId : null;
+  const { data: apiBanners } = useGetActiveBannersQuery(effectiveZone, {
+    skip: !isServiceable || !zoneId,
+  });
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
@@ -205,7 +210,7 @@ export function PromotionalBannerCarousel({
     return () => loop.stop();
   }, [pulseAnim]);
 
-  if (!displayBanners || displayBanners.length === 0) {
+  if (!isServiceable || !displayBanners || displayBanners.length === 0) {
     return null;
   }
 

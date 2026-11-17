@@ -8,6 +8,30 @@ export function isZoneMatching(target: string, customerZone: string): boolean {
   const c = customerZone.trim().toLowerCase();
   if (t === 'all' || c === 'all') return true;
   if (t === c) return true;
+
+  const isTBlr = t.includes('bangalore') || t.includes('bengaluru') || t.includes('blr') || t.includes('40ebeb');
+  const isCBlr = c.includes('bangalore') || c.includes('bengaluru') || c.includes('blr') || c.includes('40ebeb');
+  if (isTBlr && isCBlr) return true;
+
+  const isTTmk = t.includes('tumkur') || t.includes('tumakuru') || t.includes('tmk');
+  const isCTmk = c.includes('tumkur') || c.includes('tumakuru') || c.includes('tmk');
+  if (isTTmk && isCTmk) return true;
+
+  const isTHub = t.includes('hubballi') || t.includes('hubli') || t.includes('hbl');
+  const isCHub = c.includes('hubballi') || c.includes('hubli') || c.includes('hbl');
+  if (isTHub && isCHub) return true;
+
+  const isTMys = t.includes('mysore') || t.includes('mysuru');
+  const isCMys = c.includes('mysore') || c.includes('mysuru');
+  if (isTMys && isCMys) return true;
+
+  const isTHas = t.includes('hassan');
+  const isCHas = c.includes('hassan');
+  if (isTHas && isCHas) return true;
+
+  const strip = (s: string) => s.replace(/^dz-/, '').replace(/-zone$/, '').replace(/\s+zone$/i, '').trim();
+  if (strip(t) === strip(c)) return true;
+
   if (c.includes(t) || t.includes(c)) return true;
   return false;
 }
@@ -29,11 +53,11 @@ export const TUMKUR_ZONE_RESTAURANT_IDS = new Set<string>([
   '2d11171f-4cd9-4b1a-adab-bc98b888f669', // Rayara mane
   'ed9ac710-9915-4cbc-b3cb-30cd0981dd03', // Tumkur delight
   '5d938f03-719b-48c3-9c57-99b94d14374f', // Madhuvan
-  'ebef972f-8a30-4a57-a2a6-66e3d31d4389', // Shetty biriyani house (Tumakuru)
-  '8742d1a6-a93f-4c53-9c71-ed431157888e', // Shetty biriyani 2 (Tumakuru)
 ]);
 
 export const BANGALORE_ZONE_RESTAURANT_IDS = new Set<string>([
+  '8742d1a6-a93f-4c53-9c71-ed431157888e', // Shetty biriyani 2 (Bengaluru zone dz-40ebeb)
+  'ebef972f-8a30-4a57-a2a6-66e3d31d4389', // Shetty biriyani house (Bengaluru zone dz-40ebeb)
   '1a1da690-8c45-4c01-9216-f331f17a8b8d', // Burger & Bowl Co.
   'e27b20dc-783b-4aff-8af6-9da360b2ff9f', // Spice Garden Biryani & North Indian
   'c60181ee-f8e0-4bad-97f0-a917b5f5ef55', // Pizza Horizon & Italian Bistro
@@ -50,6 +74,201 @@ export const BANGALORE_ZONE_RESTAURANT_IDS = new Set<string>([
 export const HASSAN_ZONE_RESTAURANT_IDS = new Set<string>([
   '5b99c65e-59a5-42f6-a5ce-92b386f1698c', // Raama
 ]);
+
+export interface PromotionBannerLike {
+  id: string;
+  title: string;
+  subtitle?: string;
+  imageUrl?: string;
+  ctaText?: string;
+  ctaType?: string;
+  ctaTarget?: string;
+  status: string;
+  displayOrder?: number;
+  targetZoneIds?: string[];
+  targetZoneNames?: string[];
+  isAllZones?: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+}
+
+/**
+ * Deterministically resolves which geographic zone a promotion banner belongs to.
+ */
+export function resolveBannerZone(banner: PromotionBannerLike): string {
+  if (!banner) return 'UNKNOWN';
+
+  // 1. Explicit targetZoneIds from Admin
+  if (Array.isArray(banner.targetZoneIds) && banner.targetZoneIds.length > 0) {
+    if (banner.targetZoneIds.includes('ALL')) return 'ALL';
+    for (const zid of banner.targetZoneIds) {
+      const z = (zid || '').toLowerCase();
+      if (z.includes('tumkur') || z.includes('tumakuru') || z.includes('tmk')) return 'tumkur';
+      if (z.includes('bangalore') || z.includes('bengaluru') || z.includes('blr') || z.includes('40ebeb')) return 'bangalore';
+      if (z.includes('hassan')) return 'hassan';
+      if (z.includes('hubli') || z.includes('hubballi') || z.includes('hbl')) return 'hubballi';
+      if (z.includes('mysore') || z.includes('mysuru')) return 'mysore';
+    }
+  }
+
+  // 2. Explicit targetZoneNames from Admin
+  if (Array.isArray(banner.targetZoneNames) && banner.targetZoneNames.length > 0) {
+    if (banner.targetZoneNames.some((n) => (n || '').toLowerCase().includes('all'))) return 'ALL';
+    for (const name of banner.targetZoneNames) {
+      const n = (name || '').toLowerCase();
+      if (n.includes('tumkur') || n.includes('tumakuru') || n.includes('tmk')) return 'tumkur';
+      if (n.includes('bangalore') || n.includes('bengaluru') || n.includes('blr') || n.includes('40ebeb')) return 'bangalore';
+      if (n.includes('hassan')) return 'hassan';
+      if (n.includes('hubli') || n.includes('hubballi') || n.includes('hbl')) return 'hubballi';
+      if (n.includes('mysore') || n.includes('mysuru')) return 'mysore';
+    }
+  }
+
+  // 3. Match restaurant UUID (ctaTarget) against known zone restaurant sets
+  const targetId = (banner.ctaTarget || '').trim().toLowerCase();
+  if (targetId) {
+    if (
+      TUMKUR_ZONE_RESTAURANT_IDS.has(targetId) ||
+      [...TUMKUR_ZONE_RESTAURANT_IDS].some((id) => id.toLowerCase() === targetId)
+    ) {
+      return 'tumkur';
+    }
+    if (
+      BANGALORE_ZONE_RESTAURANT_IDS.has(targetId) ||
+      [...BANGALORE_ZONE_RESTAURANT_IDS].some((id) => id.toLowerCase() === targetId)
+    ) {
+      return 'bangalore';
+    }
+    if (
+      HASSAN_ZONE_RESTAURANT_IDS.has(targetId) ||
+      [...HASSAN_ZONE_RESTAURANT_IDS].some((id) => id.toLowerCase() === targetId)
+    ) {
+      return 'hassan';
+    }
+  }
+
+  // 4. Restaurant name / zone keyword matching in title, subtitle, and ctaTarget
+  const text = `${banner.title || ''} ${banner.subtitle || ''} ${targetId}`.toLowerCase();
+
+  // Tumkur indicators
+  const tumkurKeywords = [
+    'tumkur', 'tumakuru', 'tmk', 'mayura', 'tumkur delight',
+    'ctr', 'basveshwara', 'rayara', 'madhuvan', 'siddaganga'
+  ];
+  if (tumkurKeywords.some((kw) => text.includes(kw))) {
+    return 'tumkur';
+  }
+
+  // Bangalore indicators
+  const blrKeywords = [
+    'bangalore', 'bengaluru', 'blr', 'burger & bowl', 'burger and bowl',
+    'spice garden', 'pizza horizon', 'asian wok', 'rajankunte',
+    'yelahanka', 'koramangala', 'indiranagar', 'whitefield'
+  ];
+  if (blrKeywords.some((kw) => text.includes(kw))) {
+    return 'bangalore';
+  }
+
+  // Hassan indicators
+  if (text.includes('hassan') || text.includes('raama')) {
+    return 'hassan';
+  }
+
+  // Hubballi indicators
+  if (text.includes('hubli') || text.includes('hubballi') || text.includes('hbl')) {
+    return 'hubballi';
+  }
+
+  // Mysore indicators
+  if (text.includes('mysore') || text.includes('mysuru')) {
+    return 'mysore';
+  }
+
+  if (banner.isAllZones) {
+    return 'ALL';
+  }
+
+  return 'UNKNOWN';
+}
+
+export function filterBannersForZone<T extends PromotionBannerLike>(
+  banners: T[],
+  zoneId?: string | null,
+  isServiceable?: boolean
+): T[] {
+  if (!Array.isArray(banners)) return [];
+  if (isServiceable === false) return [];
+
+  const cleanZone = zoneId ? zoneId.trim() : '';
+  if (!cleanZone || cleanZone.toLowerCase() === 'unserviceable') return [];
+
+  const isBlrCustomer = isZoneMatching('bangalore', cleanZone);
+  const isTmkCustomer = isZoneMatching('tumkur', cleanZone);
+  const isHubCustomer = isZoneMatching('hubballi', cleanZone);
+  const isMysCustomer = isZoneMatching('mysore', cleanZone);
+  const isHasCustomer = isZoneMatching('hassan', cleanZone);
+
+  const hasRecognizedCustomerZone = isBlrCustomer || isTmkCustomer || isHubCustomer || isMysCustomer || isHasCustomer;
+  if (!hasRecognizedCustomerZone && cleanZone.toLowerCase() !== 'all') {
+    return [];
+  }
+
+  const now = Date.now();
+
+  return banners.filter((b) => {
+    if (!b) return false;
+    if (b.status && b.status !== 'ACTIVE') return false;
+
+    // Expiry check
+    if ((b as any).endsAt) {
+      const end = new Date((b as any).endsAt).getTime();
+      if (!isNaN(end) && now > end) return false;
+    }
+    if ((b as any).startsAt) {
+      const start = new Date((b as any).startsAt).getTime();
+      if (!isNaN(start) && now < start) return false;
+    }
+
+    const bannerZone = resolveBannerZone(b);
+
+    // Strict zone isolation: banners of a specific zone display ONLY in that zone
+    if (bannerZone === 'tumkur') {
+      return isTmkCustomer;
+    }
+    if (bannerZone === 'bangalore') {
+      return isBlrCustomer;
+    }
+    if (bannerZone === 'hassan') {
+      return isHasCustomer;
+    }
+    if (bannerZone === 'hubballi') {
+      return isHubCustomer;
+    }
+    if (bannerZone === 'mysore') {
+      return isMysCustomer;
+    }
+
+    // Explicit target zones fallback if targetZoneIds contains specific zone identifiers
+    if (Array.isArray(b.targetZoneIds) && b.targetZoneIds.length > 0 && !b.targetZoneIds.includes('ALL')) {
+      const names = b.targetZoneNames || [];
+      const allTargets = [...b.targetZoneIds, ...names];
+      return allTargets.some((t) => isZoneMatching(t, cleanZone));
+    }
+
+    // Generic platform-wide banner (shown to customers in any active serviceable zone)
+    if (bannerZone === 'ALL' || b.isAllZones === true) {
+      return hasRecognizedCustomerZone;
+    }
+
+    // If banner zone is unknown and targets a specific restaurant ctaType,
+    // strictly block cross-zone leakage
+    if (b.ctaType === 'OPEN_RESTAURANT') {
+      return false;
+    }
+
+    return false;
+  });
+}
 
 /**
  * Checks whether a given restaurant belongs strictly to the customer's active zone.
